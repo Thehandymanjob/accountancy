@@ -1,5 +1,0 @@
-THE HANDYMAN - PDF FIX
-
-Replace index.html in the root of your GitHub Pages repository with the index.html in this folder. Keep favicon.png, apple-touch-icon.png and icon-512.png in the repository root. Commit the changes and reload the site in Safari. Back up your accounting data before updating.
-
-This update fixes a JavaScript syntax error that prevented the PDF toolbar buttons from responding.
