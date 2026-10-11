@@ -1,0 +1,9 @@
+THE HANDYMAN PRINT FIX
+
+1. Back up your accounting records from inside the website first.
+2. Open your GitHub repository and replace the existing root index.html with this package's index.html.
+3. Keep favicon.png, apple-touch-icon.png and icon-512.png in the repository root as well.
+4. Commit the changes and wait for GitHub Pages to publish.
+5. On iPhone, open the site in Safari, refresh it, open an invoice and tap “Open print view”. In the new tab, tap “Print / Save as PDF”.
+
+This update avoids trying to launch iOS printing automatically; it gives Safari a separate invoice page and a second, direct user tap to start printing. It has not been tested on your physical iPhone.
