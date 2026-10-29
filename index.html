@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="app-version" content="prototype-1.0.1">
+<meta name="handyman-app-version" content="prototype-1.0.1">
+<meta name="app-schema-version" content="1">
+<meta name="app-translation-version" content="1">
+<title>The Handyman Accountancy — Architecture Prototype</title>
+<style>
+:root { color-scheme: light; --ink:#20242b; --muted:#626b78; --paper:#f5f6f8; --card:#fff; --line:#d8dde5; --yellow:#ffd54a; --red:#b42318; --green:#18794e; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+header { padding:18px max(16px, env(safe-area-inset-left)); background:#20242b; color:white; }
+header h1 { margin:0; font-size:1.2rem; }
+header p { margin:4px 0 0; color:#d4d8de; font-size:.9rem; }
+main { max-width:900px; margin:0 auto; padding:18px; }
+.panel { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 2px 5px #0000000a; }
+h2 { margin:0 0 10px; font-size:1.05rem; }
+label { display:block; font-weight:650; margin:10px 0 5px; }
+input, select, button { font:inherit; }
+input, select { width:100%; min-height:44px; border:1px solid #aeb7c4; border-radius:9px; padding:9px 11px; background:white; color:var(--ink); }
+button { min-height:44px; border:1px solid #b89a22; background:var(--yellow); color:#242424; border-radius:10px; padding:9px 14px; font-weight:700; cursor:pointer; }
+button.secondary { background:white; border-color:var(--line); }
+button.danger { background:#fff0ef; color:var(--red); border-color:#efb2ae; }
+.row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; align-items:end; }
+.pills { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.pill { padding:5px 9px; background:#edf0f5; border-radius:999px; font-size:.84rem; }
+.status { padding:10px 12px; border-radius:10px; background:#edf8f1; border:1px solid #a8d7ba; margin-top:12px; }
+.status.error { background:#fff0ef; border-color:#efb2ae; color:#8f1c13; }
+.status[hidden] { display:none; }
+small,.muted { color:var(--muted); }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th,td { padding:8px; border-bottom:1px solid var(--line); text-align:start; overflow-wrap:anywhere; }
+code { overflow-wrap:anywhere; }
+footer { padding:14px 18px calc(18px + env(safe-area-inset-bottom)); color:var(--muted); text-align:center; font-size:.82rem; }
+:focus-visible { outline:3px solid #356ee6; outline-offset:2px; }
+[dir="rtl"] .dir-example { text-align:right; }
+[dir="ltr"] .dir-example { text-align:left; }
+@media (max-width:520px) { main { padding:12px; } .panel { padding:13px; } th,td { padding:7px 5px; font-size:.92rem; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="appTitle" data-i18n="app.title">The Handyman Accountancy</h1>
+  <p id="appSubtitle" data-i18n="app.subtitle">Independent architecture prototype — no production data</p>
+</header>
+<main>
+  <section class="panel">
+    <h2 data-i18n="settings.language">Interface language</h2>
+    <div class="row">
+      <div>
+        <label for="language" data-i18n="settings.chooseLanguage">Choose language</label>
+        <select id="language">
+          <option value="en">English</option><option value="fa">فارسی</option><option value="ar">العربية</option>
+          <option value="ckb">کوردی سۆرانی</option><option value="kmr">Kurdî Kurmancî</option>
+          <option value="tr">Türkçe</option><option value="pl">Polski</option>
+        </select>
+      </div>
+      <div><button id="runTests" type="button" data-i18n="tests.run">Run architecture checks</button></div>
+    </div>
+    <div id="testStatus" class="status" role="status" aria-live="polite" hidden></div>
+  </section>
+
+  <section class="panel">
+    <h2 data-i18n="accounting.title">Accounting — test ledger</h2>
+    <p class="muted" data-i18n="accounting.description">Demo entries are stored separately from project and company data.</p>
+    <form id="accountingForm">
+      <div class="row">
+        <div><label for="entryType" data-i18n="entry.type">Entry type</label><select id="entryType"><option value="income" data-i18n="entry.income">Income</option><option value="expense" data-i18n="entry.expense">Expense</option></select></div>
+        <div><label for="entryAmount" data-i18n="entry.amount">Amount (£)</label><input id="entryAmount" inputmode="decimal" type="number" min="0.01" step="0.01" required></div>
+        <div><label for="entryNote" data-i18n="entry.note">Description (English-only test)</label><input id="entryNote" type="text" required maxlength="120" autocomplete="off"></div>
+      </div>
+      <p class="muted" data-i18n="entry.validationHint">This prototype accepts English letters, digits, spaces and basic punctuation only.</p>
+      <button type="submit" data-i18n="entry.save">Save accounting entry</button>
+    </form>
+    <div id="entryStatus" class="status" role="status" aria-live="polite" hidden></div>
+    <table>
+      <thead><tr><th data-i18n="entry.type">Entry type</th><th data-i18n="entry.amount">Amount (£)</th><th data-i18n="entry.note">Description</th></tr></thead>
+      <tbody id="accountingRows"></tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2 data-i18n="projects.title">Projects — separate test data</h2>
+    <p data-i18n="projects.description">Project entries and completion state must never write to Accounting.</p>
+    <form id="projectForm">
+      <div class="row">
+        <div><label for="projectName" data-i18n="projects.name">Project name</label><input id="projectName" required maxlength="80"></div>
+        <div><label for="projectAmount" data-i18n="projects.amount">Project amount (£)</label><input id="projectAmount" type="number" min="0.01" step="0.01" required></div>
+        <div><label for="projectType" data-i18n="entry.type">Type</label><select id="projectType"><option value="income" data-i18n="entry.income">Income</option><option value="expense" data-i18n="entry.expense">Expense</option></select></div>
+      </div>
+      <button type="submit" data-i18n="projects.add">Add project record</button>
+      <button class="secondary" id="toggleComplete" type="button" data-i18n="projects.toggle">Toggle demo project completion</button>
+    </form>
+    <div id="projectStatus" class="status" role="status" aria-live="polite" hidden></div>
+    <table>
+      <thead><tr><th data-i18n="projects.name">Project</th><th data-i18n="entry.type">Type</th><th data-i18n="entry.amount">Amount (£)</th><th data-i18n="projects.state">State</th></tr></thead>
+      <tbody id="projectRows"></tbody>
+    </table>
+  </section>
+
+
+  <section class="panel">
+    <h2 data-i18n="customers.title">Customers & invoices — separate registry</h2>
+    <form id="customerForm"><div class="row"><div><label for="customerName" data-i18n="customers.name">Customer name</label><input id="customerName" maxlength="100" required></div><div><button type="submit" data-i18n="customers.save">Save customer</button></div></div></form>
+    <div id="customerStatus" class="status" role="status" aria-live="polite" hidden></div>
+    <table><thead><tr><th data-i18n="customers.customer">Customer</th><th data-i18n="invoices.list">Invoices</th><th data-i18n="customers.delete">Delete customer</th></tr></thead><tbody id="customerRows"></tbody></table>
+    <form id="invoiceForm"><div class="row"><div><label for="invoiceCustomer" data-i18n="invoices.customer">Invoice customer</label><select id="invoiceCustomer" required></select></div><div><label for="invoiceNumber" data-i18n="invoices.number">Invoice number</label><input id="invoiceNumber" maxlength="40" required></div><div><label for="invoiceAmount" data-i18n="invoices.amount">Invoice amount (£)</label><input id="invoiceAmount" type="number" min="0.01" step="0.01" required></div></div><button type="submit" data-i18n="invoices.create">Create invoice</button></form>
+    <div id="invoiceStatus" class="status" role="status" aria-live="polite" hidden></div>
+    <table><thead><tr><th data-i18n="invoices.number">Invoice number</th><th data-i18n="customers.customer">Customer</th><th data-i18n="invoices.amount">Invoice amount (£)</th><th data-i18n="invoices.delete">Delete invoice</th></tr></thead><tbody id="invoiceRows"></tbody></table>
+    <p class="muted" data-i18n="diagnostics.note">Prototype only. Do not enter real customer or financial data.</p>
+  </section>
+  <section class="panel" id="backupPanel">
+    <h2 id="backupTitle" data-i18n="backup.title">Backup and restore — prototype data only</h2>
+    <p id="backupDescription" class="muted" data-i18n="backup.description">Export or restore this prototype’s namespaced data. Production data is not accessed.</p>
+    <div class="row">
+      <div><button id="exportBackup" type="button" data-i18n="backup.export">Export backup JSON</button></div>
+      <div><label id="importLabel" for="importBackup" data-i18n="backup.choose">Choose backup JSON file</label><input id="importBackup" type="file" accept="application/json,.json"></div>
+      <div><button id="restoreBackup" type="button" class="secondary" data-i18n="backup.restore">Validate and restore</button></div>
+    </div>
+    <div id="backupStatus" class="status" role="status" aria-live="polite" hidden></div>
+  </section>
+
+  <section class="panel" id="storageHealthPanel">
+    <h2 data-i18n="health.title">Storage health check</h2>
+    <p class="muted" data-i18n="health.note">Checks whether this browser can write, read back and remove a temporary test value. No ledger records are changed.</p>
+    <button type="button" id="checkStorageHealth" data-i18n="health.run">Check storage health</button>
+    <div id="storageHealthStatus" class="status" role="status" aria-live="polite" hidden></div>
+  </section>
+  <section class="panel" id="eventLogPanel">
+    <h2 data-i18n="diagnostics.logTitle">Activity log</h2>
+    <p class="muted" data-i18n="diagnostics.logNote">Recent prototype actions only; capped at 100 events.</p>
+    <div class="row"><button type="button" id="exportEventLog" data-i18n="diagnostics.logExport">Export log JSON</button><button type="button" class="secondary" id="clearEventLog" data-i18n="diagnostics.logClear">Clear log</button></div>
+    <p id="eventLogEmpty" class="muted" data-i18n="diagnostics.logEmpty">No events recorded yet.</p>
+    <table><thead><tr><th>Time (UTC)</th><th>Event</th><th>Result</th></tr></thead><tbody id="eventLogRows"></tbody></table>
+  </section>
+  <section class="panel">
+    <h2 data-i18n="diagnostics.title">Storage boundary checks</h2>
+    <div class="pills">
+      <span class="pill">event-log:v1</span><span class="pill">accounting-ledger:v1</span><span class="pill">projects-ledger:v1</span><span class="pill">company-ledger:v1</span>
+    </div>
+    <p class="muted" data-i18n="diagnostics.note">Prototype only. Uses browser local storage. Do not enter real customer or financial data.</p>
+    <button class="danger" id="resetDemo" type="button" data-i18n="diagnostics.reset">Reset prototype data</button>
+    <div id="diagnosticStatus" class="status" role="status" aria-live="polite" hidden></div>
+  </section>
+</main>
+<footer><span data-i18n="footer.note">Prototype 0.9.0 · isolated from production files · not a release build</span></footer>
+
+<script>
+(() => {
+  'use strict';
+  const APP_VERSION = 'prototype-1.0.1';
+  const SCHEMA_VERSION = 1;
+  const KEYS = Object.freeze({
+    accounting: 'handyman.prototype.accounting.v1',
+    projects: 'handyman.prototype.projects.v1',
+    company: 'handyman.prototype.company.v1',
+    preferences: 'handyman.prototype.preferences.v1',
+    customers: 'handyman.prototype.customers.v1',
+    invoices: 'handyman.prototype.invoices.v1',
+    eventLog: 'handyman.prototype.eventlog.v1'
+  });
+  const EVENT_LOG_LIMIT = 100;
+  function recordEvent(event, result='OK') {
+    try { const raw = localStorage.getItem(KEYS.eventLog); const items = raw ? JSON.parse(raw) : []; const safe = Array.isArray(items) ? items : []; safe.push({at:new Date().toISOString(), event:String(event).slice(0,100), result:String(result).slice(0,40)}); localStorage.setItem(KEYS.eventLog, JSON.stringify(safe.slice(-EVENT_LOG_LIMIT))); renderEventLog(); } catch (_) { /* diagnostics must never block the user's primary action */ }
+  }
+  function renderEventLog() {
+    const body = document.getElementById('eventLogRows'); if (!body) return; body.replaceChildren(); let items=[];
+    try { const raw=localStorage.getItem(KEYS.eventLog); items=raw?JSON.parse(raw):[]; if(!Array.isArray(items)) items=[]; } catch (_) { items=[]; }
+    document.getElementById('eventLogEmpty').hidden=items.length>0;
+    for(const item of items.slice().reverse()){const tr=document.createElement('tr'); for(const value of [item.at||'',item.event||'',item.result||'']){const td=document.createElement('td');td.textContent=String(value);td.dir='auto';tr.appendChild(td);} body.appendChild(tr);}
+  }
+
+  const messages = {
+    en: {
+      'health.title':'Storage health check', 'health.note':'Checks whether this browser can write, read back and remove a temporary test value. No ledger records are changed.', 'health.run':'Check storage health', 'health.ok':'Storage check passed: temporary write, read and removal succeeded.', 'health.fail':'Storage check failed. Browser storage may be blocked or full.',
+      'app.title':'The Handyman Accountancy','app.subtitle':'Independent architecture prototype — no production data',
+      'settings.language':'Interface language','settings.chooseLanguage':'Choose language','tests.run':'Run architecture checks',
+      'accounting.title':'Accounting — test ledger','accounting.description':'Demo entries are stored separately from project and company data.',
+      'entry.type':'Entry type','entry.income':'Income','entry.expense':'Expense','entry.amount':'Amount (£)',
+      'entry.note':'Description (English-only test)','entry.validationHint':'This prototype accepts English letters, digits, spaces and basic punctuation only.',
+      'entry.save':'Save accounting entry','entry.saved':'Accounting entry saved. Other ledgers were not changed.',
+      'entry.badText':'Use English letters, digits, spaces and basic punctuation in this field. Nothing was saved.',
+      'entry.badAmount':'Enter an amount greater than zero. Nothing was saved.',
+      'projects.title':'Projects — separate test data','projects.description':'Project entries and completion state must never write to Accounting.',
+      'projects.name':'Project name','projects.amount':'Project amount (£)','projects.add':'Add project record',
+      'projects.toggle':'Toggle demo project completion','projects.state':'State','projects.open':'Open','projects.complete':'Complete',
+      'projects.saved':'Project record saved only in Projects. Accounting was not changed.',
+      'projects.completed':'Demo project completion changed. Accounting was not changed.',
+      'diagnostics.title':'Storage boundary checks','diagnostics.note':'Prototype only. Uses browser local storage. Do not enter real customer or financial data.',
+      'diagnostics.reset':'Reset prototype data','diagnostics.resetDone':'Prototype data reset.',
+      'tests.pass':'All {n} architecture checks passed.','tests.fail':'{n} architecture check(s) failed: {details}',
+      'tests.accountingKey':'Accounting uses its own storage key','tests.projectKey':'Projects uses a different storage key',
+      'tests.completeIsolation':'Completing a project does not change Accounting','tests.projectIsolation':'Saving a project does not change Accounting',
+      'tests.translation':'All seven languages contain the required keys','tests.version':'Prototype and schema versions are defined',
+      'tests.repository':'Repository rejects invalid top-level values',
+      'tests.storage':'Browser storage adapter is available','tests.crudIsolation':'Create/update/delete operations remain isolated by ledger','tests.corruptData':'Corrupt stored JSON is handled safely',
+      'tests.direction':'RTL/LTR direction is assigned per interface language','tests.userData':'Language change does not rewrite ledger data',
+      'customers.title':"Customers & invoices — separate registry",
+      'customers.add':"Add customer",
+      'customers.name':"Customer name",
+      'customers.save':"Save customer",
+      'invoices.customer':"Invoice customer",
+      'invoices.number':"Invoice number",
+      'invoices.amount':"Invoice amount (£)",
+      'invoices.create':"Create invoice",
+      'invoices.delete':"Delete invoice",
+      'customers.delete':"Delete customer",
+      'customers.customer':"Customer",
+      'invoices.invoice':"Invoice",
+      'invoices.list':"Invoices",
+      'customers.noInvoices':"No linked invoices: customer can be deleted.",
+      'customers.hasInvoices':"Customer has linked invoices; delete them first.",
+      'invoices.saved':"Invoice saved separately. No accounting entry was created.",
+      'invoices.deleted':"Invoice deleted. Accounting and customer records were not changed.",
+      'customers.saved':"Customer saved.",
+      'customers.deleted':"Customer deleted.",
+      'tests.invoiceIsolation':"Tests explicit invoice/customer links and deletion isolation",
+            'backup.title':"Backup and restore — prototype data only",
+      'backup.description':"Export or restore this prototype’s namespaced data. Production data is not accessed.",
+      'backup.export':"Export backup JSON",
+      'backup.choose':"Choose backup JSON file",
+      'backup.restore':"Validate and restore",
+      'backup.exported':"Backup exported.",
+      'backup.restored':"Backup validated and restored.",
+      'backup.chooseFirst':"Choose a JSON backup file first.",
+      'backup.rejected':"Backup rejected; existing data was not changed.",
+'diagnostics.logTitle':'Activity log','diagnostics.logNote':'Recent prototype actions only; capped at 100 events.','diagnostics.logClear':'Clear log','diagnostics.logExport':'Export log JSON','diagnostics.logEmpty':'No events recorded yet.','diagnostics.healthRun':'Run storage health check','diagnostics.healthOk':'Storage read/write/remove test passed. No ledger data was changed.','diagnostics.healthFail':'Storage health check failed. Browser storage may be unavailable or full.',
+      'footer.note':'Prototype 0.9.0 · isolated from production files · not a release build'
+    },
+    fa: {
+      'health.title':'بررسی سلامت ذخیره\u200cسازی', 'health.note':'بررسی می\u200cکند مرورگر بتواند یک مقدار آزمایشی را ذخیره، بخواند و حذف کند. هیچ رکورد مالی تغییر نمی\u200cکند.', 'health.run':'بررسی ذخیره\u200cسازی', 'health.ok':'بررسی موفق بود: ذخیره، خواندن و حذف مقدار آزمایشی انجام شد.', 'health.fail':'بررسی ناموفق بود؛ ممکن است ذخیره\u200cسازی مرورگر مسدود یا پر باشد.',
+      'app.title':'حسابداری هندیمَن','app.subtitle':'نمونهٔ مستقل معماری — بدون اطلاعات نسخهٔ اصلی',
+      'settings.language':'زبان رابط کاربری','settings.chooseLanguage':'انتخاب زبان','tests.run':'اجرای آزمون‌های معماری',
+      'accounting.title':'حسابداری — دفتر آزمایشی','accounting.description':'اطلاعات آزمایشی حسابداری جدا از پروژه‌ها و شرکت ذخیره می‌شود.',
+      'entry.type':'نوع رکورد','entry.income':'درآمد','entry.expense':'هزینه','entry.amount':'مبلغ (£)',
+      'entry.note':'شرح (آزمون ورودی انگلیسی)','entry.validationHint':'این نمونه فقط حروف انگلیسی، اعداد، فاصله و نشانه‌گذاری ساده را می‌پذیرد.',
+      'entry.save':'ثبت رکورد حسابداری','entry.saved':'رکورد حسابداری ثبت شد. دفاتر دیگر تغییر نکردند.',
+      'entry.badText':'در این فیلد فقط از حروف انگلیسی، اعداد، فاصله و نشانه‌گذاری ساده استفاده کنید. چیزی ذخیره نشد.',
+      'entry.badAmount':'مبلغ باید بیشتر از صفر باشد. چیزی ذخیره نشد.',
+      'projects.title':'پروژه‌ها — اطلاعات آزمایشی جداگانه','projects.description':'رکورد پروژه و وضعیت تکمیل آن نباید حسابداری را تغییر دهد.',
+      'projects.name':'نام پروژه','projects.amount':'مبلغ پروژه (£)','projects.add':'ثبت رکورد پروژه',
+      'projects.toggle':'تغییر وضعیت تکمیل پروژهٔ آزمایشی','projects.state':'وضعیت','projects.open':'باز','projects.complete':'تکمیل‌شده',
+      'projects.saved':'رکورد فقط در پروژه‌ها ثبت شد. حسابداری تغییر نکرد.',
+      'projects.completed':'وضعیت پروژه تغییر کرد. حسابداری تغییر نکرد.',
+      'diagnostics.title':'آزمون جداسازی ذخیره‌سازی','diagnostics.note':'فقط نمونهٔ آزمایشی است و از ذخیره‌سازی مرورگر استفاده می‌کند. اطلاعات واقعی وارد نکنید.',
+      'diagnostics.reset':'پاک‌کردن داده‌های نمونه','diagnostics.resetDone':'داده‌های نمونه پاک شد.',
+      'tests.pass':'هر {n} آزمون معماری موفق بود.','tests.fail':'{n} آزمون ناموفق بود: {details}',
+      'tests.accountingKey':'حسابداری کلید ذخیره‌سازی مستقل دارد','tests.projectKey':'پروژه‌ها کلید متفاوتی دارند',
+      'tests.completeIsolation':'تکمیل پروژه حسابداری را تغییر نمی‌دهد','tests.projectIsolation':'ثبت پروژه حسابداری را تغییر نمی‌دهد',
+      'tests.translation':'هر هفت زبان کلیدهای ضروری را دارند','tests.version':'نسخهٔ نمونه و schema تعریف شده‌اند',
+      'tests.repository':'مخزن داده مقدار نامعتبر را رد می‌کند',
+      'tests.storage':'ذخیره‌سازی مرورگر در دسترس است','tests.crudIsolation':'ایجاد، ویرایش و حذف بین دفترها تداخل ندارد','tests.corruptData':'دادهٔ خراب به‌صورت ایمن مدیریت می‌شود',
+      'tests.direction':'جهت RTL/LTR مطابق زبان رابط تعیین می‌شود','tests.userData':'تغییر زبان اطلاعات دفترها را بازنویسی نمی‌کند',
+      'customers.title':"مشتریان و فاکتورها — ثبت جداگانه",
+      'customers.add':"افزودن مشتری",
+      'customers.name':"نام مشتری",
+      'customers.save':"ثبت مشتری",
+      'invoices.customer':"مشتری فاکتور",
+      'invoices.number':"شماره فاکتور",
+      'invoices.amount':"مبلغ فاکتور (£)",
+      'invoices.create':"ایجاد فاکتور",
+      'invoices.delete':"حذف فاکتور",
+      'customers.delete':"حذف مشتری",
+      'customers.customer':"مشتری",
+      'invoices.invoice':"فاکتور",
+      'invoices.list':"فاکتورها",
+      'customers.noInvoices':"فاکتور مرتبطی نیست؛ مشتری قابل حذف است.",
+      'customers.hasInvoices':"مشتری فاکتور مرتبط دارد؛ ابتدا فاکتورها را حذف کنید.",
+      'invoices.saved':"فاکتور جداگانه ذخیره شد. رکورد حسابداری ایجاد نشد.",
+      'invoices.deleted':"فاکتور حذف شد. حسابداری و مشتری تغییر نکردند.",
+      'customers.saved':"مشتری ذخیره شد.",
+      'customers.deleted':"مشتری حذف شد.",
+      'tests.invoiceIsolation':"آزمون ارتباط صریح فاکتور و مشتری و جداسازی حذف",
+            'backup.title':"پشتیبان‌گیری و بازیابی — فقط دادهٔ نمونه",
+      'backup.description':"از داده‌های همین نمونه پشتیبان بگیرید یا آن را بازیابی کنید. به داده‌های نسخهٔ اصلی دسترسی نمی‌شود.",
+      'backup.export':"خروجی پشتیبان JSON",
+      'backup.choose':"انتخاب فایل پشتیبان JSON",
+      'backup.restore':"اعتبارسنجی و بازیابی",
+      'backup.exported':"فایل پشتیبان صادر شد.",
+      'backup.restored':"پشتیبان بررسی و بازیابی شد.",
+      'backup.chooseFirst':"ابتدا فایل پشتیبان JSON را انتخاب کنید.",
+      'backup.rejected':"پشتیبان رد شد؛ داده‌های فعلی تغییر نکردند.",
+'diagnostics.logTitle':'گزارش رویدادها','diagnostics.logNote':'فقط رویدادهای نمونه؛ حداکثر ۱۰۰ مورد.','diagnostics.logClear':'پاک‌کردن گزارش','diagnostics.logExport':'خروجی گزارش JSON','diagnostics.logEmpty':'هنوز رویدادی ثبت نشده است.','diagnostics.healthRun':'بررسی سلامت ذخیره‌سازی','diagnostics.healthOk':'آزمون خواندن، نوشتن و حذف موفق بود. داده‌های دفترها تغییر نکرد.','diagnostics.healthFail':'بررسی ذخیره‌سازی ناموفق بود؛ ممکن است ذخیره‌سازی مرورگر در دسترس نباشد یا پر شده باشد.',
+      'footer.note':'نمونهٔ ۰٫۹٫۰ · جدا از فایل‌های اصلی · نسخهٔ انتشار نیست'
+    },
+    ar: {
+      'health.title':'فحص سلامة التخزين', 'health.note':'يتحقق من إمكانية كتابة قيمة اختبارية مؤقتة وقراءتها وحذفها. لا تتغير سجلات الدفاتر.', 'health.run':'فحص التخزين', 'health.ok':'نجح الفحص: تمت الكتابة والقراءة والحذف.', 'health.fail':'فشل الفحص؛ قد يكون التخزين محظوراً أو ممتلئاً.',
+      'app.title':'حسابات هاندي مان','app.subtitle':'نموذج معماري مستقل — بلا بيانات الإنتاج',
+      'settings.language':'لغة الواجهة','settings.chooseLanguage':'اختر اللغة','tests.run':'تشغيل اختبارات البنية',
+      'accounting.title':'المحاسبة — سجل تجريبي','accounting.description':'تُحفظ بيانات المحاسبة التجريبية منفصلة عن بيانات المشاريع والشركة.',
+      'entry.type':'نوع القيد','entry.income':'دخل','entry.expense':'مصروف','entry.amount':'المبلغ (£)',
+      'entry.note':'الوصف (اختبار الإدخال بالإنجليزية)','entry.validationHint':'يقبل هذا النموذج الأحرف الإنجليزية والأرقام والمسافات وعلامات الترقيم الأساسية فقط.',
+      'entry.save':'حفظ قيد محاسبي','entry.saved':'تم حفظ القيد. لم تتغير السجلات الأخرى.',
+      'entry.badText':'استخدم الأحرف الإنجليزية والأرقام والمسافات وعلامات الترقيم الأساسية فقط. لم يتم الحفظ.',
+      'entry.badAmount':'أدخل مبلغاً أكبر من صفر. لم يتم الحفظ.',
+      'projects.title':'المشاريع — بيانات تجريبية منفصلة','projects.description':'يجب ألا تؤثر سجلات المشروع أو حالة اكتماله في المحاسبة.',
+      'projects.name':'اسم المشروع','projects.amount':'مبلغ المشروع (£)','projects.add':'إضافة سجل مشروع',
+      'projects.toggle':'تغيير اكتمال المشروع التجريبي','projects.state':'الحالة','projects.open':'مفتوح','projects.complete':'مكتمل',
+      'projects.saved':'حُفظ السجل في المشاريع فقط. لم تتغير المحاسبة.',
+      'projects.completed':'تغيرت حالة المشروع. لم تتغير المحاسبة.',
+      'diagnostics.title':'فحص فصل التخزين','diagnostics.note':'نموذج فقط يستخدم تخزين المتصفح. لا تدخل بيانات مالية أو بيانات عملاء حقيقية.',
+      'diagnostics.reset':'إعادة ضبط بيانات النموذج','diagnostics.resetDone':'تمت إعادة ضبط بيانات النموذج.',
+      'tests.pass':'نجحت اختبارات البنية وعددها {n}.','tests.fail':'فشل {n} اختبار: {details}',
+      'tests.accountingKey':'للمحاسبة مفتاح تخزين مستقل','tests.projectKey':'للمشاريع مفتاح تخزين مختلف',
+      'tests.completeIsolation':'إكمال المشروع لا يغير المحاسبة','tests.projectIsolation':'حفظ المشروع لا يغير المحاسبة',
+      'tests.translation':'تحتوي اللغات السبع على المفاتيح المطلوبة','tests.version':'إصدار النموذج والمخطط محددان',
+      'tests.direction':'اتجاه RTL/LTR محدد حسب لغة الواجهة','tests.userData':'تغيير اللغة لا يعيد كتابة بيانات السجلات',
+            'tests.repository':'يرفض مستودع البيانات القيم غير الصالحة',
+      'tests.storage':'تخزين المتصفح متاح','tests.crudIsolation':'عمليات الإنشاء والتعديل والحذف معزولة بين السجلات','tests.corruptData':'تتم معالجة البيانات التالفة بأمان',
+      'customers.title':"العملاء والفواتير — سجل مستقل",
+      'customers.add':"إضافة عميل",
+      'customers.name':"اسم العميل",
+      'customers.save':"حفظ العميل",
+      'invoices.customer':"عميل الفاتورة",
+      'invoices.number':"رقم الفاتورة",
+      'invoices.amount':"مبلغ الفاتورة (£)",
+      'invoices.create':"إنشاء فاتورة",
+      'invoices.delete':"حذف الفاتورة",
+      'customers.delete':"حذف العميل",
+      'customers.customer':"العميل",
+      'invoices.invoice':"الفاتورة",
+      'invoices.list':"الفواتير",
+      'customers.noInvoices':"لا توجد فواتير مرتبطة؛ يمكن حذف العميل.",
+      'customers.hasInvoices':"للعميل فواتير مرتبطة؛ احذفها أولاً.",
+      'invoices.saved':"حُفظت الفاتورة بشكل مستقل. لم يُنشأ قيد محاسبي.",
+      'invoices.deleted':"حُذفت الفاتورة. لم تتغير المحاسبة أو سجلات العملاء.",
+      'customers.saved':"تم حفظ العميل.",
+      'customers.deleted':"تم حذف العميل.",
+      'tests.invoiceIsolation':"اختبارات الروابط الصريحة وعزل الحذف",
+            'backup.title':"النسخ الاحتياطي والاستعادة — بيانات النموذج فقط",
+      'backup.description':"صدّر بيانات هذا النموذج أو استعدها. لن يتم الوصول إلى بيانات الإنتاج.",
+      'backup.export':"تصدير نسخة JSON",
+      'backup.choose':"اختر ملف نسخة JSON",
+      'backup.restore':"تحقق واستعد",
+      'backup.exported':"تم تصدير النسخة الاحتياطية.",
+      'backup.restored':"تم التحقق من النسخة واستعادتها.",
+      'backup.chooseFirst':"اختر ملف JSON أولاً.",
+      'backup.rejected':"رُفضت النسخة؛ لم تتغير البيانات الحالية.",
+'diagnostics.logTitle':'سجل النشاط','diagnostics.logNote':'أحداث النموذج فقط؛ بحد أقصى 100 حدث.','diagnostics.logClear':'مسح السجل','diagnostics.logExport':'تصدير السجل JSON','diagnostics.logEmpty':'لا توجد أحداث مسجلة بعد.','diagnostics.healthRun':'فحص سلامة التخزين','diagnostics.healthOk':'نجح اختبار القراءة والكتابة والحذف. لم تتغير بيانات الدفاتر.','diagnostics.healthFail':'فشل فحص التخزين؛ قد يكون تخزين المتصفح غير متاح أو ممتلئًا.',
+      'footer.note':'نموذج 0.9.0 · معزول عن الملفات الأصلية · ليس إصداراً للنشر'
+    },
+    ckb: {
+      'health.title':'پشکنینی تەندروستیی هەڵگرتن', 'health.note':'دڵنیایی دەکاتەوە وێبگەڕ بتوانێت بەهایەکی تاقیکردنەوە بنووسێت و بیخوێنێتەوە و بیسڕێتەوە. هیچ تۆمارێک ناگۆڕێت.', 'health.run':'پشکنینی هەڵگرتن', 'health.ok':'پشکنین سەرکەوتوو بوو.', 'health.fail':'پشکنین سەرکەوتوو نەبوو؛ ڕەنگە هەڵگرتن بلۆک کرابێت یان پڕ بووبێت.',
+      'app.title':'هەژماری هاندیمەن','app.subtitle':'نمونەیەکی سەربەخۆی تەلارسازی — بێ داتای ڕاستەقینە',
+      'settings.language':'زمانی ڕووکار','settings.chooseLanguage':'زمان هەڵبژێرە','tests.run':'تاقیکردنەوەی تەلارسازی',
+      'accounting.title':'هەژماری — تۆماری تاقیکاری','accounting.description':'تۆمارەکانی هەژماری بە جیا لە پرۆژە و کۆمپانیا هەڵدەگیرێن.',
+      'entry.type':'جۆری تۆمار','entry.income':'داهات','entry.expense':'خەرجی','entry.amount':'بڕ (£)',
+      'entry.note':'وەسف (تاقیکردنەوەی نووسینی ئینگلیزی)','entry.validationHint':'ئەم نموونەیە تەنها پیت و ژمارە و بۆشایی و نیشانە سادەکانی ئینگلیزی وەردەگرێت.',
+      'entry.save':'تۆمارکردنی هەژماری','entry.saved':'تۆماری هەژماری پاشەکەوت کرا. تۆمارەکانی تر نەگۆڕان.',
+      'entry.badText':'تەنها پیت و ژمارە و بۆشایی و نیشانە سادەکانی ئینگلیزی بەکاربهێنە. هیچ شتێک پاشەکەوت نەکرا.',
+      'entry.badAmount':'بڕێک زیاتر لە سفر بنووسە. هیچ شتێک پاشەکەوت نەکرا.',
+      'projects.title':'پرۆژەکان — داتای جیاواز','projects.description':'تۆماری پرۆژە و تەواوکردنی نابێت هەژماری بگۆڕێت.',
+      'projects.name':'ناوی پرۆژە','projects.amount':'بڕی پرۆژە (£)','projects.add':'زیادکردنی تۆماری پرۆژە',
+      'projects.toggle':'گۆڕینی دۆخی تەواوکردنی پرۆژە','projects.state':'دۆخ','projects.open':'کراوە','projects.complete':'تەواوبوو',
+      'projects.saved':'تۆمارەکە تەنها لە پرۆژەکان پاشەکەوت کرا. هەژماری نەگۆڕا.',
+      'projects.completed':'دۆخی پرۆژە گۆڕا. هەژماری نەگۆڕا.',
+      'diagnostics.title':'پشکنینی جیاوازیی هەڵگرتن','diagnostics.note':'تەنها نموونەیە و هەڵگرتنی وێبگەڕ بەکاردەهێنێت. داتای ڕاستەقینە مەنووسە.',
+      'diagnostics.reset':'سڕینەوەی داتای نموونە','diagnostics.resetDone':'داتای نموونە سڕایەوە.',
+      'tests.pass':'هەموو {n} تاقیکردنەوە سەرکەوتوو بوون.','tests.fail':'{n} تاقیکردنەوە سەرکەوتوو نەبوون: {details}',
+      'tests.accountingKey':'هەژماری کلیلی هەڵگرتنی تایبەتی هەیە','tests.projectKey':'پرۆژەکان کلیلی جیاوازیان هەیە',
+      'tests.completeIsolation':'تەواوکردنی پرۆژە هەژماری ناگۆڕێت','tests.projectIsolation':'پاشەکەوتی پرۆژە هەژماری ناگۆڕێت',
+      'tests.translation':'هەموو حەوت زمانەکە کلیلی پێویستیان هەیە','tests.version':'وەشانی نموونە و schema دیاریکراون',
+      'tests.direction':'ئاڕاستەی RTL/LTR بە پێی زمانی ڕووکار دیاری دەکرێت','tests.userData':'گۆڕینی زمان داتای تۆمارەکان ناگۆڕێت',
+      'tests.repository':'کۆگای داتا بەهای نادروست ڕەت دەکاتەوە',
+      'tests.storage':'هەڵگرتنی وێبگەڕ بەردەستە','tests.crudIsolation':'کردارەکانی دروستکردن و دەستکاریکردن و سڕینەوە جیاوازن','tests.corruptData':'داتای تێکچوو بە شێوەیەکی سەلامەت مامەڵەی لەگەڵ دەکرێت',
+      'customers.title':"کڕیار و پسووڵە — تۆماری جیاواز",
+      'customers.add':"زیادکردنی کڕیار",
+      'customers.name':"ناوی کڕیار",
+      'customers.save':"پاشەکەوتکردنی کڕیار",
+      'invoices.customer':"کڕیاری پسووڵە",
+      'invoices.number':"ژمارەی پسووڵە",
+      'invoices.amount':"بڕی پسووڵە (£)",
+      'invoices.create':"دروستکردنی پسووڵە",
+      'invoices.delete':"سڕینەوەی پسووڵە",
+      'customers.delete':"سڕینەوەی کڕیار",
+      'customers.customer':"کڕیار",
+      'invoices.invoice':"پسووڵە",
+      'invoices.list':"پسووڵەکان",
+      'customers.noInvoices':"پسووڵەی بەستراو نییە؛ کڕیار دەتوانرێت بسڕدرێتەوە.",
+      'customers.hasInvoices':"کڕیار پسووڵەی بەستراوی هەیە؛ سەرەتا پسووڵەکان بسڕەوە.",
+      'invoices.saved':"پسووڵە بە جیا پاشەکەوت کرا. تۆماری هەژماری دروست نەکرا.",
+      'invoices.deleted':"پسووڵە سڕایەوە. هەژماری و کڕیار نەگۆڕان.",
+      'customers.saved':"کڕیار پاشەکەوت کرا.",
+      'customers.deleted':"کڕیار سڕایەوە.",
+      'tests.invoiceIsolation':"تاقیکردنەوەی پەیوەندی و جیاوازیی سڕینەوە",
+            'backup.title':"پاڵپشتی و گەڕاندنەوە — تەنها داتای نموونە",
+      'backup.description':"داتای ئەم نموونەیە هەناردە بکە یان بیگەڕێنەوە. داتای بەرهەمهێنان ناگۆڕدرێت.",
+      'backup.export':"هەناردەکردنی پاڵپشتی JSON",
+      'backup.choose':"فایلی پاڵپشتی JSON هەڵبژێرە",
+      'backup.restore':"پشکنین و گەڕاندنەوە",
+      'backup.exported':"پاڵپشتی هەناردە کرا.",
+      'backup.restored':"پاڵپشتی پشکنرا و گەڕێندرایەوە.",
+      'backup.chooseFirst':"سەرەتا فایلی JSON هەڵبژێرە.",
+      'backup.rejected':"پاڵپشتی ڕەتکرایەوە؛ داتا نەگۆڕدرا.",
+'diagnostics.logTitle':'تۆماری چالاکی','diagnostics.logNote':'تەنها ڕووداوەکانی نموونە؛ تا ١٠٠ ڕووداو.','diagnostics.logClear':'سڕینەوەی تۆمار','diagnostics.logExport':'هەناردەکردنی JSON','diagnostics.logEmpty':'هێشتا هیچ ڕووداوێک تۆمار نەکراوە.','diagnostics.healthRun':'پشکنینی تەندروستی هەڵگرتن','diagnostics.healthOk':'تاقیکردنەوەی خوێندنەوە، نووسین و سڕینەوە سەرکەوتوو بوو. داتای دفتەرەکان نەگۆڕدرا.','diagnostics.healthFail':'پشکنینی هەڵگرتن سەرکەوتوو نەبوو؛ لەوانەیە هەڵگرتنی وێبگەڕ بەردەست نەبێت یان پڕ بووبێت.',
+      'footer.note':'نموونەی 0.9.0 · جیا لە فایلە سەرەکییەکان · وەشانی بڵاوکردنەوە نییە'
+    },
+    kmr: {
+      'health.title':'Kontrola tenduristiya hilanînê', 'health.note':'Kontrol dike ka gerok dikare nirxekî ceribandinê binivîse, bixwîne û jê bibe. Tu tomar nayên guhertin.', 'health.run':'Kontrola hilanînê', 'health.ok':'Kontrol serketî bû.', 'health.fail':'Kontrol têk çû; dibe ku hilanîn astengkirî an tijî be.',
+      'app.title':'Hesabê The Handyman','app.subtitle':'Prototîpa mîmariya serbixwe — bê daneyên hilberînê',
+      'settings.language':'Zimanê navrûyê','settings.chooseLanguage':'Ziman hilbijêre','tests.run':'Ceribandinên mîmariyê bimeşîne',
+      'accounting.title':'Hesabdarî — deftera ceribandinê','accounting.description':'Daneyên hesabdarî ji projeyan û şirkêtê cuda tên hilanîn.',
+      'entry.type':'Cureya tomarkirinê','entry.income':'Dahat','entry.expense':'Xerc','entry.amount':'Mîqdar (£)',
+      'entry.note':'Danasîn (ceribandina nivîsandina îngilîzî)','entry.validationHint':'Ev prototîp tenê tîpên îngilîzî, hejmar, valahî û nîşanên bingehîn qebûl dike.',
+      'entry.save':'Tomara hesabdarî tomar bike','entry.saved':'Tomara hesabdarî hat tomar kirin. Defterên din neguherîn.',
+      'entry.badText':'Di vê qadê de tenê tîpên îngilîzî, hejmar, valahî û nîşanên bingehîn bikar bîne. Tu tişt nehat tomar kirin.',
+      'entry.badAmount':'Mîqdarek ji sifirê mezintir binivîse. Tu tişt nehat tomar kirin.',
+      'projects.title':'Projeyên cuda','projects.description':'Tomarên projeyê û rewşa qedandinê divê hesabdarî neguherînin.',
+      'projects.name':'Navê projeyê','projects.amount':'Mîqdara projeyê (£)','projects.add':'Tomara projeyê lê zêde bike',
+      'projects.toggle':'Rewşa qedandina projeya nimûneyî biguherîne','projects.state':'Rewş','projects.open':'Vekirî','projects.complete':'Qediya',
+      'projects.saved':'Tomar tenê di Projeyan de hat tomar kirin. Hesabdarî neguherî.',
+      'projects.completed':'Rewşa projeyê guherî. Hesabdarî neguherî.',
+      'diagnostics.title':'Kontrolên cudahiya hilanînê','diagnostics.note':'Tenê prototîp e û hilanîna gerokê bikar tîne. Daneyên rastîn yên xerîdar an aborî nekevin.',
+      'diagnostics.reset':'Daneyên prototîpê paqij bike','diagnostics.resetDone':'Daneyên prototîpê hatin paqijkirin.',
+      'tests.pass':'Hemû {n} ceribandinên mîmariyê serketin.','tests.fail':'{n} ceribandin têk çûn: {details}',
+      'tests.accountingKey':'Hesabdarî mifteya hilanînê ya xwe heye','tests.projectKey':'Projeyên mifteyeke cuda hene',
+      'tests.completeIsolation':'Qedandina projeyê hesabdarî naguherîne','tests.projectIsolation':'Tomarkirina projeyê hesabdarî naguherîne',
+      'tests.translation':'Hemû heft zimanan mifteyên pêwîst hene','tests.version':'Guhertoya prototîp û schema diyarkirî ne',
+      'tests.direction':'Arahasta RTL/LTR li gorî zimanê navrûyê tê danîn','tests.userData':'Guhertina zimanê daneyên defterê ji nû ve nenivîse',
+            'tests.repository':'Depo nirxên nederbasdar red dike',
+      'tests.storage':'Tomarkirina gerokê heye','tests.crudIsolation':'Çalakiyên çêkirin, nûvekirin û jêbirin di nav defteran de cuda ne','tests.corruptData':'Daneyên JSON yên xerab bi ewlehî têne rêvebirin',
+      'customers.title':"Mişterî û fatûre — tomarên cuda",
+      'customers.add':"Mişterî lê zêde bike",
+      'customers.name':"Navê mişterî",
+      'customers.save':"Mişterî tomar bike",
+      'invoices.customer':"Mişteriyê fatûreyê",
+      'invoices.number':"Hejmara fatûreyê",
+      'invoices.amount':"Bihayê fatûreyê (£)",
+      'invoices.create':"Fatûre çêbike",
+      'invoices.delete':"Fatûreyê jê bibe",
+      'customers.delete':"Mişterî jê bibe",
+      'customers.customer':"Mişterî",
+      'invoices.invoice':"Fatûre",
+      'invoices.list':"Fatûre",
+      'customers.noInvoices':"Fatûreya girêdayî tune; mişterî dikare were jêbirin.",
+      'customers.hasInvoices':"Fatûreyên girêdayî hene; pêşî wan jê bibe.",
+      'invoices.saved':"Fatûre cuda hat tomarkirin. Tomara hesabê nehate çêkirin.",
+      'invoices.deleted':"Fatûre hate jêbirin. Hesab û tomarên mişterî neguherîn.",
+      'customers.saved':"Mişterî hat tomarkirin.",
+      'customers.deleted':"Mişterî hate jêbirin.",
+      'tests.invoiceIsolation':"Girêdanên eşkere û veqetandina jêbirinê diceribîne",
+            'backup.title':"Yedekkirin û vegerandin — tenê daneyên prototîpê",
+      'backup.description':"Daneyên vê prototîpê derxîne an vegerîne. Daneyên hilberînê nayên gihîştin.",
+      'backup.export':"Derxistina yedeka JSON",
+      'backup.choose':"Pelê yedeka JSON hilbijêre",
+      'backup.restore':"Kontrol bike û vegerîne",
+      'backup.exported':"Yedek hat derxistin.",
+      'backup.restored':"Yedek hate kontrolkirin û vegerandin.",
+      'backup.chooseFirst':"Pêşî pelekî JSON hilbijêre.",
+      'backup.rejected':"Yedek hate redkirin; daneyên heyî neguhêzîn.",
+'diagnostics.logTitle':'Tomara çalakiyê','diagnostics.logNote':'Tenê bûyerên prototîpê; herî zêde 100 bûyer.','diagnostics.logClear':'Paqijkirina tomarê','diagnostics.logExport':'Derxistina JSON','diagnostics.logEmpty':'Hêj bûyerek nehatiye tomar kirin.','diagnostics.healthRun':'Kontrola tenduristiya hilanînê','diagnostics.healthOk':'Testa xwendin, nivîsandin û jêbirin serkeftî bû. Daneyên defteran neguherîn.','diagnostics.healthFail':'Kontrola hilanînê têk çû; dibe ku hilanîna gerokê tune be an tijî be.',
+      'footer.note':'Prototîpa 0.9.0 · ji pelên sereke cuda · ne guhertoya weşanê ye'
+    },
+    tr: {
+      'health.title':'Depolama sağlık kontrolü', 'health.note':'Tarayıcının geçici bir test değerini yazıp okuyup silebildiğini kontrol eder. Kayıtlar değiştirilmez.', 'health.run':'Depolamayı kontrol et', 'health.ok':'Kontrol başarılı: geçici değer yazıldı, okundu ve silindi.', 'health.fail':'Kontrol başarısız. Tarayıcı depolaması engellenmiş veya dolu olabilir.',
+      'app.title':'The Handyman Muhasebe','app.subtitle':'Bağımsız mimari prototipi — üretim verisi içermez',
+      'settings.language':'Arayüz dili','settings.chooseLanguage':'Dil seçin','tests.run':'Mimari kontrolleri çalıştır',
+      'accounting.title':'Muhasebe — test defteri','accounting.description':'Deneme kayıtları proje ve şirket verilerinden ayrı saklanır.',
+      'entry.type':'Kayıt türü','entry.income':'Gelir','entry.expense':'Gider','entry.amount':'Tutar (£)',
+      'entry.note':'Açıklama (İngilizce giriş testi)','entry.validationHint':'Bu prototip yalnızca İngilizce harfleri, rakamları, boşlukları ve temel noktalama işaretlerini kabul eder.',
+      'entry.save':'Muhasebe kaydını kaydet','entry.saved':'Muhasebe kaydı kaydedildi. Diğer defterler değişmedi.',
+      'entry.badText':'Bu alanda yalnızca İngilizce harfleri, rakamları, boşlukları ve temel noktalama işaretlerini kullanın. Kaydedilmedi.',
+      'entry.badAmount':'Sıfırdan büyük bir tutar girin. Kaydedilmedi.',
+      'projects.title':'Projeler — ayrı test verisi','projects.description':'Proje kayıtları ve tamamlanma durumu muhasebeye yazmamalıdır.',
+      'projects.name':'Proje adı','projects.amount':'Proje tutarı (£)','projects.add':'Proje kaydı ekle',
+      'projects.toggle':'Deneme projesinin tamamlanma durumunu değiştir','projects.state':'Durum','projects.open':'Açık','projects.complete':'Tamamlandı',
+      'projects.saved':'Kayıt yalnızca Projeler alanına eklendi. Muhasebe değişmedi.',
+      'projects.completed':'Proje durumu değişti. Muhasebe değişmedi.',
+      'diagnostics.title':'Depolama ayrımı kontrolleri','diagnostics.note':'Yalnızca prototiptir; tarayıcı depolamasını kullanır. Gerçek müşteri veya finans verisi girmeyin.',
+      'diagnostics.reset':'Prototip verilerini sıfırla','diagnostics.resetDone':'Prototip verileri sıfırlandı.',
+      'tests.pass':'{n} mimari kontrolün tamamı başarılı.','tests.fail':'{n} kontrol başarısız: {details}',
+      'tests.accountingKey':'Muhasebe kendi depolama anahtarını kullanır','tests.projectKey':'Projeler farklı bir anahtar kullanır',
+      'tests.completeIsolation':'Projeyi tamamlama muhasebeyi değiştirmez','tests.projectIsolation':'Proje kaydı muhasebeyi değiştirmez',
+      'tests.translation':'Yedi dilde gerekli anahtarlar mevcut','tests.version':'Prototip ve şema sürümleri tanımlı',
+      'tests.repository':'Depo geçersiz üst düzey değerleri reddeder',
+      'tests.storage':'Tarayıcı depolaması kullanılabilir','tests.crudIsolation':'Oluşturma, güncelleme ve silme işlemleri defterler arasında yalıtılmıştır','tests.corruptData':'Bozuk kayıtlı JSON güvenli biçimde işlenir',
+      'tests.direction':'RTL/LTR yönü arayüz diline göre atanır','tests.userData':'Dil değişimi defter verilerini yeniden yazmaz',
+      'customers.title':"Müşteriler ve faturalar — ayrı kayıt",
+      'customers.add':"Müşteri ekle",
+      'customers.name':"Müşteri adı",
+      'customers.save':"Müşteriyi kaydet",
+      'invoices.customer':"Fatura müşterisi",
+      'invoices.number':"Fatura numarası",
+      'invoices.amount':"Fatura tutarı (£)",
+      'invoices.create':"Fatura oluştur",
+      'invoices.delete':"Faturayı sil",
+      'customers.delete':"Müşteriyi sil",
+      'customers.customer':"Müşteri",
+      'invoices.invoice':"Fatura",
+      'invoices.list':"Faturalar",
+      'customers.noInvoices':"Bağlı fatura yok; müşteri silinebilir.",
+      'customers.hasInvoices':"Müşterinin bağlı faturaları var; önce faturaları silin.",
+      'invoices.saved':"Fatura ayrı kaydedildi. Muhasebe kaydı oluşturulmadı.",
+      'invoices.deleted':"Fatura silindi. Muhasebe ve müşteri kayıtları değişmedi.",
+      'customers.saved':"Müşteri kaydedildi.",
+      'customers.deleted':"Müşteri silindi.",
+      'tests.invoiceIsolation':"Açık fatura/müşteri bağlantıları ve silme izolasyonu test edilir",
+            'backup.title':"Yedekleme ve geri yükleme — yalnızca prototip verileri",
+      'backup.description':"Bu prototipin verilerini dışa aktarın veya geri yükleyin. Üretim verilerine erişilmez.",
+      'backup.export':"JSON yedeğini dışa aktar",
+      'backup.choose':"JSON yedek dosyasını seç",
+      'backup.restore':"Doğrula ve geri yükle",
+      'backup.exported':"Yedek dışa aktarıldı.",
+      'backup.restored':"Yedek doğrulandı ve geri yüklendi.",
+      'backup.chooseFirst':"Önce bir JSON yedek dosyası seçin.",
+      'backup.rejected':"Yedek reddedildi; mevcut veriler değiştirilmedi.",
+'diagnostics.logTitle':'Etkinlik günlüğü','diagnostics.logNote':'Yalnızca prototip olayları; en fazla 100 kayıt.','diagnostics.logClear':'Günlüğü temizle','diagnostics.logExport':'Günlüğü JSON olarak dışa aktar','diagnostics.logEmpty':'Henüz olay kaydedilmedi.','diagnostics.healthRun':'Depolama sağlık kontrolünü çalıştır','diagnostics.healthOk':'Okuma, yazma ve silme testi başarılı. Defter verileri değiştirilmedi.','diagnostics.healthFail':'Depolama kontrolü başarısız; tarayıcı depolaması kullanılamıyor veya dolu olabilir.',
+      'footer.note':'Prototip 0.9.0 · üretim dosyalarından ayrı · yayın sürümü değildir'
+    },
+    pl: {
+      'health.title':'Test stanu pamięci', 'health.note':'Sprawdza, czy przeglądarka może zapisać, odczytać i usunąć tymczasową wartość testową. Żadne rejestry nie są zmieniane.', 'health.run':'Sprawdź pamięć', 'health.ok':'Test zakończony powodzeniem: zapis, odczyt i usunięcie działa.', 'health.fail':'Test nie powiódł się. Pamięć przeglądarki może być zablokowana lub pełna.',
+      'app.title':'Księgowość The Handyman','app.subtitle':'Niezależny prototyp architektury — bez danych produkcyjnych',
+      'settings.language':'Język interfejsu','settings.chooseLanguage':'Wybierz język','tests.run':'Uruchom testy architektury',
+      'accounting.title':'Księgowość — rejestr testowy','accounting.description':'Dane testowe księgowości są przechowywane oddzielnie od projektów i firmy.',
+      'entry.type':'Rodzaj wpisu','entry.income':'Przychód','entry.expense':'Wydatek','entry.amount':'Kwota (£)',
+      'entry.note':'Opis (test wpisywania po angielsku)','entry.validationHint':'Ten prototyp akceptuje wyłącznie litery angielskie, cyfry, spacje i podstawowe znaki interpunkcyjne.',
+      'entry.save':'Zapisz wpis księgowy','entry.saved':'Zapisano wpis księgowy. Pozostałe rejestry nie zostały zmienione.',
+      'entry.badText':'W tym polu użyj liter angielskich, cyfr, spacji i podstawowych znaków interpunkcyjnych. Niczego nie zapisano.',
+      'entry.badAmount':'Wpisz kwotę większą od zera. Niczego nie zapisano.',
+      'projects.title':'Projekty — oddzielne dane testowe','projects.description':'Wpisy projektowe i status ukończenia nie mogą zmieniać księgowości.',
+      'projects.name':'Nazwa projektu','projects.amount':'Kwota projektu (£)','projects.add':'Dodaj wpis projektu',
+      'projects.toggle':'Zmień status ukończenia projektu testowego','projects.state':'Stan','projects.open':'Otwarty','projects.complete':'Ukończony',
+      'projects.saved':'Wpis zapisano wyłącznie w Projektach. Księgowość nie została zmieniona.',
+      'projects.completed':'Zmieniono status projektu. Księgowość nie została zmieniona.',
+      'diagnostics.title':'Kontrola rozdzielenia danych','diagnostics.note':'To tylko prototyp korzystający z pamięci przeglądarki. Nie wpisuj prawdziwych danych klientów ani finansowych.',
+      'diagnostics.reset':'Wyczyść dane prototypu','diagnostics.resetDone':'Dane prototypu zostały wyczyszczone.',
+      'tests.pass':'Wszystkie {n} testy architektury zakończone powodzeniem.','tests.fail':'Niepowodzenie {n} testów: {details}',
+      'tests.accountingKey':'Księgowość ma własny klucz przechowywania','tests.projectKey':'Projekty mają inny klucz przechowywania',
+      'tests.completeIsolation':'Ukończenie projektu nie zmienia księgowości','tests.projectIsolation':'Zapis projektu nie zmienia księgowości',
+      'tests.translation':'Wszystkie siedem języków ma wymagane klucze','tests.version':'Wersje prototypu i schematu są określone',
+      'tests.repository':'Repozytorium odrzuca nieprawidłowe wartości',
+      'tests.storage':'Pamięć przeglądarki jest dostępna','tests.crudIsolation':'Operacje tworzenia, edycji i usuwania są odseparowane między rejestrami','tests.corruptData':'Uszkodzony zapis JSON jest bezpiecznie obsługiwany',
+      'tests.direction':'Kierunek RTL/LTR zależy od języka interfejsu','tests.userData':'Zmiana języka nie zapisuje ponownie danych rejestrów',
+      'customers.title':"Klienci i faktury — oddzielny rejestr",
+      'customers.add':"Dodaj klienta",
+      'customers.name':"Nazwa klienta",
+      'customers.save':"Zapisz klienta",
+      'invoices.customer':"Klient faktury",
+      'invoices.number':"Numer faktury",
+      'invoices.amount':"Kwota faktury (£)",
+      'invoices.create':"Utwórz fakturę",
+      'invoices.delete':"Usuń fakturę",
+      'customers.delete':"Usuń klienta",
+      'customers.customer':"Klient",
+      'invoices.invoice':"Faktura",
+      'invoices.list':"Faktury",
+      'customers.noInvoices':"Brak powiązanych faktur; klient może zostać usunięty.",
+      'customers.hasInvoices':"Klient ma powiązane faktury; najpierw je usuń.",
+      'invoices.saved':"Fakturę zapisano osobno. Nie utworzono wpisu księgowego.",
+      'invoices.deleted':"Usunięto fakturę. Księgowość i dane klienta nie uległy zmianie.",
+      'customers.saved':"Zapisano klienta.",
+      'customers.deleted':"Usunięto klienta.",
+      'tests.invoiceIsolation':"Testuje jawne powiązania i izolację usuwania",
+            'backup.title':"Kopia zapasowa i przywracanie — tylko dane prototypu",
+      'backup.description':"Eksportuj lub przywróć dane tego prototypu. Dane produkcyjne nie są dostępne.",
+      'backup.export':"Eksportuj kopię JSON",
+      'backup.choose':"Wybierz plik kopii JSON",
+      'backup.restore':"Sprawdź i przywróć",
+      'backup.exported':"Wyeksportowano kopię.",
+      'backup.restored':"Kopia została sprawdzona i przywrócona.",
+      'backup.chooseFirst':"Najpierw wybierz plik JSON.",
+      'backup.rejected':"Odrzucono kopię; istniejące dane nie zostały zmienione.",
+'diagnostics.logTitle':'Dziennik aktywności','diagnostics.logNote':'Tylko zdarzenia prototypu; maksymalnie 100 wpisów.','diagnostics.logClear':'Wyczyść dziennik','diagnostics.logExport':'Eksportuj dziennik JSON','diagnostics.logEmpty':'Nie zarejestrowano jeszcze zdarzeń.','diagnostics.healthRun':'Uruchom test pamięci','diagnostics.healthOk':'Test odczytu, zapisu i usuwania zakończony powodzeniem. Dane ksiąg nie zostały zmienione.','diagnostics.healthFail':'Test pamięci nie powiódł się; pamięć przeglądarki może być niedostępna lub pełna.',
+      'footer.note':'Prototyp 1.0.0 · oddzielony od plików produkcyjnych · nie jest wydaniem'
+    }
+  };
+
+  const requiredKeys = Object.keys(messages.en);
+  const rtlLanguages = new Set(['fa','ar','ckb']);
+  const $ = id => document.getElementById(id);
+  // Platform adapter: this is the only layer allowed to touch browser storage.
+  const StorageAdapter = Object.freeze({
+    getRaw(key) { return localStorage.getItem(key); },
+    setRaw(key, raw) { localStorage.setItem(key, raw); },
+    remove(key) { localStorage.removeItem(key); },
+    available() {
+      const probe = 'handyman.prototype.storage-probe';
+      try { this.setRaw(probe, '1'); this.remove(probe); return true; }
+      catch { return false; }
+    }
+  });
+  // Repository boundary: modules call these functions, not localStorage directly.
+  const Repository = Object.freeze({
+    get(key) {
+      try {
+        const raw = StorageAdapter.getRaw(key);
+        if (raw === null) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+        return parsed;
+      } catch { return null; }
+    },
+    put(key, value) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Repository accepts object records only.');
+      StorageAdapter.setRaw(key, JSON.stringify(value));
+    },
+    remove(key) { StorageAdapter.remove(key); }
+  });
+  const read = key => Repository.get(key);
+  const write = (key, value) => Repository.put(key, value);
+  const money = cents => (cents / 100).toFixed(2);
+  const makeId = () => (crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const defaultLedger = () => ({ schemaVersion: SCHEMA_VERSION, entries: [] });
+  const getLedger = name => read(KEYS[name]) || defaultLedger();
+  const setMessage = (id, message, error=false) => {
+    const el = $(id); el.textContent = message; el.hidden = false; el.classList.toggle('error', error);
+  };
+  let lang = 'en';
+  let demoComplete = false;
+
+  function t(key, vars={}) {
+    const dict = messages[lang] || messages.en;
+    let s = dict[key] ?? messages.en[key] ?? key;
+    for (const [k,v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
+    return s;
+  }
+  function renderLanguage() {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = rtlLanguages.has(lang) ? 'rtl' : 'ltr';
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      const translated = t(key);
+      if (el.tagName === 'OPTION') el.textContent = translated;
+      else el.textContent = translated;
+    });
+    $('language').value = lang;
+    renderRows();
+  }
+  function validEnglishText(value) {
+    // Accept Latin-script letters (including diacritics), numbers, spaces and basic punctuation.
+    // Reject non-Latin scripts for this test field; this is still a prototype policy.
+    if (!/^[\p{Script=Latin}\p{Number}\p{Mark} .,;:!?()'"/&+_-]*$/u.test(value)) return false;
+    return !/[\p{Script=Arabic}\p{Script=Cyrillic}\p{Script=Han}\p{Script=Devanagari}]/u.test(value);
+  }
+  function renderRows() {
+    const a = getLedger('accounting');
+    const p = getLedger('projects');
+    $('accountingRows').replaceChildren();
+    for (const e of a.entries) {
+      const tr = document.createElement('tr');
+      for (const value of [e.type === 'income' ? t('entry.income') : t('entry.expense'), `£${money(e.amountCents)}`, e.note]) {
+        const td = document.createElement('td');
+        td.textContent = value;
+        if (value === e.note) { td.dir = 'auto'; td.style.unicodeBidi = 'plaintext'; }
+        tr.appendChild(td);
+      }
+      $('accountingRows').appendChild(tr);
+    }
+    $('projectRows').replaceChildren();
+    for (const e of p.entries) {
+      const tr = document.createElement('tr');
+      for (const value of [e.name, e.type === 'income' ? t('entry.income') : t('entry.expense'), `£${money(e.amountCents)}`, e.complete ? t('projects.complete') : t('projects.open')]) {
+        const td = document.createElement('td'); td.textContent = value; td.dir = 'auto'; td.style.unicodeBidi = 'plaintext'; tr.appendChild(td);
+      }
+      $('projectRows').appendChild(tr);
+    }
+  }
+  function getRegistry(name) { return read(KEYS[name]) || {schemaVersion:SCHEMA_VERSION,records:[]}; }
+  function renderCustomerInvoiceRows() {
+    const customers=getRegistry('customers'), invoices=getRegistry('invoices');
+    const select=$('invoiceCustomer'); const prior=select.value; select.replaceChildren();
+    for (const c of customers.records) { const o=document.createElement('option'); o.value=c.id; o.textContent=c.name; select.appendChild(o); }
+    if (prior && customers.records.some(c=>c.id===prior)) select.value=prior;
+    $('customerRows').replaceChildren();
+    for (const c of customers.records) {
+      const tr=document.createElement('tr'); const name=document.createElement('td'); name.textContent=c.name; name.dir='auto';
+      const count=document.createElement('td'); count.textContent=String(invoices.records.filter(i=>i.customerId===c.id).length);
+      const action=document.createElement('td'); const btn=document.createElement('button'); btn.className='danger'; btn.type='button'; btn.textContent=t('customers.delete'); btn.addEventListener('click',()=>{
+        const linked=getRegistry('invoices').records.some(i=>i.customerId===c.id);
+        if(linked){setMessage('customerStatus',t('customers.hasInvoices'),true);return;}
+        const registry=getRegistry('customers'); registry.records=registry.records.filter(x=>x.id!==c.id); write(KEYS.customers,registry); renderCustomerInvoiceRows(); recordEvent('Customer deleted','OK'); setMessage('customerStatus',t('customers.deleted'));
+      }); action.appendChild(btn); tr.append(name,count,action); $('customerRows').appendChild(tr);
+    }
+    $('invoiceRows').replaceChildren();
+    for (const inv of invoices.records) {
+      const c=customers.records.find(x=>x.id===inv.customerId); const tr=document.createElement('tr');
+      for(const value of [inv.number,c?c.name:'[missing customer]',`£${money(inv.amountCents)}`]){const td=document.createElement('td');td.textContent=value;td.dir='auto';td.style.unicodeBidi='plaintext';tr.appendChild(td);}
+      const action=document.createElement('td'); const btn=document.createElement('button');btn.className='danger';btn.type='button';btn.textContent=t('invoices.delete');btn.addEventListener('click',()=>{
+        const registry=getRegistry('invoices');registry.records=registry.records.filter(x=>x.id!==inv.id);write(KEYS.invoices,registry);renderCustomerInvoiceRows();recordEvent('Invoice deleted; accounting unchanged','OK');setMessage('invoiceStatus',t('invoices.deleted'));
+      });action.appendChild(btn);tr.appendChild(action);$('invoiceRows').appendChild(tr);
+    }
+  }
+  function saveCustomer(name) { if(!name.trim()) throw new Error(t('customers.name')); const r=getRegistry('customers'); r.records.push({id:makeId(),name:name.trim(),createdAt:new Date().toISOString()});write(KEYS.customers,r); recordEvent('Customer created','OK'); }
+  function saveInvoice({customerId,number,amount}) {
+    const c=getRegistry('customers').records.find(x=>x.id===customerId); if(!c) throw new Error(t('invoices.customer'));
+    if(!number.trim()||!Number.isFinite(amount)||amount<=0) throw new Error(t('invoices.amount'));
+    const r=getRegistry('invoices'); if(r.records.some(x=>x.number===number.trim())) throw new Error(t('invoices.number'));
+    r.records.push({id:makeId(),customerId,number:number.trim(),amountCents:Math.round(amount*100),createdAt:new Date().toISOString()});write(KEYS.invoices,r); recordEvent('Invoice created','OK');
+    // Critical rule: creating an invoice does not create or modify an Accounting entry.
+  }
+  function saveAccountingEntry({type, amount, note}) {
+    if (!validEnglishText(note)) throw new Error(t('entry.badText'));
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error(t('entry.badAmount'));
+    const ledger = getLedger('accounting');
+    ledger.entries.push({ id: makeId(), type, amountCents: Math.round(amount * 100), note, createdAt: new Date().toISOString() });
+    write(KEYS.accounting, ledger); recordEvent('Accounting entry created','OK');
+  }
+  function saveProjectEntry({name, type, amount}) {
+    if (!name.trim() || !Number.isFinite(amount) || amount <= 0) throw new Error(t('entry.badAmount'));
+    const ledger = getLedger('projects');
+    ledger.entries.push({ id: makeId(), name: name.trim(), type, amountCents: Math.round(amount * 100), complete: demoComplete, createdAt: new Date().toISOString() });
+    write(KEYS.projects, ledger); recordEvent('Project record created','OK');
+  }
+  function setProjectComplete(value) {
+    demoComplete = value; recordEvent('Project completion toggled','OK');
+    // Prototype policy: this operation writes only to a UI demo flag, never Accounting.
+  }
+  function snapshot(keys) { return Object.fromEntries(keys.map(k => [k, localStorage.getItem(k)])); }
+  function runArchitectureChecks() {
+    const failures = [];
+    const checks = [];
+    const check = (key, fn) => {
+      let ok = false; try { ok = Boolean(fn()); } catch { ok = false; }
+      checks.push({key,ok}); if (!ok) failures.push(t(key));
+    };
+    check('tests.accountingKey', () => KEYS.accounting !== KEYS.projects && KEYS.accounting !== KEYS.company);
+    check('tests.projectKey', () => KEYS.projects !== KEYS.company);
+    // Run destructive writes only against temporary test keys, never the demo ledgers.
+    const testAccountingKey = 'handyman.prototype.test.accounting';
+    const testProjectsKey = 'handyman.prototype.test.projects';
+    const testCompanyKey = 'handyman.prototype.test.company';
+    const keys = [testAccountingKey, testProjectsKey, testCompanyKey];
+    const before = snapshot(keys);
+    try {
+      write(testAccountingKey, {schemaVersion:SCHEMA_VERSION,entries:[{id:'fixture-a',type:'income',amountCents:500,note:'fixture'}]});
+      write(testProjectsKey, {schemaVersion:SCHEMA_VERSION,entries:[]});
+      write(testCompanyKey, {schemaVersion:SCHEMA_VERSION,entries:[]});
+      const accountingBefore = localStorage.getItem(testAccountingKey);
+      const companyBefore = localStorage.getItem(testCompanyKey);
+      const projectFixture = read(testProjectsKey);
+      projectFixture.entries.push({id:'fixture-p',name:'Architecture test',type:'expense',amountCents:123,complete:false});
+      write(testProjectsKey, projectFixture);
+      check('tests.projectIsolation', () => localStorage.getItem(testAccountingKey) === accountingBefore && localStorage.getItem(testCompanyKey) === companyBefore);
+      const allBeforeComplete = snapshot(keys);
+      // Completion is a state change in the project fixture only.
+      const completedFixture = read(testProjectsKey);
+      completedFixture.entries[0].complete = true;
+      write(testProjectsKey, completedFixture);
+      const allAfterComplete = snapshot(keys);
+      check('tests.completeIsolation', () => allBeforeComplete[testAccountingKey] === allAfterComplete[testAccountingKey] && allBeforeComplete[testCompanyKey] === allAfterComplete[testCompanyKey]);
+    } finally {
+      keys.forEach(k => before[k] === null ? localStorage.removeItem(k) : localStorage.setItem(k, before[k]));
+    }
+    check('tests.repository', () => {
+      const key = 'handyman.prototype.test.repository';
+      const before = StorageAdapter.getRaw(key);
+      let rejected = false;
+      try { Repository.put(key, null); } catch { rejected = true; }
+      const unchanged = StorageAdapter.getRaw(key) === before;
+      before === null ? Repository.remove(key) : StorageAdapter.setRaw(key, before);
+      return rejected && unchanged;
+    });
+    check('tests.storage', () => StorageAdapter.available());
+    check('tests.crudIsolation', () => {
+      const keys = ['handyman.prototype.test.accounting','handyman.prototype.test.projects','handyman.prototype.test.company'];
+      const prior = snapshot(keys);
+      try {
+        write(keys[0], {schemaVersion:SCHEMA_VERSION,entries:[{id:'a1',amountCents:1000}]});
+        write(keys[1], {schemaVersion:SCHEMA_VERSION,entries:[{id:'p1',amountCents:2000}]});
+        write(keys[2], {schemaVersion:SCHEMA_VERSION,entries:[{id:'c1',amountCents:3000}]});
+        const accountingBefore = StorageAdapter.getRaw(keys[0]);
+        const projectsBefore = read(keys[1]);
+        projectsBefore.entries[0].amountCents = 2500;
+        write(keys[1], projectsBefore);
+        const companyBefore = read(keys[2]);
+        companyBefore.entries = companyBefore.entries.filter(row => row.id !== 'c1');
+        write(keys[2], companyBefore);
+        return StorageAdapter.getRaw(keys[0]) === accountingBefore && read(keys[1]).entries[0].amountCents === 2500 && read(keys[2]).entries.length === 0;
+      } finally {
+        keys.forEach(k => prior[k] === null ? StorageAdapter.remove(k) : StorageAdapter.setRaw(k, prior[k]));
+      }
+    });
+    check('tests.corruptData', () => {
+      const key = 'handyman.prototype.test.corrupt';
+      const prior = StorageAdapter.getRaw(key);
+      try {
+        StorageAdapter.setRaw(key, '{not-json');
+        return Repository.get(key) === null;
+      } finally {
+        prior === null ? StorageAdapter.remove(key) : StorageAdapter.setRaw(key, prior);
+      }
+    });
+    check('tests.invoiceIsolation', () => {
+      const ck='handyman.prototype.test.customers', ik='handyman.prototype.test.invoices', ak='handyman.prototype.test.accounting';
+      const prior=snapshot([ck,ik,ak]);
+      try {
+        write(ck,{schemaVersion:SCHEMA_VERSION,records:[{id:'c1',name:'Test Customer'}]});
+        write(ik,{schemaVersion:SCHEMA_VERSION,records:[{id:'i1',customerId:'c1',number:'T-1',amountCents:1234}]});
+        write(ak,{schemaVersion:SCHEMA_VERSION,entries:[{id:'a1',type:'income',amountCents:9000,note:'Independent income'}]});
+        const accountingBefore=StorageAdapter.getRaw(ak);
+        const invoiceLedger=read(ik); invoiceLedger.records=invoiceLedger.records.filter(x=>x.id!=='i1'); write(ik,invoiceLedger);
+        const customerLedger=read(ck);
+        const customerHasInvoices=read(ik).records.some(x=>x.customerId==='c1');
+        return !customerHasInvoices && customerLedger.records.some(x=>x.id==='c1') && StorageAdapter.getRaw(ak)===accountingBefore;
+      } finally { [ck,ik,ak].forEach(k=>prior[k]===null?StorageAdapter.remove(k):StorageAdapter.setRaw(k,prior[k])); }
+    });
+    check('tests.translation', () => Object.keys(messages).length === 7 && Object.values(messages).every(dict => requiredKeys.every(k => typeof dict[k] === 'string' && dict[k].length > 0)));
+    check('tests.version', () => Boolean(APP_VERSION) && Number.isInteger(SCHEMA_VERSION) && SCHEMA_VERSION > 0);
+    const oldLang = lang, oldDir = document.documentElement.dir;
+    for (const testLang of ['en','fa','ar','ckb','kmr','tr','pl']) {
+      lang = testLang; renderLanguage();
+      if (document.documentElement.dir !== (rtlLanguages.has(testLang) ? 'rtl' : 'ltr')) { failures.push(t('tests.direction')); break; }
+    }
+    lang = oldLang; renderLanguage();
+    check('tests.direction', () => document.documentElement.dir === (rtlLanguages.has(lang) ? 'rtl' : 'ltr'));
+    const dataBefore = snapshot([KEYS.accounting,KEYS.projects]);
+    const prefBefore = localStorage.getItem(KEYS.preferences);
+    lang = lang === 'fa' ? 'en' : 'fa'; renderLanguage();
+    const dataAfter = snapshot([KEYS.accounting,KEYS.projects]);
+    lang = oldLang; renderLanguage();
+    check('tests.userData', () => JSON.stringify(dataBefore) === JSON.stringify(dataAfter));
+    const n = checks.length;
+    if (failures.length) setMessage('testStatus', t('tests.fail',{n:failures.length,details:failures.join(' | ')}), true);
+    else setMessage('testStatus', t('tests.pass',{n}), false);
+    return {checks, failures};
+  }
+
+  const BACKUP_FORMAT = 'handyman-prototype-backup';
+  const BACKUP_KEYS = Object.freeze(Object.values(KEYS));
+  let pendingBackupText = '';
+  function buildBackup() {
+    const data = {};
+    for (const key of BACKUP_KEYS) {
+      const raw = StorageAdapter.getRaw(key);
+      if (raw === null) { data[key] = null; continue; }
+      const parsed = JSON.parse(raw);
+      // The activity log is intentionally an array; all other stores are schema objects.
+      if (key === KEYS.eventLog) {
+        if (!Array.isArray(parsed) || parsed.some(item => !item || typeof item !== 'object' || typeof item.at !== 'string' || typeof item.event !== 'string' || typeof item.result !== 'string')) throw new Error('Invalid activity log: ' + key);
+        data[key] = parsed;
+        continue;
+      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid stored record: ' + key);
+      data[key] = parsed;
+    }
+    return { format: BACKUP_FORMAT, formatVersion: 1, appVersion: APP_VERSION, createdAt: new Date().toISOString(), data };
+  }
+  function validateBackup(payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.format !== BACKUP_FORMAT || payload.formatVersion !== 1 || !payload.data || typeof payload.data !== 'object' || Array.isArray(payload.data)) throw new Error('Unsupported backup format.');
+    const allowed = new Set(BACKUP_KEYS);
+    for (const key of Object.keys(payload.data)) if (!allowed.has(key)) throw new Error('Unknown data section: ' + key);
+    // A complete snapshot is required; otherwise missing sections could be mistaken for deletions.
+    for (const key of BACKUP_KEYS) if (!Object.prototype.hasOwnProperty.call(payload.data, key)) throw new Error('Backup is incomplete; missing section: ' + key);
+    for (const key of BACKUP_KEYS) {
+      const value = payload.data[key];
+      if (value === null || value === undefined) continue;
+      if (key === KEYS.eventLog) {
+        if (!Array.isArray(value) || value.some(item => !item || typeof item !== 'object' || typeof item.at !== 'string' || typeof item.event !== 'string' || typeof item.result !== 'string')) throw new Error('Invalid activity log in backup.');
+        continue;
+      }
+      if (!value || typeof value !== 'object' || Array.isArray(value) || value.schemaVersion !== SCHEMA_VERSION) throw new Error('Invalid schema in ' + key);
+      if (key.endsWith('.customers.v1') || key.endsWith('.invoices.v1')) {
+        if (!Array.isArray(value.records)) throw new Error('Invalid records in ' + key);
+      } else if (key.endsWith('.accounting.v1') || key.endsWith('.projects.v1') || key.endsWith('.company.v1')) {
+        if (!Array.isArray(value.entries)) throw new Error('Invalid entries in ' + key);
+      }
+    }
+    const customers = payload.data[KEYS.customers]?.records || [];
+    const invoices = payload.data[KEYS.invoices]?.records || [];
+    const customerIds = new Set(customers.map(x => x && x.id).filter(Boolean));
+    if (invoices.some(x => !x || typeof x.id !== 'string' || !customerIds.has(x.customerId) || typeof x.number !== 'string' || !Number.isFinite(x.amountCents) || x.amountCents <= 0)) throw new Error('Invoice/customer links are invalid.');
+    return true;
+  }
+  function restoreBackup(payload) {
+    validateBackup(payload);
+    const before = Object.fromEntries(BACKUP_KEYS.map(key => [key, StorageAdapter.getRaw(key)]));
+    try {
+      for (const key of BACKUP_KEYS) {
+        const value = payload.data[key];
+        if (value === null || value === undefined) StorageAdapter.remove(key);
+        else StorageAdapter.setRaw(key, JSON.stringify(value));
+      }
+      // Read-back verification before reporting success.
+      for (const key of BACKUP_KEYS) {
+        const expected = payload.data[key] == null ? null : JSON.stringify(payload.data[key]);
+        const actual = StorageAdapter.getRaw(key);
+        if (expected !== actual) throw new Error('Restore verification failed for ' + key);
+      }
+    } catch (error) {
+      // Roll back the pre-restore state and verify that rollback itself succeeded.
+      let rollbackError = null;
+      try {
+        for (const key of BACKUP_KEYS) before[key] === null ? StorageAdapter.remove(key) : StorageAdapter.setRaw(key, before[key]);
+        for (const key of BACKUP_KEYS) if (StorageAdapter.getRaw(key) !== before[key]) throw new Error('Rollback verification failed for ' + key);
+      } catch (restoreError) { rollbackError = restoreError; }
+      if (rollbackError) throw new Error((error.message || 'Restore failed') + '; CRITICAL: rollback could not be verified. Stop using this prototype and preserve any remaining data.');
+      throw error;
+    }
+    const pref = read(KEYS.preferences);
+    if (pref && messages[pref.lang]) lang = pref.lang;
+    renderLanguage(); renderRows(); renderCustomerInvoiceRows(); recordEvent('Prototype backup restored','OK');
+  }
+  $('exportBackup').addEventListener('click', () => {
+    try {
+      const backup = buildBackup();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob); const a = document.createElement('a');
+      a.href = url; a.download = `handyman-prototype-backup-${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      recordEvent('Prototype backup exported','OK'); setMessage('backupStatus', t('backup.exported'));
+    } catch (err) { recordEvent('Prototype backup export failed','ERROR'); setMessage('backupStatus', t('backup.rejected') + ' ' + (err.message || ''), true); }
+  });
+  $('importBackup').addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0]; pendingBackupText = '';
+    if (!file) return;
+    try { if (file.size > 2_000_000) throw new Error('File exceeds 2 MB.'); pendingBackupText = await file.text(); setMessage('backupStatus', 'File loaded. Press Validate and restore to continue.'); }
+    catch (err) { setMessage('backupStatus', t('backup.rejected') + ' ' + err.message, true); }
+  });
+  $('restoreBackup').addEventListener('click', () => {
+    if (!pendingBackupText) { setMessage('backupStatus', t('backup.chooseFirst'), true); return; }
+    try {
+      const payload = JSON.parse(pendingBackupText); validateBackup(payload);
+      if (!confirm('Restore will replace this prototype’s current demo data. A safety snapshot of the current data will be downloaded first. Continue?')) return;
+      // Download the current state before any overwrite, so the user has a recovery file.
+      const safety = buildBackup();
+      const blob = new Blob([JSON.stringify(safety, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob); const a = document.createElement('a');
+      a.href = url; a.download = `handyman-prototype-safety-before-restore-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      restoreBackup(payload); pendingBackupText = ''; $('importBackup').value = '';
+      setMessage('backupStatus', t('backup.restored') + ' Safety snapshot downloaded before restore.');
+    } catch (err) { recordEvent('Prototype backup restore failed','ERROR'); setMessage('backupStatus', t('backup.rejected') + ' ' + (err.message || ''), true); }
+  });
+
+  $('customerForm').addEventListener('submit',e=>{e.preventDefault();try{saveCustomer($('customerName').value);$('customerName').value='';renderCustomerInvoiceRows();setMessage('customerStatus',t('customers.saved'));}catch(err){setMessage('customerStatus',err.message,true);}});
+  $('invoiceForm').addEventListener('submit',e=>{e.preventDefault();try{saveInvoice({customerId:$('invoiceCustomer').value,number:$('invoiceNumber').value,amount:Number($('invoiceAmount').value)});$('invoiceNumber').value='';$('invoiceAmount').value='';renderCustomerInvoiceRows();setMessage('invoiceStatus',t('invoices.saved'));}catch(err){setMessage('invoiceStatus',err.message,true);}});
+  $('language').addEventListener('change', e => {
+    lang = messages[e.target.value] ? e.target.value : 'en';
+    write(KEYS.preferences, {lang});
+    renderLanguage();
+  });
+  $('accountingForm').addEventListener('submit', e => {
+    e.preventDefault();
+    try {
+      saveAccountingEntry({type:$('entryType').value,amount:Number($('entryAmount').value),note:$('entryNote').value.trim()});
+      $('entryAmount').value=''; $('entryNote').value='';
+      renderRows(); setMessage('entryStatus',t('entry.saved'));
+    } catch (err) { setMessage('entryStatus',err.message || t('entry.badText'),true); }
+  });
+  $('projectForm').addEventListener('submit', e => {
+    e.preventDefault();
+    try {
+      saveProjectEntry({name:$('projectName').value,type:$('projectType').value,amount:Number($('projectAmount').value)});
+      $('projectAmount').value=''; renderRows(); setMessage('projectStatus',t('projects.saved'));
+    } catch (err) { setMessage('projectStatus',err.message || t('entry.badAmount'),true); }
+  });
+  $('toggleComplete').addEventListener('click', () => {
+    setProjectComplete(!demoComplete);
+    setMessage('projectStatus',t('projects.completed'));
+  });
+  $('runTests').addEventListener('click', () => {
+    try { runArchitectureChecks(); }
+    catch (err) { setMessage('testStatus', (err && err.message) ? err.message : 'Architecture checks could not run.', true); }
+  });
+  $('exportEventLog').addEventListener('click', () => {
+    try { const raw=localStorage.getItem(KEYS.eventLog)||'[]'; const blob=new Blob([raw],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='handyman-prototype-event-log.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); recordEvent('Event log exported','OK'); } catch (_) { recordEvent('Event log export failed','ERROR'); }
+  });
+  $('clearEventLog').addEventListener('click', () => { try { localStorage.removeItem(KEYS.eventLog); renderEventLog(); } catch (_) {} });
+  $('checkStorageHealth').addEventListener('click', () => {
+    const key = 'handyman.prototype.test.storage-health';
+    try {
+      const previous = StorageAdapter.getRaw(key);
+      const token = 'health-' + Math.random().toString(36).slice(2);
+      StorageAdapter.setRaw(key, token);
+      if (StorageAdapter.getRaw(key) !== token) throw new Error('Read-back verification failed');
+      previous === null ? StorageAdapter.remove(key) : StorageAdapter.setRaw(key, previous);
+      if (previous === null && StorageAdapter.getRaw(key) !== null) throw new Error('Temporary key cleanup failed');
+      setMessage('storageHealthStatus', t('health.ok'));
+      recordEvent('Storage health check', 'OK');
+    } catch (err) {
+      try { StorageAdapter.remove(key); } catch (_) {}
+      const detail = err && (err.name || err.message) ? ` (${err.name || 'Error'}: ${err.message || 'unknown storage error'})` : '';
+      setMessage('storageHealthStatus', t('health.fail') + detail, true);
+      recordEvent('Storage health check', 'ERROR');
+    }
+  });
+  $('resetDemo').addEventListener('click', () => {
+    if (!confirm(t('diagnostics.reset') + '?')) return;
+    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+    demoComplete = false; renderRows(); renderCustomerInvoiceRows(); renderEventLog(); setMessage('diagnosticStatus',t('diagnostics.resetDone')); recordEvent('Prototype data reset','OK');
+  });
+  const savedPref = read(KEYS.preferences);
+  if (savedPref && messages[savedPref.lang]) lang = savedPref.lang;
+  renderLanguage();
+  renderRows();
+  renderCustomerInvoiceRows();
+  renderEventLog();
+})();
+</script>
+</body>
+</html>
