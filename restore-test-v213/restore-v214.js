@@ -91,7 +91,7 @@ function refreshApp(){
 window.restore=async function(event){
  const file=event&&event.target&&event.target.files&&event.target.files[0];if(!file)return;
  const input=event.target;
- let journalReady=false,oldDB=null,oldAvailable=storageAvailable,oldIntegrity=accountingDataIntegrityError;
+ let journalReady=false,oldDB=null,oldPrDB=null,oldAvailable=storageAvailable,oldIntegrity=accountingDataIntegrityError;
  try{
   const raw=await readFile(file),parsed=JSON.parse(raw);
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw Error('Invalid backup root');
@@ -116,7 +116,7 @@ window.restore=async function(event){
   const incomingSummary=summarize(d,parsed.projects,parsed.contracts);
 
   const old=Object.fromEntries(KEYS.map(k=>[k,localStorage.getItem(k)]));
-  oldDB=JSON.parse(JSON.stringify(db));
+  oldDB=JSON.parse(JSON.stringify(db));oldPrDB=JSON.parse(JSON.stringify(prDB));
   const scope='complete user data';
   const summaryText=[
    incomingSummary.accountingEntries+' accounting entries',
@@ -151,7 +151,7 @@ window.restore=async function(event){
   for(const key of KEYS)if(localStorage.getItem(key)!==next[key])throw Error('Exact-value verification failed: '+key);
 
   journal.phase='committed';journal.committedAt=new Date().toISOString();await putJournal(journal);
-  db=nextDB;storageAvailable=true;accountingDataIntegrityError=false;refreshApp();
+  db=nextDB;if(storedProjects===null){prDB={projects:[],workers:[],partners:[],contractors:[],companies:[],companyJobs:[],profile:{},current:null,guide:'en'};projectsDataIntegrityError=false;}storageAvailable=true;accountingDataIntegrityError=false;refreshApp();
   await clearJournal();
   alert('TEST RESTORE SUCCESSFUL. All accounting, customer, invoice, project, worker, contractor, contract, profile/logo and embedded project-image data were compared with the source backup. IndexedDB pre-restore snapshot and restored data were verified.\n\n'+summaryText+'\n\nThis was the isolated v213 test app only.');
  }catch(error){
@@ -160,7 +160,7 @@ window.restore=async function(event){
     const journal=await getJournal();if(!journal||!journal.oldValues)throw Error('Recovery journal is missing');
     for(const key of KEYS)writeExact(key,Object.prototype.hasOwnProperty.call(journal.oldValues,key)?journal.oldValues[key]:null);
     for(const key of KEYS)if(localStorage.getItem(key)!==(Object.prototype.hasOwnProperty.call(journal.oldValues,key)?journal.oldValues[key]:null))throw Error('Rollback verification failed: '+key);
-    await clearJournal();if(oldDB)db=oldDB;storageAvailable=oldAvailable;accountingDataIntegrityError=oldIntegrity;refreshApp();
+    await clearJournal();if(oldDB)db=oldDB;if(oldPrDB)prDB=oldPrDB;storageAvailable=oldAvailable;accountingDataIntegrityError=oldIntegrity;refreshApp();
     alert('RESTORE FAILED. Previous test data was restored and verified.\n\nDetails: '+(error.message||error));
    }catch(rollbackError){
     storageAvailable=false;accountingDataIntegrityError=true;
