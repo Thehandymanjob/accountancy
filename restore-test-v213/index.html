@@ -26,17 +26,27 @@ h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;color:#526176;margin:8px 0}.
  function inspect(){
   try{
    const d=frame.contentDocument;if(!d)throw Error('iframe document is inaccessible');
-   const ids=['appLauncher','launcherName','projectsApp','contractsApp'];
-   const lines=['iframe URL: '+frame.src,'document readyState: '+d.readyState,'body classes: '+d.body.className,'body text length: '+(d.body.innerText||'').trim().length];
-   ids.forEach(id=>{const el=d.getElementById(id);if(!el){lines.push(id+': MISSING');return}const c=d.defaultView.getComputedStyle(el),r=el.getBoundingClientRect();lines.push(id+': display='+c.display+', visibility='+c.visibility+', opacity='+c.opacity+', rect='+[Math.round(r.x),Math.round(r.y),Math.round(r.width),Math.round(r.height)].join('x'))});
+   const win=d.defaultView,ids=['appLauncher','launcherName','projectsApp','contractsApp'];
+   const lines=['iframe URL: '+frame.src,'document readyState: '+d.readyState,'app version: '+(d.querySelector('meta[name="app-version"]')?.content||'MISSING'),'body classes: '+d.body.className,'body text length: '+(d.body.innerText||'').trim().length];
+   ids.forEach(id=>{const el=d.getElementById(id);if(!el){lines.push(id+': MISSING');return}const c=win.getComputedStyle(el),r=el.getBoundingClientRect();lines.push(id+': display='+c.display+', visibility='+c.visibility+', opacity='+c.opacity+', rect='+[Math.round(r.x),Math.round(r.y),Math.round(r.width),Math.round(r.height)].join('x'))});
    const launcher=d.getElementById('appLauncher'),brand=launcher&&launcher.querySelector('.launcher-brand'),buttons=launcher&&launcher.querySelectorAll('.launcher-action');
-   const box=el=>{if(!el)return false;const c=d.defaultView.getComputedStyle(el),r=el.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity)>0&&r.width>30&&r.height>25};
+   const box=el=>{if(!el)return false;const c=win.getComputedStyle(el),r=el.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity)>0&&r.width>30&&r.height>25};
    const visible=box(launcher)&&box(brand)&&buttons&&buttons.length>=3&&[...buttons].slice(0,3).every(box);
+   const restoreText=typeof win.restore==='function'?Function.prototype.toString.call(win.restore):'';
+   const restoreReady=restoreText.includes('TEST RESTORE SUCCESSFUL')&&restoreText.includes('tha_restore_test_v1_recovery');
+   const expectedKeys=['tha_restore_test_v1_accounting_v1','tha_restore_test_v1_projects_v1','tha_restore_test_v1_contracts_v1','tha_restore_test_v1_restore_recovery_v1','tha_restore_test_v1_factory_reset_recovery_v1'];
+   const actualKeys=win.HandymanStorageFoundation&&Array.isArray(win.HandymanStorageFoundation.legacyKeys)?win.HandymanStorageFoundation.legacyKeys:[];
+   const foundationReady=expectedKeys.every(k=>actualKeys.includes(k));
+   const productionKeyIsolation=!restoreText.includes('tha_v206_')&&!restoreText.includes('handyman_accounting_v2');
    lines.push('launcher title visible: '+box(d.getElementById('launcherName')));
    lines.push('visible action buttons: '+(buttons?[...buttons].filter(box).length:0));
-   lines.push('RESULT: '+(visible?'VISIBLE LAUNCHER CONFIRMED':'LAUNCHER NOT VISIBLY RENDERED'));
-   if(visible){status.textContent=lines.join('\n');gate.classList.add('good')}
-   else{status.textContent='WHITE SCREEN / VISIBILITY FAILURE\n'+lines.join('\n');gate.classList.remove('good')}
+   lines.push('isolated restore override: '+(restoreReady?'LOADED':'MISSING / WRONG VERSION'));
+   lines.push('storage foundation key map: '+(foundationReady?'MATCHED':'MISMATCH'));
+   lines.push('restore production-key isolation: '+(productionKeyIsolation?'PASS':'FAIL'));
+   const ready=visible&&restoreReady&&foundationReady&&productionKeyIsolation;
+   lines.push('RESULT: '+(ready?'TEST APP RUNTIME CHECKS PASSED':'TEST APP RUNTIME CHECKS FAILED'));
+   if(ready){status.textContent=lines.join('\n');gate.classList.add('good')}
+   else{status.textContent='TEST APP INCOMPLETE / VISIBILITY FAILURE\n'+lines.join('\n');gate.classList.remove('good')}
   }catch(e){status.textContent='DIAGNOSTIC ACCESS FAILED: '+(e.stack||e);gate.classList.remove('good')}
  }
  frame.addEventListener('load',()=>{status.textContent='App file loaded. Checking actual launcher visibility…';setTimeout(inspect,800);setTimeout(inspect,2500)});
