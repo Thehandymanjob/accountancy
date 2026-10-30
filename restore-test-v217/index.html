@@ -50,9 +50,7 @@ h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;color:#526176;margin:8px 0}.
    await clearJournal();status.textContent='Interrupted isolated restore rolled back and verified. Loading isolated v217 app…';
   }else if(j&&j.phase==='committed'){await clearJournal();status.textContent='Committed isolated test restore retained. Loading app…'}
   else status.textContent='No interrupted restore found. Loading isolated app…';
-  const vr=await fetch('./version.json?fresh='+Date.now(),{cache:'no-store'});if(!vr.ok)throw Error('version.json unavailable: '+vr.status);
-  const vd=await vr.json();if(vd.version!==217||vd.file!=='app-v217.html')throw Error('Expected v217 manifest; received '+JSON.stringify(vd));
-  frame.src=vd.file+'?build=217&fresh='+Date.now();
+  frame.src='app-v217.html?build=217&fresh='+Date.now();
  }catch(e){status.textContent='DATA PROTECTION STOP: '+(e.message||e)+'\nNo accounting or project data was cleared.';gate.classList.remove('good')}
 })();
 </script></body></html>
