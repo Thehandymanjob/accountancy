@@ -1,16 +1,16 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "206",
-  "buildId": "THA-206-20261030-A",
+  "version": "207",
+  "buildId": "THA-207-20261030-A",
   "releaseDate": "2026-10-30",
-  "releaseStatus": "isolated-clean-install-build",
+  "releaseStatus": "isolated-localization-fix-awaiting-verification",
   "databaseSchema": 1,
   "minimumAppVersion": "206",
   "storageNamespace": "tha_v206_",
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "50f7ca1286fa7ace9f93714878e26584f1a9d04e26cc7cf5ca67cd4b062c5400"
+      "sha256": "1bf3183b0a48a285e749b135a5bc25ad29fad59347ee17dbeaf2a8ef7a8f3148"
     },
     "storage-foundation.js": {
       "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
