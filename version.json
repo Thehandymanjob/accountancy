@@ -13,10 +13,10 @@
       "sha256": "1bf3183b0a48a285e749b135a5bc25ad29fad59347ee17dbeaf2a8ef7a8f3148"
     },
     "storage-foundation.js": {
-      "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
+      "sha256": "f945d16b029296bea65602f89f63052751ffbf1c9166475bd8a823690c306bd8"
     },
     "version-manager.js": {
-      "sha256": "d4ddac25e1da6dbb3d25707c5585f16d70aa53100eb099f017acdc8e59a40abb"
+      "sha256": "6793fd118a52ce9de5e59f8b44171329b6408963a5e9a81da4d8b08b16e08efa"
     }
   }
 }
