@@ -2655,12 +2655,14 @@ window.setAppLanguage=function(lang){
  if(st){const msgs={en:'Language preference saved on this device.',fa:'زبان انتخاب‌شده روی این دستگاه ذخیره شد.',ar:'تم حفظ اللغة المحددة على هذا الجهاز.',ckb:'زمانی هەڵبژێردراو لەم ئامێرەدا پاشەکەوت کرا.',kmr:'Hilbijartina zimanê li ser vê amûrê hat tomarkirin.',tr:'Seçilen dil bu cihaza kaydedildi.',pl:'Wybrany język zapisano na tym urządzeniu.'};st.textContent=(APP_LANGS[lang].name||lang)+' — '+msgs[lang]}
 };
 try{applyAppLanguage(currentAppLang())}catch(e){console.warn('Language setup skipped',e)}
-// v204: translate newly-rendered UI elements without observing characterData or attributes.
-// translateStaticUi changes text-node values only; this observer watches childList only,
-// so its own translations cannot trigger an infinite mutation loop. User-entered values are excluded.
+// v205: translate newly-rendered UI elements without observing our own text replacements.
+// Only react to newly inserted ELEMENT nodes. translateStaticUi may replace a container's
+// children with a translated text node; observing those text nodes caused a self-triggering
+// MutationObserver loop and could leave Safari displaying a blank page after reload.
 try {
  const langObserver = new MutationObserver((records) => {
-  if (!records.some(r => r.addedNodes && r.addedNodes.length)) return;
+  const hasNewElements = records.some(r => Array.from(r.addedNodes || []).some(n => n.nodeType === 1));
+  if (!hasNewElements) return;
   const lang = currentAppLang();
   if (lang !== 'en') translateStaticUi(lang);
  });
