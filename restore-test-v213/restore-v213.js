@@ -173,3 +173,57 @@ window.restore=async function(event){
  }finally{if(input)input.value=''}
 };
 })();
+
+/* v213 isolated navigation persistence.
+   Remembers only the last visible app section in a test-prefixed key.
+   Does not read, modify, or migrate accounting/project/contract records. */
+(function(){
+'use strict';
+const NAV_KEY='tha_restore_test_v1_navigation_state';
+let restoring=false;
+function readState(){try{const x=JSON.parse(localStorage.getItem(NAV_KEY)||'null');return x&&typeof x==='object'?x:null}catch(e){return null}}
+function saveState(x){if(restoring)return;try{localStorage.setItem(NAV_KEY,JSON.stringify({...x,savedAt:new Date().toISOString()}))}catch(e){console.warn('Test navigation state could not be saved',e)}}
+function wrap(name,after){
+ const original=window[name];if(typeof original!=='function'||original.__thaNavWrapped)return;
+ const wrapped=function(){const result=original.apply(this,arguments);try{after.apply(this,arguments)}catch(e){console.warn('Navigation state update skipped',e)}return result};
+ wrapped.__thaNavWrapped=true;window[name]=wrapped;
+}
+wrap('show',function(id){saveState({mode:'accountancy',page:id})});
+wrap('prPage',function(name){saveState({mode:'projects',page:name,projectId:prDB&&prDB.current||null,subprojectId:prDB&&prDB.currentSubproject||null,detailTab:typeof prSubFinanceTab==='string'?prSubFinanceTab:'income'})});
+wrap('prOpenProject',function(id){saveState({mode:'projects',page:'detail',projectId:id,subprojectId:null,detailTab:'income'})});
+wrap('prOpenSubproject',function(id){saveState({mode:'projects',page:'detail',projectId:prDB&&prDB.current||null,subprojectId:id,detailTab:typeof prSubFinanceTab==='string'?prSubFinanceTab:'income'})});
+wrap('prBackToSubprojects',function(){saveState({mode:'projects',page:'detail',projectId:prDB&&prDB.current||null,subprojectId:null,detailTab:'income'})});
+wrap('prDetailTab',function(tab){saveState({mode:'projects',page:'detail',projectId:prDB&&prDB.current||null,subprojectId:prDB&&prDB.currentSubproject||null,detailTab:tab||'summary'})});
+wrap('openContractsApp',function(){saveState({mode:'contracts',page:'contracts'})});
+wrap('closeContractsApp',function(){saveState({mode:'launcher',page:'launcher'})});
+wrap('returnToLauncher',function(){saveState({mode:'launcher',page:'launcher'})});
+
+function restoreNavigation(){
+ const state=readState();if(!state||restoring)return;
+ restoring=true;
+ try{
+  if(state.mode==='projects'&&typeof openProjectsApp==='function'&&typeof prPage==='function'){
+   openProjectsApp();
+   const page=typeof state.page==='string'&&document.getElementById('prPage-'+state.page)?state.page:'workspace';
+   if(state.projectId&&prDB&&Array.isArray(prDB.projects)&&prDB.projects.some(p=>p.id===state.projectId))prDB.current=state.projectId;
+   if(page==='detail'&&!prDB.current)prPage('list');
+   else{
+    prPage(page);
+    if(page==='detail'&&typeof prRenderDetail==='function'){
+     prDB.currentSubproject=state.subprojectId&&prDB.current&&prDB.projects.find(p=>p.id===prDB.current)?.subprojects?.some(x=>x.id===state.subprojectId)?state.subprojectId:null;
+     prRenderDetail('summary');
+     if(state.detailTab&&state.detailTab!=='income'&&typeof prDetailTab==='function')prDetailTab(state.detailTab);
+    }
+   }
+  }else if(state.mode==='accountancy'&&typeof show==='function'&&document.getElementById(state.page)){
+   document.body.classList.add('accountancy-open');
+   show(state.page);
+  }else if(state.mode==='contracts'&&typeof openContractsApp==='function'){
+   openContractsApp();
+  }
+ }catch(e){console.warn('Saved test navigation could not be restored; app remains available from the launcher.',e)}
+ finally{restoring=false}
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(restoreNavigation,0),{once:true});
+else setTimeout(restoreNavigation,0);
+})();
