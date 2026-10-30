@@ -1097,6 +1097,7 @@ body.pr-report-preview-open{overflow:hidden!important;position:relative!importan
 
 <script>
 'use strict';
+const LOCAL_APP_VERSION=document.querySelector('meta[name="app-version"]')?.content||'213';
 const KEY='tha_restore_test_v1_accounting_v1';
 const categories={income:['Work income','Other income'],expense:['Materials - B&Q','Materials - Selco','Materials - Screwfix','Materials - Wickes','Materials - Travis Perkins','Materials - TLC','Materials - Amazon','Materials - Plastic Principality','Tool hire','Other materials','Vehicle - Road tax','Vehicle - Insurance','Vehicle - Fuel','Vehicle - Repairs','Tools & workwear','Advertising','Accountancy','Pension','National Insurance (NIC)','Public liability insurance','Training','Contractor / subcontractor']};
 const $=id=>document.getElementById(id);const money=n=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(Number(n)||0);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
