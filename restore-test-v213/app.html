@@ -2655,26 +2655,10 @@ window.setAppLanguage=function(lang){
  if(st){const msgs={en:'Language preference saved on this device.',fa:'زبان انتخاب‌شده روی این دستگاه ذخیره شد.',ar:'تم حفظ اللغة المحددة على هذا الجهاز.',ckb:'زمانی هەڵبژێردراو لەم ئامێرەدا پاشەکەوت کرا.',kmr:'Hilbijartina zimanê li ser vê amûrê hat tomarkirin.',tr:'Seçilen dil bu cihaza kaydedildi.',pl:'Wybrany język zapisano na tym urządzeniu.'};st.textContent=(APP_LANGS[lang].name||lang)+' — '+msgs[lang]}
 };
 try{applyAppLanguage(currentAppLang())}catch(e){console.warn('Language setup skipped',e)}
-// v205: translate newly-rendered UI elements without observing our own text replacements.
-// Only react to newly inserted ELEMENT nodes. translateStaticUi may replace a container's
-// children with a translated text node; observing those text nodes caused a self-triggering
-// MutationObserver loop and could leave Safari displaying a blank page after reload.
-try {
- const langObserver = new MutationObserver((records) => {
-  const hasNewElements = records.some(r => Array.from(r.addedNodes || []).some(n => n.nodeType === 1));
-  if (!hasNewElements) return;
-  // Disconnect while translating. Restoring original English HTML creates element
-  // nodes; observing those mutations would call translation again indefinitely in Safari.
-  langObserver.disconnect();
-  try {
-   const lang = currentAppLang();
-   if (lang !== 'en') translateStaticUi(lang);
-  } finally {
-   langObserver.observe(document.body, {subtree:true, childList:true});
-  }
- });
- langObserver.observe(document.body, {subtree:true, childList:true});
-} catch(e) { console.warn('Dynamic language observer unavailable', e); }
+// v206: Dynamic translation observer disabled during stability testing.
+// The static UI is translated by applyAppLanguage(). Avoid observing the full body:
+// dynamically rendered components and HTML restoration can create mutation cascades
+// on iOS Safari. This does not touch user data or accounting storage.
 
 // v204: user-entered text must be English (Latin script). This validates only input values,
 // never translates or modifies saved names, invoices, numbers, amounts, or accounting records.
