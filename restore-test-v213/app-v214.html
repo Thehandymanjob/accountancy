@@ -1320,7 +1320,7 @@ async function directOpenReportPDF(node,filename,margin){
   const label=document.getElementById('appInstalledVersion');
   if(label) label.textContent='Installed version: '+installed;
 })();
-</script>
+<\/script>
 
 </body></html>');tab.document.close();
   if(!window.html2pdf){await new Promise((resolve,reject)=>{let sc=document.querySelector('script[data-direct-report-pdf]');if(sc){if(window.html2pdf){resolve();return}sc.addEventListener('load',resolve,{once:true});sc.addEventListener('error',()=>reject(new Error('PDF library failed to load')),{once:true});return}sc=document.createElement('script');sc.dataset.directReportPdf='1';sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';sc.onload=resolve;sc.onerror=()=>reject(new Error('PDF library failed to load'));document.head.appendChild(sc)});}
