@@ -1278,8 +1278,7 @@ async function directOpenReportPDF(node,filename,margin){
  const tab=window.open('about:blank','_blank');
  if(!tab){alert('Safari blocked the PDF tab. Allow pop-ups for this app and try again.');return}
  try{
-  tab.document.open();tab.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Creating PDF…</title></head><body style="font:16px Arial;padding:24px;color:#142b4a">Creating your PDF…
-<script>
+  tab.document.open();tab.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Creating PDF…</title></head><body style="font:16px Arial;padding:24px;color:#142b4a">Creating your PDF…\n<script>
 /* Test-build update controls: isolated to restore-test-v213/app-v214.html */
 (function(){
   const installed = Number(document.querySelector('meta[name="app-version"]')?.content || 214);
