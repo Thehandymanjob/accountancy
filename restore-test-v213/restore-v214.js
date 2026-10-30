@@ -114,7 +114,6 @@ window.restore=async function(event){
   const images=collectImages({data:d,projects:parsed.projects,contracts:parsed.contracts},'backup',[]);
   await verifyImages(images);
   const incomingSummary=summarize(d,parsed.projects,parsed.contracts);
-  if(incomingSummary.imageCount===0)throw Error('No embedded images were found in this complete backup; restore was stopped');
 
   const old=Object.fromEntries(KEYS.map(k=>[k,localStorage.getItem(k)]));
   oldDB=JSON.parse(JSON.stringify(db));
@@ -140,10 +139,10 @@ window.restore=async function(event){
 
   for(const key of KEYS)writeExact(key,next[key]);
   const storedData=JSON.parse(localStorage.getItem(KEY)||'null');
-  const storedProjects=JSON.parse(localStorage.getItem(KEYS[1])||'null');
+  const storedProjectsRaw=localStorage.getItem(KEYS[1]);const storedProjects=storedProjectsRaw===null?null:JSON.parse(storedProjectsRaw);
   const storedContracts=JSON.parse(localStorage.getItem(KEYS[2])||'null');
   if(!storedData||!Array.isArray(storedData.entries)||!Array.isArray(storedData.customers)||!Array.isArray(storedData.invoices)||!storedData.settings||typeof storedData.settings!=='object')throw Error('Accounting verification failed');
-  if(!storedProjects||!Array.isArray(storedProjects.projects)||!Array.isArray(storedProjects.workers)||!storedProjects.profile||typeof storedProjects.profile!=='object')throw Error('Projects/profile verification failed');
+  if(storedProjects===null){if(parsed.projects!==null)throw Error('Projects data is missing after restore')}else if(!Array.isArray(storedProjects.projects)||!Array.isArray(storedProjects.workers)||!storedProjects.profile||typeof storedProjects.profile!=='object'||Array.isArray(storedProjects.profile))throw Error('Projects/profile verification failed');
   if(!Array.isArray(storedContracts))throw Error('Contracts verification failed');
   if(JSON.stringify(storedData)!==JSON.stringify(nextDB)||JSON.stringify(storedProjects)!==JSON.stringify(parsed.projects)||JSON.stringify(storedContracts)!==JSON.stringify(parsed.contracts))throw Error('Restored sections do not exactly match the source backup');
   const verifiedSummary=summarize(storedData,storedProjects,storedContracts);
