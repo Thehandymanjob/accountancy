@@ -10,6 +10,7 @@
     "tha_restore_test_v1_accounting_v1",
     "tha_restore_test_v1_projects_v1",
     "tha_restore_test_v1_contracts_v1",
+    "tha_restore_test_v1_restore_recovery_v1",
     "tha_restore_test_v1_factory_reset_recovery_v1"
   ];
   const STORES = ["legacySnapshots", "customers", "projects", "invoices", "contracts",
