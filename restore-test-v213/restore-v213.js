@@ -216,6 +216,9 @@ function restoreNavigation(){
     }
    }
   }else if(state.mode==='accountancy'&&typeof show==='function'&&document.getElementById(state.page)){
+   // Do not auto-restore transient settings pages on startup. A saved language/settings
+   // page can look like an unexpected redirect and obscure whether the app launcher works.
+   if(['settings','backup','profileGuide','helpHub','userGuide','softwareUpdate','factoryResetPage','languageSettings'].includes(state.page))return;
    document.body.classList.add('accountancy-open');
    show(state.page);
   }else if(state.mode==='contracts'&&typeof openContractsApp==='function'){
