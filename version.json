@@ -1,0 +1,20 @@
+{
+  "app": "The Handyman Accountancy",
+  "version": "205",
+  "buildId": "THA-205-20261030-A",
+  "releaseDate": "2026-10-30",
+  "releaseStatus": "working-build",
+  "databaseSchema": 1,
+  "minimumAppVersion": "205",
+  "files": {
+    "index.html": {
+      "sha256": "5dca9d4ef593f5ce4577094556cfbe32cc8e4b19c34ab77b1bd9598c5c976381"
+    },
+    "storage-foundation.js": {
+      "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
+    },
+    "version-manager.js": {
+      "sha256": "575b15b6f20077677d9abae3c02592b4c9011083cb2b283cba74a0b8dcec8b1b"
+    }
+  }
+}
