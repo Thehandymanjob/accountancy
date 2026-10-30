@@ -33,7 +33,7 @@ h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;color:#526176;margin:8px 0}.
    const box=el=>{if(!el)return false;const c=win.getComputedStyle(el),r=el.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity)>0&&r.width>30&&r.height>25};
    const visible=box(launcher)&&box(brand)&&buttons&&buttons.length>=3&&[...buttons].slice(0,3).every(box);
    const restoreText=typeof win.restore==='function'?Function.prototype.toString.call(win.restore):'';
-   const restoreReady=restoreText.includes('TEST RESTORE SUCCESSFUL')&&restoreText.includes('tha_restore_test_v1_recovery');
+   const restoreReady=restoreText.includes('TEST RESTORE SUCCESSFUL')&&restoreText.includes('IndexedDB pre-restore snapshot')&&restoreText.includes('isolated v217 test app only');
    const expectedKeys=['tha_restore_test_v1_accounting_v1','tha_restore_test_v1_projects_v1','tha_restore_test_v1_contracts_v1','tha_restore_test_v1_restore_recovery_v1','tha_restore_test_v1_factory_reset_recovery_v1'];
    const actualKeys=win.HandymanStorageFoundation&&Array.isArray(win.HandymanStorageFoundation.legacyKeys)?win.HandymanStorageFoundation.legacyKeys:[];
    const foundationReady=expectedKeys.every(k=>actualKeys.includes(k));
@@ -62,7 +62,7 @@ h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;color:#526176;margin:8px 0}.
   else status.textContent='No interrupted restore found. Loading isolated app…';
   const vr=await fetch('./version.json?fresh='+Date.now(),{cache:'no-store'});if(!vr.ok)throw Error('version.json unavailable: '+vr.status);
   const vd=await vr.json();if(vd.version!==217||vd.file!=='app-v217.html')throw Error('Expected v217 manifest; received '+JSON.stringify(vd));
-  frame.src=vd.file+'?build=217&fresh='+Date.now();
+  frame.src=vd.file+'?build=217-e&fresh='+Date.now();
  }catch(e){status.textContent='DATA PROTECTION STOP: '+(e.message||e)+'\nNo accounting or project data was cleared.';gate.classList.remove('good')}
 })();
 </script></body></html>
