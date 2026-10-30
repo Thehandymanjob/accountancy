@@ -1,5 +1,5 @@
-/* The Handyman Accountancy v205 - non-destructive storage foundation
-   This module does NOT replace localStorage and does NOT delete legacy data.
+/* The Handyman Accountancy v217 isolated-test storage foundation
+   This module does NOT replace localStorage and does NOT delete app data.
    It creates an IndexedDB schema and provides explicit snapshot/verification APIs.
 */
 (function () {
@@ -7,10 +7,10 @@
   const DB_NAME = "tha_restore_test_foundation_v1";
   const DB_VERSION = 1;
   const LEGACY_KEYS = [
-    "tha_restore_test_legacy_accounting",
-    "tha_restore_test_legacy_contracts",
-    "tha_restore_test_legacy_projects",
-    "tha_restore_test_legacy_factory_recovery"
+    "tha_restore_test_v1_accounting_v1",
+    "tha_restore_test_v1_projects_v1",
+    "tha_restore_test_v1_contracts_v1",
+    "tha_restore_test_v1_factory_reset_recovery_v1"
   ];
   const STORES = ["legacySnapshots", "customers", "projects", "invoices", "contracts",
                   "accountingEntries", "projectReceipts", "projectExpenses", "auditLog"];
