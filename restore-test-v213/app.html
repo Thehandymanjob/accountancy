@@ -915,6 +915,20 @@ body.pr-report-preview-open{overflow:hidden!important;position:relative!importan
 <style>
 .help-guide-outline{display:grid;gap:9px;margin-top:14px}.help-guide-outline details{border:1px solid #dbe5f1;border-radius:12px;background:#fff;padding:13px 15px}.help-guide-outline summary{font-weight:800;color:#173c69;cursor:pointer;line-height:1.45}.help-guide-outline details p{margin:9px 0 0;color:#657286;line-height:1.6;font-size:14px}
 </style>
+<script>
+(function(){
+ function report(kind,message,source,line,col){
+  try{
+   var box=document.getElementById('thaRuntimeDiagnostic');
+   if(!box){box=document.createElement('div');box.id='thaRuntimeDiagnostic';box.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#fff;color:#8b1e2a;padding:24px;font:15px/1.5 Arial,sans-serif;overflow:auto;direction:ltr;text-align:left';document.body.appendChild(box);}
+   box.innerHTML='<h2>Test app diagnostic</h2><p><b>'+String(kind).replace(/[&<>]/g,'')+'</b></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><p>Diagnostic only. No records have been changed by this message.</p>';
+   box.querySelector('pre').textContent=String(message||'Unknown error')+(source?'\n'+source+':'+line+':'+col:'');
+  }catch(e){}
+ }
+ window.addEventListener('error',function(e){report('JavaScript error',e.message,e.filename,e.lineno,e.colno)});
+ window.addEventListener('unhandledrejection',function(e){var r=e.reason;report('Unhandled promise rejection',r&&r.stack||r&&r.message||r)});
+})();
+</script>
 <script src="storage-foundation.js"></script>
 </head>
 <body><section id="appLauncher" aria-label="Main menu"><div class="launcher-inner"><div class="launcher-brand"><img id="launcherBusinessLogo" class="launcher-logo" alt="Your business logo" hidden><h1 id="launcherName">The Handyman Accountancy</h1><p>Accounting and project management</p></div><div class="launcher-actions"><button class="launcher-action primary" onclick="openAccountancy()"><span class="launch-icon">🧾</span><span><strong>Accountancy</strong><small>Income, expenses, invoices and reports</small></span><span class="launch-arrow">›</span></button><button class="launcher-action" onclick="openProjectsApp()"><span class="launch-icon">💼</span><span><strong>Business Workspace</strong><small>Projects, Company Contracts &amp; Jobs, and Control Panel</small></span><span class="launch-arrow">›</span></button><button class="launcher-action" onclick="openContractsApp()"><span class="launch-icon">📝</span><span><strong>Contract Management</strong><small>Create, edit and manage contracts and quotations</small></span><span class="launch-arrow">›</span></button><button class="launcher-action" onclick="openSettingsHub()"><span class="launch-icon">⚙️</span><span><strong>Settings</strong><small>Backup, restore, profile and logo</small></span><span class="launch-arrow">›</span></button></div><div class="launcher-foot">Your records stay on this device. Keep regular backups.</div></div></section>
