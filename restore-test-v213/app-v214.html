@@ -1274,12 +1274,14 @@ function printReport(){
  directOpenReportPDF(node,'The-Handyman-Financial-Report-'+Date.now()+'.pdf',[8,8,8,8]);
 }
 async function directOpenReportPDF(node,filename,margin){
- // Open a tab synchronously from the button tap, then replace it with the generated PDF.
  const tab=window.open('about:blank','_blank');
- if(!tab){alert('Safari blocked the PDF tab. Allow pop-ups for this app and try again.');return}
+ if(!tab){alert('Safari blocked the PDF tab.');return}
  try{
-  tab.document.open();tab.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Creating PDF…</title></head><body style="font:16px Arial;padding:24px;color:#142b4a">Creating your PDF…</body></html>');
- w.document.open();w.document.write(html);w.document.close();
+  if(typeof window.html2pdf!=='function')throw new Error('PDF library unavailable');
+  const blob=await window.html2pdf().set({margin:margin||[8,8,8,8],filename:filename,image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#fff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(node).outputPdf('blob');
+  if(!blob||blob.size<1000)throw new Error('Invalid PDF');
+  const url=URL.createObjectURL(blob);tab.location.replace(url);
+ }catch(e){try{tab.close()}catch(_){}alert('PDF creation failed: '+(e.message||'unknown error'));}
 }
 
 function openAccountancy(){accountingPageStack=[];currentAccountingPage=null;document.body.classList.remove('accountancy-landing-active','projects-open','contracts-open');document.body.classList.add('accountancy-open');show('accountancyHome')}
