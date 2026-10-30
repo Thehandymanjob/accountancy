@@ -3,7 +3,7 @@
 (function(){
 'use strict';
 const DB_NAME='tha_restore_test_v1_recovery',STORE='restoreJournal';
-const KEYS=[KEY,'tha_restore_test_v1_projects_v1','tha_restore_test_v1_contracts_v1'];
+const KEYS=['tha_restore_test_v1_accounting_v1','tha_restore_test_v1_projects_v1','tha_restore_test_v1_contracts_v1'];
 
 function openDB(){
  return new Promise((resolve,reject)=>{
