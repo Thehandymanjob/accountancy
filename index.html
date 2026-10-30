@@ -1669,49 +1669,49 @@ function prPrintSubReport(){
  let box=document.getElementById('prPrintReportOverlay');
  if(!box){box=document.createElement('div');box.id='prPrintReportOverlay';document.body.appendChild(box)}
  box.innerHTML=`<div class="pr-print-preview-shell">
- <div class="pr-print-toolbar no-print"><strong>\${prUiT("Financial report preview" )}</strong>
+ <div class="pr-print-toolbar no-print"><strong>${prUiT("Financial report preview" )}</strong>
  <div class="pr-print-toolbar-actions">
- <button type="button" onclick="prCloseSubReportPreview()">\${prUiT("Close" )}</button>
- <button type="button" class="pr-print-go" onclick="prRunSubReportPrint()">\${prUiT("Generate PDF" )}</button>
- <button type="button" class="pr-print-share" id="prSharePdfBtn" onclick="prShareSubReportPDF()" disabled>\${prUiT("Share PDF" )}</button>
- <a class="pr-print-open" id="prOpenPdfLink" href="#" target="_blank" rel="noopener" aria-disabled="true" style="pointer-events:none;opacity:.5">\${prUiT("Open PDF preview" )}</a>
- </div><p>\${prUiT("Generate the PDF, then open or share it to save or print." )}</p></div>
- <article class="pr-print-report sfr-report">
+ <button type="button" onclick="prCloseSubReportPreview()">${prUiT("Close" )}</button>
+ <button type="button" class="pr-print-go" onclick="prRunSubReportPrint()">${prUiT("Generate PDF" )}</button>
+ <button type="button" class="pr-print-share" id="prSharePdfBtn" onclick="prShareSubReportPDF()" disabled>${prUiT("Share PDF" )}</button>
+ <a class="pr-print-open" id="prOpenPdfLink" href="#" target="_blank" rel="noopener" aria-disabled="true" style="pointer-events:none;opacity:.5">${prUiT("Open PDF preview" )}</a>
+ </div><p>${prUiT("Generate the PDF, then open or share it to save or print." )}</p></div>
+ <article class="pr-print-report sfr-report" lang="${currentAppLang()}" dir="${["fa","ar","ckb"].includes(currentAppLang())?"rtl":"ltr"}">
   <header class="sfr-header">
-   <div class="sfr-brandline">${logoBlock}<div class="sfr-brandcopy"><div class="sfr-business">${prEscape(businessName)}</div><div class="sfr-tagline">\${prUiT("PROPERTY RENOVATION & MAINTENANCE" )}</div></div></div>
-   <div class="sfr-doclabel"><span>\${prUiT("PROJECT ACCOUNTS" )}</span><strong>\${prUiT("FINANCIAL REPORT" )}</strong><small>\${prUiT("SUB-PROJECT SUMMARY" )}</small></div>
+   <div class="sfr-brandline">${logoBlock}<div class="sfr-brandcopy"><div class="sfr-business">${prEscape(businessName)}</div><div class="sfr-tagline">${prUiT("PROPERTY RENOVATION & MAINTENANCE" )}</div></div></div>
+   <div class="sfr-doclabel"><span>${prUiT("PROJECT ACCOUNTS" )}</span><strong>${prUiT("FINANCIAL REPORT" )}</strong><small>${prUiT("SUB-PROJECT SUMMARY" )}</small></div>
   </header>
   <section class="sfr-project">
-   <div><span class="sfr-eyebrow">\${prUiT("SUB-PROJECT" )}</span><h2>${prEscape(sub.name||'Unnamed sub-project')}</h2></div>
-   <div class="sfr-date"><span>\${prUiT("REPORT DATE" )}</span><strong>${new Date().toLocaleDateString('en-GB')}</strong></div>
+   <div><span class="sfr-eyebrow">${prUiT("SUB-PROJECT" )}</span><h2>${prEscape(sub.name||'Unnamed sub-project')}</h2></div>
+   <div class="sfr-date"><span>${prUiT("REPORT DATE" )}</span><strong>${new Date().toLocaleDateString('en-GB')}</strong></div>
   </section>
   <section class="sfr-kpis">
-   <div class="sfr-kpi sfr-kpi-primary"><span>\${prUiT("Total received" )}</span><strong>${prMoney(income)}</strong><small>\${prUiT("Recorded receipts" )}</small></div>
-   <div class="sfr-kpi"><span>\${prUiT("Total costs" )}</span><strong>${prMoney(costs)}</strong><small>\${prUiT("Recorded costs" )}</small></div>
-   <div class="sfr-kpi"><span>\${prUiT("Agreed price" )}</span><strong>${prMoney(agreed)}</strong><small>\${prUiT("Contract value" )}</small></div>
-   <div class="sfr-kpi"><span>\${prUiT("Outstanding" )}</span><strong>${prMoney(outstanding)}</strong><small>\${prUiT("Agreed price less receipts" )}</small></div>
+   <div class="sfr-kpi sfr-kpi-primary"><span>${prUiT("Total received" )}</span><strong>${prMoney(income)}</strong><small>${prUiT("Recorded receipts" )}</small></div>
+   <div class="sfr-kpi"><span>${prUiT("Total costs" )}</span><strong>${prMoney(costs)}</strong><small>${prUiT("Recorded costs" )}</small></div>
+   <div class="sfr-kpi"><span>${prUiT("Agreed price" )}</span><strong>${prMoney(agreed)}</strong><small>${prUiT("Contract value" )}</small></div>
+   <div class="sfr-kpi"><span>${prUiT("Outstanding" )}</span><strong>${prMoney(outstanding)}</strong><small>${prUiT("Agreed price less receipts" )}</small></div>
   </section>
   <section class="sfr-result">
-   <div><span>\${prUiT("RECORDED RESULT" )}</span><strong>${prMoney(income-costs)}</strong></div>
-   <p>\${prUiT("Recorded income less recorded costs" )}</p>
+   <div><span>${prUiT("RECORDED RESULT" )}</span><strong>${prMoney(income-costs)}</strong></div>
+   <p>${prUiT("Recorded income less recorded costs" )}</p>
   </section>
   <section class="sfr-breakdown">
-   <h3>\${prUiT("Financial breakdown" )}</h3>
-   <table><thead><tr><th>\${prUiT("Description" )}</th><th>\${prUiT("Amount" )}</th></tr></thead><tbody>
-    <tr><td>\${prUiT("Total receipts recorded" )}</td><td>${prMoney(income)}</td></tr>
-    <tr><td>\${prUiT("Total costs recorded" )}</td><td>${prMoney(costs)}</td></tr>
-    <tr class="sfr-net"><td>\${prUiT("Net recorded result" )}</td><td>${prMoney(income-costs)}</td></tr>
-    <tr><td>\${prUiT("Agreed price" )}</td><td>${prMoney(agreed)}</td></tr>
-    <tr><td>\${prUiT("Outstanding agreed price" )}</td><td>${prMoney(outstanding)}</td></tr>
+   <h3>${prUiT("Financial breakdown" )}</h3>
+   <table><thead><tr><th>${prUiT("Description" )}</th><th>${prUiT("Amount" )}</th></tr></thead><tbody>
+    <tr><td>${prUiT("Total receipts recorded" )}</td><td>${prMoney(income)}</td></tr>
+    <tr><td>${prUiT("Total costs recorded" )}</td><td>${prMoney(costs)}</td></tr>
+    <tr class="sfr-net"><td>${prUiT("Net recorded result" )}</td><td>${prMoney(income-costs)}</td></tr>
+    <tr><td>${prUiT("Agreed price" )}</td><td>${prMoney(agreed)}</td></tr>
+    <tr><td>${prUiT("Outstanding agreed price" )}</td><td>${prMoney(outstanding)}</td></tr>
    </tbody></table>
   </section>
-  <footer class="sfr-footer"><div><strong>${prEscape(businessName)}</strong>${contact?`<span>${contact}</span>`:''}</div><p>\${prUiT("This report reflects recorded receipts and costs only. Figures are before tax and exclude unrecorded items." )}</p><small>\${prUiT("Generated by The Handyman Accountancy" )}</small></footer>
+  <footer class="sfr-footer"><div><strong>${prEscape(businessName)}</strong>${contact?`<span>${contact}</span>`:''}</div><p>${prUiT("This report reflects recorded receipts and costs only. Figures are before tax and exclude unrecorded items." )}</p><small>${prUiT("Generated by The Handyman Accountancy" )}</small></footer>
  </article></div>`;
  box.style.display='block';
  document.body.classList.add('pr-report-preview-open');document.body.style.overflow='hidden';
  box.setAttribute('role','dialog');
  box.setAttribute('aria-modal','true');
- box.setAttribute('aria-label','Sub-project financial report preview');
+ box.setAttribute('aria-label',prUiT('Financial report preview'));
  box.scrollTop=0;
  const pdfNode=box.querySelector('.sfr-report');if(pdfNode){const pdfJob=directOpenReportPDF(pdfNode,(String(sub.name||'Sub-project').replace(/[^a-zA-Z0-9-_ ]/g,'').trim().replace(/\s+/g,'_')||'Sub-project')+'_Financial_Report.pdf',[8,8,8,8]);prCloseSubReportPreview();}
 }
