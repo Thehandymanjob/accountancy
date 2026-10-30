@@ -62,7 +62,7 @@ h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;color:#526176;margin:8px 0}.
   else status.textContent='No interrupted restore found. Loading isolated app…';
   const vr=await fetch('./version.json?fresh='+Date.now(),{cache:'no-store'});if(!vr.ok)throw Error('version.json unavailable: '+vr.status);
   const vd=await vr.json();if(vd.version!==217||vd.file!=='app-v217.html')throw Error('Expected v217 manifest; received '+JSON.stringify(vd));
-  frame.src=vd.file+'?build=217-e&fresh='+Date.now();
+  frame.src=vd.file+'?build=217-f&fresh='+Date.now();
  }catch(e){status.textContent='DATA PROTECTION STOP: '+(e.message||e)+'\nNo accounting or project data was cleared.';gate.classList.remove('good')}
 })();
 </script></body></html>
