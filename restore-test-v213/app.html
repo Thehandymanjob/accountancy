@@ -2663,8 +2663,15 @@ try {
  const langObserver = new MutationObserver((records) => {
   const hasNewElements = records.some(r => Array.from(r.addedNodes || []).some(n => n.nodeType === 1));
   if (!hasNewElements) return;
-  const lang = currentAppLang();
-  if (lang !== 'en') translateStaticUi(lang);
+  // Disconnect while translating. Restoring original English HTML creates element
+  // nodes; observing those mutations would call translation again indefinitely in Safari.
+  langObserver.disconnect();
+  try {
+   const lang = currentAppLang();
+   if (lang !== 'en') translateStaticUi(lang);
+  } finally {
+   langObserver.observe(document.body, {subtree:true, childList:true});
+  }
  });
  langObserver.observe(document.body, {subtree:true, childList:true});
 } catch(e) { console.warn('Dynamic language observer unavailable', e); }
