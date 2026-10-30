@@ -1,4 +1,4 @@
-/* v213 isolated crash-safe restore override.
+/* v217 isolated crash-safe restore override.
    All keys are test-prefixed. Never reads or writes production storage keys. */
 (function(){
 'use strict';
@@ -153,7 +153,7 @@ window.restore=async function(event){
   journal.phase='committed';journal.committedAt=new Date().toISOString();await putJournal(journal);
   db=nextDB;if(storedProjects===null){prDB={projects:[],workers:[],partners:[],contractors:[],companies:[],companyJobs:[],profile:{},current:null,guide:'en'};projectsDataIntegrityError=false;}storageAvailable=true;accountingDataIntegrityError=false;refreshApp();
   await clearJournal();
-  alert('TEST RESTORE SUCCESSFUL. All included accounting, customer, invoice, project, worker, contractor, contract, profile/logo and embedded image data (when present) were compared with the source backup. IndexedDB pre-restore snapshot and restored data were verified.\n\n'+summaryText+'\n\nThis was the isolated v213 test app only.');
+  alert('TEST RESTORE SUCCESSFUL. All included accounting, customer, invoice, project, worker, contractor, contract, profile/logo and embedded image data (when present) were compared with the source backup. IndexedDB pre-restore snapshot and restored data were verified.\n\n'+summaryText+'\n\nThis was the isolated v217 test app only.');
  }catch(error){
   if(journalReady){
    try{
@@ -173,7 +173,7 @@ window.restore=async function(event){
 };
 })();
 
-/* v213 isolated navigation persistence.
+/* v217 isolated navigation persistence.
    Remembers only the last visible app section in a test-prefixed key.
    Does not read, modify, or migrate accounting/project/contract records. */
 (function(){
