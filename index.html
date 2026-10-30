@@ -2864,6 +2864,12 @@ Object.assign(APP_UI_STRINGS,{
 "Could not save report data in this browser. Download a backup and check Safari storage.":{fa:"ذخیرهٔ داده‌های گزارش در این مرورگر ممکن نشد. یک نسخهٔ پشتیبان دانلود کنید و فضای ذخیره‌سازی Safari را بررسی کنید.",ar:"تعذر حفظ بيانات التقرير في هذا المتصفح. نزّل نسخة احتياطية وتحقق من مساحة تخزين Safari.",ckb:"پاشەکەوتکردنی داتای ڕاپۆرت لەم وێبگەڕە نەکرا. پاڵپشتییەک دابەزێنە و بیرگەی Safari بپشکنە.",kmr:"Tomarkirina daneyên raporê di vê gerokê de nehat kirin. Cîranekê daxîne û depoya Safari kontrol bike.",tr:"Rapor verileri bu tarayıcıya kaydedilemedi. Bir yedek indirin ve Safari depolama alanını kontrol edin.",pl:"Nie udało się zapisać danych raportu w tej przeglądarce. Pobierz kopię zapasową i sprawdź pamięć Safari."},
 "Enter report status:\\n":{fa:"وضعیت گزارش را وارد کنید:\\n",ar:"أدخل حالة التقرير:\\n",ckb:"دۆخی ڕاپۆرت بنووسە:\\n",kmr:"Rewşa raporê binivîse:\\n",tr:"Rapor durumunu girin:\\n",pl:"Wpisz status raportu:\\n"}
 });
+
+Object.assign(APP_UI_STRINGS,{
+"PDF creation failed: ":{fa:"ساخت PDF ناموفق بود: ",ar:"فشل إنشاء PDF: ",ckb:"دروستکردنی PDF سەرکەوتوو نەبوو: ",kmr:"Afirandina PDF bi ser neket: ",tr:"PDF oluşturulamadı: ",pl:"Nie udało się utworzyć PDF: "},
+"Could not create the contract PDF. ":{fa:"ایجاد PDF قرارداد ممکن نشد. ",ar:"تعذر إنشاء ملف PDF للعقد. ",ckb:"دروستکردنی PDF ـی گرێبەست نەکرا. ",kmr:"Afirandina PDF ya peymanê nehat kirin. ",tr:"Sözleşme PDF'si oluşturulamadı. ",pl:"Nie udało się utworzyć PDF umowy. "},
+"Could not safely save this contract. The app attempted to preserve the previous contract list. Do not clear browser data. Details: ":{fa:"ذخیرهٔ ایمن این قرارداد ممکن نشد. برنامه تلاش کرد فهرست قبلی قراردادها را حفظ کند. داده‌های مرورگر را پاک نکنید. جزئیات: ",ar:"تعذر حفظ هذا العقد بأمان. حاول التطبيق الحفاظ على قائمة العقود السابقة. لا تمسح بيانات المتصفح. التفاصيل: ",ckb:"پاشەکەوتکردنی پارێزراوی ئەم گرێبەستە نەکرا. ئەپەکە هەوڵی پاراستنی لیستی پێشووی گرێبەستەکانی دا. داتای وێبگەڕ مەسڕەوە. وردەکاری: ",kmr:"Tomarkirina ewle ya vê peymanê nehat kirin. Sepanê hewl da ku lîsteya peymanên berê biparêze. Daneyên gerokê jêneke. Hûrgulî: ",tr:"Bu sözleşme güvenli şekilde kaydedilemedi. Uygulama önceki sözleşme listesini korumaya çalıştı. Tarayıcı verilerini temizlemeyin. Ayrıntılar: ",pl:"Nie udało się bezpiecznie zapisać tej umowy. Aplikacja próbowała zachować poprzednią listę umów. Nie czyść danych przeglądarki. Szczegóły: "}
+});
 const APP_UI_ORIGINAL_TEXT=new WeakMap(),APP_UI_ORIGINAL_ATTR=new WeakMap();
 function translateStaticUi(lang){
  if(!lang)return;
@@ -2893,8 +2899,10 @@ const APP_NATIVE_ALERT=window.alert.bind(window);
 const APP_NATIVE_CONFIRM=window.confirm.bind(window);
 window.alert=function(message){
  const lang=currentAppLang();
- const entry=APP_UI_STRINGS[String(message)];
- const translated=lang!=='en'&&entry&&entry[lang]?entry[lang]:String(message);
+ const raw=String(message);
+ const entry=APP_UI_STRINGS[raw]||Object.keys(APP_UI_STRINGS).filter(k=>raw.startsWith(k)&&k.endsWith(": ")).sort((a,b)=>b.length-a.length).map(k=>({key:k,value:APP_UI_STRINGS[k]}))[0]?.value;
+ const key=APP_UI_STRINGS[raw]?raw:(entry?Object.keys(APP_UI_STRINGS).filter(k=>raw.startsWith(k)&&k.endsWith(": ")).sort((a,b)=>b.length-a.length)[0]:null);
+ const translated=lang!=='en'&&entry&&entry[lang]?(key===raw?entry[lang]:entry[lang]+raw.slice(key.length)):raw;
  return APP_NATIVE_ALERT(translated);
 };
 window.confirm=function(message){
