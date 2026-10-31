@@ -116,6 +116,15 @@
     }
   }
 
+  function sharedRecordHighWater(accounting, storedSequence) {
+    const values = [142, 134, Number(storedSequence) || 0];
+    for (const invoice of accounting.invoices) values.push(Number(invoice && invoice.number) || 0);
+    for (const entry of accounting.entries) {
+      if (entry && entry.type === 'income') values.push(Number(entry.number) || 0);
+    }
+    return Math.max(...values);
+  }
+
   function recordCount(name, value) {
     if (name === 'accounting') return {
       entries: value.entries.length, customers: value.customers.length,
@@ -269,7 +278,7 @@
         const value = payload.data[name];
         if (name === 'invoiceSequence') {
           const current = Number(previous.invoiceSequence) || 0;
-          writeStored(storage, name, Math.max(current, value));
+          writeStored(storage, name, sharedRecordHighWater(payload.data.accounting, Math.max(current, value)));
         } else {
           writeStored(storage, name, value);
         }
@@ -284,7 +293,7 @@
         const raw = storage.getItem(KEYS[name]);
         const actual = raw === null ? null : readStored(storage, name).value;
         const expected = name === 'invoiceSequence'
-          ? Math.max(Number(previous.invoiceSequence) || 0, payload.data.invoiceSequence)
+          ? sharedRecordHighWater(payload.data.accounting, Math.max(Number(previous.invoiceSequence) || 0, payload.data.invoiceSequence))
           : payload.data[name];
         if (canonical(actual) !== canonical(expected)) {
           throw new Error('Post-restore verification failed: ' + name);
