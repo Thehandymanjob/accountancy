@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Backup v7 Main Module Integration Test</title>
+<style>body{font:17px/1.5 system-ui;margin:24px;max-width:850px;color:#222}button{font:700 18px system-ui;padding:14px 20px;border:0;border-radius:12px;background:#e5e5e5;margin:12px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f1f3;border-radius:14px;padding:18px;font:16px ui-monospace,monospace}.notice{background:#fff2d9;padding:16px;border-radius:12px}</style></head><body>
+<h1>Backup v7 — Main Module Integration Tests</h1>
+<p class="notice"><b>Isolated synthetic test.</b> Loads the actual backup-v7.js and its matching adapter. Uses only in-memory mock storage and generated Accounting records. It does not access browser LocalStorage, Projects, Company, Contracts, production data, or index.html.</p>
+<button id="run">Run main-module integration tests</button><pre id="out">Ready.</pre>
+<script src="./backup-v7.js"></script><script src="./backup-v7-main-adapter.js"></script><script>
+(function(){
+'use strict';
+const out=document.getElementById('out'),api=window.HandymanBackupV7,adapter=window.HandymanBackupV7Adapter,K=api.storageKeys;
+class MemoryStorage{
+ constructor(seed){this.map=new Map(Object.entries(seed||{}));this.failKey=null;this.failOnce=false}
+ getItem(k){return this.map.has(k)?this.map.get(k):null}
+ setItem(k,v){if(this.failOnce&&k===this.failKey){this.failOnce=false;throw Error('Synthetic write failure')}this.map.set(k,String(v))}
+ removeItem(k){this.map.delete(k)}
+}
+function db(label,num){return{entries:[{id:'e-'+label,type:'income',number:num,amount:125}],customers:[{id:'c-'+label,name:'Synthetic '+label}],invoices:[{id:'i-'+label,number:num}],customExpenseCategories:['Synthetic category'],settings:{businessName:'Synthetic '+label,ownerName:'Test'}}}
+async function run(){
+ const lines=[];let passed=0;
+ const test=async(label,fn)=>{try{await fn();lines.push('PASS  '+label);passed++}catch(e){lines.push('FAIL  '+label+' — '+e.message)}};
+ await test('Actual main module builds and validates Accounting-only backup',async()=>{
+  const s=new MemoryStorage({[K.accounting]:JSON.stringify(db('source',246)),[K.invoiceSequence]:'200',[K.reportSettings]:JSON.stringify({period:'year'})});
+  const b=await api.buildBackup(s,'synthetic');
+  if(b.payload.data.invoiceSequence!==246)throw Error('sequence did not include actual record number');
+  await api.validateBackup(b.payload);
+ });
+ await test('Adapter restores and refreshes in-memory Accounting state',async()=>{
+  const source=new MemoryStorage({[K.accounting]:JSON.stringify(db('imported',246)),[K.invoiceSequence]:'246'});
+  const b=await api.buildBackup(source,'synthetic');
+  const target=new MemoryStorage({[K.accounting]:JSON.stringify(db('old',190)),[K.invoiceSequence]:'190'});
+  let memory='',refreshes=0;
+  const bridge={reloadAccounting(){memory=JSON.parse(target.getItem(K.accounting)).settings.businessName;return true},refreshAccountingViews(){refreshes++;return true}};
+  const r=await adapter.restoreAndRefresh(b.payload,target,()=>true,bridge);
+  if(!r.appRefreshed||memory!=='Synthetic imported'||refreshes!==1)throw Error('in-memory state did not refresh');
+ });
+ await test('Restore never lowers the existing shared invoice sequence',async()=>{
+  const source=new MemoryStorage({[K.accounting]:JSON.stringify(db('imported',155)),[K.invoiceSequence]:'155'});
+  const b=await api.buildBackup(source,'synthetic');
+  const target=new MemoryStorage({[K.accounting]:JSON.stringify(db('old',190)),[K.invoiceSequence]:'300'});
+  const r=await api.restoreBackup(b.payload,target,()=>true);
+  if(r.invoiceSequence!==300||target.getItem(K.invoiceSequence)!=='300')throw Error('higher sequence was reduced');
+ });
+ await test('Cancelled restore changes no storage',async()=>{
+  const s=new MemoryStorage({[K.accounting]:JSON.stringify(db('old',180)),[K.invoiceSequence]:'190'});
+  const before=JSON.stringify([...s.map.entries()]);
+  const b=await api.buildBackup(s,'synthetic');
+  const r=await api.restoreBackup(b.payload,s,()=>false);
+  if(r.restored!==false||before!==JSON.stringify([...s.map.entries()]))throw Error('cancel changed storage');
+ });
+ await test('Failed app refresh rolls storage back and reloads original state',async()=>{
+  const source=new MemoryStorage({[K.accounting]:JSON.stringify(db('imported',250)),[K.invoiceSequence]:'250'});
+  const b=await api.buildBackup(source,'synthetic');
+  const target=new MemoryStorage({[K.accounting]:JSON.stringify(db('original',220)),[K.invoiceSequence]:'220'});
+  const original=target.getItem(K.accounting);let loads=0;
+  const bridge={reloadAccounting(){loads++;return true},refreshAccountingViews(){if(loads===1)throw Error('synthetic view failure');return true}};
+  let failed=false;try{await adapter.restoreAndRefresh(b.payload,target,()=>true,bridge)}catch(e){failed=String(e.message).includes('previous Accounting data and views were restored')}
+  if(!failed||target.getItem(K.accounting)!==original||loads!==2||target.getItem('tha_v212_migration_restore_recovery_v1')!==null)throw Error('rollback/reload verification failed');
+ });
+ await test('Tampered Accounting payload is rejected',async()=>{
+  const s=new MemoryStorage({[K.accounting]:JSON.stringify(db('source',246)),[K.invoiceSequence]:'246'});
+  const b=await api.buildBackup(s,'synthetic');b.payload.data.accounting.entries[0].amount=999;
+  let rejected=false;try{await api.validateBackup(b.payload)}catch(_){rejected=true}
+  if(!rejected)throw Error('tampering was accepted');
+ });
+ await test('Optional report settings are restored without touching unrelated keys',async()=>{
+  const source=new MemoryStorage({[K.accounting]:JSON.stringify(db('source',246)),[K.invoiceSequence]:'246',[K.reportSettings]:JSON.stringify({period:'year'})});
+  const b=await api.buildBackup(source,'synthetic');
+  const unrelated='synthetic-unrelated-key';
+  const target=new MemoryStorage({[K.accounting]:JSON.stringify(db('old',190)),[K.invoiceSequence]:'190',[unrelated]:'leave-me'});
+  await api.restoreBackup(b.payload,target,()=>true);
+  if(JSON.parse(target.getItem(K.reportSettings)).period!=='year'||target.getItem(unrelated)!=='leave-me')throw Error('optional setting or unrelated key mismatch');
+ });
+ out.textContent=lines.join('\n')+'\n\n'+passed+'/7 tests passed. Actual backup-v7.js + matching adapter. In-memory synthetic storage only.';
+}
+document.getElementById('run').addEventListener('click',()=>run().catch(e=>out.textContent='RUN FAILED: '+e.message));
+})();
+</script></body></html>
