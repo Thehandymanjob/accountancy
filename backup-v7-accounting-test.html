@@ -3,8 +3,8 @@
 <style>body{font:16px/1.5 system-ui,sans-serif;max-width:760px;margin:28px auto;padding:0 18px;color:#222}.notice{background:#fff2d9;padding:18px;border-radius:16px;margin:24px 0}button{padding:14px 20px;border:0;border-radius:12px;background:#e7e7e7;color:#2463d8;font-weight:700;font-size:17px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f1f3;padding:18px;border-radius:16px;font:15px/1.6 ui-monospace,monospace}</style></head>
 <body><h1>Accounting Backup v7 — Isolated synthetic tests</h1>
 <div class="notice"><b>Safety boundary.</b> In-memory mock only. No browser LocalStorage, app data, Projects, Company, Contracts, or production files are read or changed.</div>
-<button id="run">Run six safety tests</button><pre id="out">Ready.</pre>
-<script src="./backup-v7-accounting.js?v=2ddfdb5e217b"></script>
+<button id="run">Run seven compatibility tests</button><pre id="out">Ready.</pre>
+<script src="./backup-v7-accounting.js?v=compat-floor-142"></script>
 <script>
 (function(){
 'use strict';
@@ -30,6 +30,11 @@ async function run(){
   const s=new MockStorage({[K.accounting]:JSON.stringify(account([{id:'i1',number:246}])),[K.invoiceSequence]:'180'});
   const b=await api.buildBackup(s,'test');
   if(b.payload.data.invoiceSequence!==246)throw Error('expected 246, got '+b.payload.data.invoiceSequence);
+ });
+ await test('Backup matches app minimum shared record sequence of 142',async()=>{
+  const s=new MockStorage({[K.accounting]:JSON.stringify(account([])),[K.invoiceSequence]:'0'});
+  const b=await api.buildBackup(s,'test');
+  if(b.payload.data.invoiceSequence!==142)throw Error('expected app baseline 142, got '+b.payload.data.invoiceSequence);
  });
  await test('Restore never lowers current sequence or current record-number high-water mark',async()=>{
   const s=new MockStorage({[K.accounting]:JSON.stringify(account([{id:'old',number:305}])),[K.invoiceSequence]:'200'});
