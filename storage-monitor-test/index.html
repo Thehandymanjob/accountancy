@@ -27,7 +27,7 @@ iframe{width:100%;height:72vh;border:1px solid #dbe3ed;border-radius:12px;backgr
 <div class="track"><div id="bar" class="bar"></div></div>
 <div id="quota" class="muted"></div>
 <div id="details"></div>
-<p class="muted" id="local"></p>
+<p class="muted" id="local"></p><div id="keyInventory" class="muted"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
 <button id="refresh" type="button">Refresh measurements</button>
 <button id="openApp" class="secondary" type="button">Open app below</button>
@@ -47,9 +47,10 @@ iframe{width:100%;height:72vh;border:1px solid #dbe3ed;border-radius:12px;backgr
 <script>
 const $=id=>document.getElementById(id);
 const fmt=n=>{if(!Number.isFinite(n))return'Not available';const u=['B','KB','MB','GB','TB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return(n>=100?n.toFixed(0):n>=10?n.toFixed(1):n.toFixed(2))+' '+u[i]};
-function measureLocal(){let bytes=0,keys=0;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i),v=localStorage.getItem(k)||'';bytes+=new Blob([k||'',v]).size;keys++}return{ok:true,bytes,keys}}catch(e){return{ok:false,error:e.message||String(e)}}}
+function measureLocal(){let bytes=0,keys=0,items=[];try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i),v=localStorage.getItem(k)||'',b=new Blob([k||'',v]).size;bytes+=b;keys++;items.push({key:k,bytes:b})}items.sort((a,b)=>b.bytes-a.bytes);return{ok:true,bytes,keys,items}}catch(e){return{ok:false,error:e.message||String(e)}}}
 async function refresh(){ $('status').textContent='Measuring…';$('details').textContent='';$('dbs').textContent='Checking…';
  const ls=measureLocal();$('local').textContent=ls.ok?'Local Storage measured key/value bytes: '+fmt(ls.bytes)+' across '+ls.keys+' keys.':'Local Storage measurement failed: '+ls.error;
+ $('keyInventory').innerHTML=ls.ok?'<h3>Local Storage inventory (names and sizes only)</h3>'+ls.items.map(x=>'<div class="stat"><span>'+String(x.key).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]))+'</span><strong>'+fmt(x.bytes)+'</strong></div>').join(''):'';
  let est=null;if(navigator.storage&&navigator.storage.estimate){try{est=await navigator.storage.estimate()}catch(e){}}
  const used=est&&Number.isFinite(est.usage)?est.usage:null,quota=est&&Number.isFinite(est.quota)?est.quota:null,pct=used!==null&&quota>0?used/quota*100:null;
  $('status').textContent=pct===null?'Browser quota estimate is not exposed in this Safari context.':'Estimated website-origin usage: '+pct.toFixed(1)+'%';
