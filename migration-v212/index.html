@@ -2756,4 +2756,46 @@ function prV220Toggle(projectId,ledgerId,arr,rowId,on){
 function prV220Box(projectId,ledgerId,arr,r){return '<label style="white-space:nowrap"><input type="checkbox" '+(prV220IsOn(r)?'checked':'')+' onchange="prV220Toggle(\''+prEscape(projectId)+'\',\''+prEscape(ledgerId)+'\',\''+arr+'\',\''+prEscape(r.id)+'\',this.checked)"> Send to Accounting</label>';}
 function coV220Toggle(jobId,paymentId,on){const j=(prDB.companyJobs||[]).find(x=>String(x.id)===String(jobId));const p=(j?.payments||[]).find(x=>String(x.id)===String(paymentId));if(!p||!Array.isArray(db.entries))return;let e=db.entries.find(x=>x.companyPaymentOrigin==='company-v220'&&String(x.companyJobId)===String(jobId)&&String(x.companyPaymentId)===String(paymentId));if(on&&!e){const legacy=db.entries.find(x=>String(x.id)===String(p.accountingEntryId));if(legacy){e=legacy;e.companyPaymentOrigin='company-v220';e.companyJobId=String(jobId);e.companyPaymentId=String(paymentId);}else{e={id:'company-v220-'+jobId+'-'+paymentId,type:'income',date:p.date||'',amount:Math.round((Number(p.net)||0)*100)/100,method:'other',category:'Company contract payment',reference:String(p.reference||j.name||''),notes:String(p.notes||''),createdAt:new Date().toISOString(),companyPaymentOrigin:'company-v220',companyJobId:String(jobId),companyPaymentId:String(paymentId)};db.entries.push(e);}if(!persist()){alert('Accounting transfer failed.');return;}p.accountingEntryId=e.id;}else if(!on&&e){const old=db.entries.slice();db.entries=db.entries.filter(x=>x!==e);if(!persist()){db.entries=old;return;}p.accountingEntryId=null;}if(!prPersist())alert('Could not save payment transfer status.');coRenderPaymentHistory();if(typeof refreshAll==='function')refreshAll();}
 </script>
+<script>
+
+/* v221 final overrides — keep all three financial areas isolated. */
+function prProjectRecordIsTransferred(){return false}
+function prReconcileProjectTransfers(){return false}
+function prTransferProjectRecord(){return false}
+function prRevertProjectRecord(){return false}
+function prV220IsOn(){return false}
+function prV220Toggle(){return false}
+function prV220Box(){return ''}
+function coV220Toggle(){return false}
+function prProjectSyncRows(){return {rows:[],thirdPartyRows:[]}}
+function prSyncOneProjectFinancials(){return true}
+function prSyncAllProjectFinancials(){return true}
+function prSyncCompletedProjects(){return true}
+function prRemoveProjectSync(){return true}
+function coRenderPaymentHistory(){
+ const j=prDB.companyJobs.find(x=>x.id===$('coPaymentArea').dataset.jobId);if(!j)return;
+ const root=$('coPaymentHistory');
+ root.innerHTML='<h3>Payment history</h3>'+((j.payments||[]).length?
+ '<div class="co-table-wrap"><table><thead><tr><th>Date</th><th>Gross</th><th>Deduction</th><th>Net received</th><th>Tax / VAT treatment</th><th>Attachment</th></tr></thead><tbody>'+
+ j.payments.map(p=>'<tr><td>'+coEsc(p.date)+'</td><td>'+coMoney(p.gross)+'</td><td>'+coMoney(p.deduction)+' ('+coEsc(p.deductionType)+')</td><td>'+coMoney(p.net)+'</td><td>'+coEsc(p.taxTreatment||'review')+'</td><td>'+(p.file?'<button onclick="coOpenAttachment(\'payment\',\''+j.id+'\',\''+p.id+'\')">📎</button>':'—')+'</td></tr>').join('')+
+ '</tbody></table></div>':'<p>No payments recorded.</p>');
+}
+/* Remove only cross-module reference metadata. Preserve every financial record and amount. */
+try{
+ const cleanKeys=['accountingTransferId','accountingTransferStatus','accountingTransferredAt','accountingEntryId'];
+ let pChanged=false,cChanged=false,aChanged=false;
+ const cleanRows=rows=>{for(const row of rows||[])if(row&&typeof row==='object')for(const k of cleanKeys)if(k in row){delete row[k];pChanged=true}};
+ for(const p of prDB.projects||[]){cleanRows(p.income);for(const k of ['expenses','wages','tools','food','materials','contractors'])cleanRows(p[k]);for(const sub of p.subprojects||[]){cleanRows(sub.income);for(const k of ['expenses','wages','tools','food','materials','contractors'])cleanRows(sub[k]);}}
+ for(const j of prDB.companyJobs||[])for(const payment of j.payments||[])if('accountingEntryId' in payment){delete payment.accountingEntryId;cChanged=true}
+ if(typeof db!=='undefined'&&Array.isArray(db.entries)){
+  const meta=['projectOrigin','projectId','projectLedgerId','projectTransactionId','projectTransferredAt','projectSync','projectSyncProjectId','projectSyncKey','companyPaymentOrigin','companyJobId','companyPaymentId'];
+  for(const e of db.entries)for(const k of meta)if(k in e){delete e[k];aChanged=true}
+  for(const t of db.thirdPartyTransactions||[])for(const k of ['projectSync','projectSyncProjectId'])if(k in t){delete t[k];aChanged=true}
+ }
+ if(pChanged&&!prPersist())console.warn('Legacy project link metadata could not be cleared; project records remain intact.');
+ if(cChanged&&!prPersist())console.warn('Legacy company link metadata could not be cleared; company records remain intact.');
+ if(aChanged&&!persist())console.warn('Legacy accounting link metadata could not be cleared; accounting records remain intact.');
+}catch(e){console.warn('Independent-ledger migration did not complete fully; no financial records were intentionally deleted.',e)}
+
+</script>
 </body></html>
