@@ -23,3 +23,26 @@ $('backupFile').addEventListener('change',e=>importFile(e.target.files&&e.target
 $('verifyButton').addEventListener('click',()=>verify().catch(e=>status('VERIFY FAILED: '+e.message,'error')));
 status('Ready. Separate test database only; the live app storage is untouched.');
 })();
+/* Read-only compatibility inspection against v212's actual restore/load contracts. */
+async function readStoredRecord(){const db=await openDB();try{return await new Promise((ok,no)=>{const t=db.transaction([STORE],'readonly'),r=t.objectStore(STORE).get(ID);r.onsuccess=()=>ok(r.result||null);r.onerror=()=>no(r.error)})}finally{db.close()}}
+function compatibility(x){
+ const issues=[],notes=[],d=x.data,p=x.projects;
+ const accountingKeys=['entries','customers','invoices','customExpenseCategories','settings','thirdPartyTransactions'];
+ const accounting={};for(const k of accountingKeys){accounting[k]={present:Object.prototype.hasOwnProperty.call(d,k),type:Array.isArray(d[k])?'array':d[k]===null?'null':typeof d[k],count:Array.isArray(d[k])?d[k].length:null}}
+ if(!Array.isArray(d.entries)||!Array.isArray(d.customers)||!Array.isArray(d.invoices)||!d.settings||typeof d.settings!=='object'||Array.isArray(d.settings))issues.push('Accounting payload fails v212 restore requirements');
+ const pSummary={rootKeys:Object.keys(p),collections:{},profileKeys:Object.keys(p.profile||{}),images:{logoBytes:0,projectPhotoBytes:0,subprojectPhotoBytes:0},legacyMaterialRows:0,subprojects:0};
+ for(const k of ['projects','workers','partners','contractors','companies','companyJobs']){pSummary.collections[k]={present:Object.prototype.hasOwnProperty.call(p,k),isArray:Array.isArray(p[k]),count:Array.isArray(p[k])?p[k].length:null};if(['projects','workers'].includes(k)&&!Array.isArray(p[k]))issues.push('Projects.'+k+' must be an array for v212')}
+ if(!p.profile||typeof p.profile!=='object'||Array.isArray(p.profile))issues.push('Projects.profile must be an object for v212');
+ const dataBytes=s=>typeof s==='string'&&s.startsWith('data:')?Math.max(0,Math.floor((s.split(',')[1]||'').length*3/4)):0;
+ pSummary.images.logoBytes=dataBytes(p.profile&&p.profile.logo);
+ for(let i=0;i<(Array.isArray(p.projects)?p.projects.length:0);i++){const pr=p.projects[i];if(!pr||typeof pr!=='object'){issues.push('Project '+i+' is not an object');continue}pSummary.images.projectPhotoBytes+=dataBytes(pr.photo);const ledgers=[{path:'projects['+i+']',value:pr},...(Array.isArray(pr.subprojects)?pr.subprojects.map((v,n)=>({path:'projects['+i+'].subprojects['+n+']',value:v})):[])];pSummary.subprojects+=Math.max(0,ledgers.length-1);for(const l of ledgers){const v=l.value;if(!v||typeof v!=='object')continue;if(Array.isArray(v.materials)&&v.materials.length)pSummary.legacyMaterialRows+=v.materials.length;pSummary.images.subprojectPhotoBytes+=l.path.includes('.subprojects[')?dataBytes(v.photo):0;for(const a of ['income','expenses','wages','tools','food','materials'])if(v[a]!==undefined&&!Array.isArray(v[a]))issues.push(l.path+'.'+a+' is not an array')}}
+ const contractFields=['id','title','date','customer','contact','address','price','start','body','updated'];
+ const contracts=x.contracts.map((c,i)=>{if(!c||typeof c!=='object'||Array.isArray(c)){issues.push('Contract '+i+' is not an object');return {index:i,valid:false}}const missing=contractFields.filter(k=>!(k in c));if(missing.length)notes.push('Contract '+i+' omits optional/expected fields: '+missing.join(', '));return {index:i,valid:true,fields:Object.keys(c),missingFields:missing}});
+ const expectedPartnerIds=new Set((Array.isArray(p.partners)?p.partners:[]).map(v=>v&&v.id).filter(Boolean));
+ const partnerRefs=(Array.isArray(p.projects)?p.projects:[]).filter(v=>v&&v.partnerId).map(v=>({project:v.name||v.id,partnerId:v.partnerId,found:expectedPartnerIds.has(v.partnerId)}));
+ for(const r of partnerRefs)if(!r.found)notes.push('Project '+r.project+' refers to partner '+r.partnerId+' not found in partner list');
+ if(pSummary.legacyMaterialRows)notes.push('v212 prLoad migrates '+pSummary.legacyMaterialRows+' legacy material rows into expenses and writes the project object back to Local Storage. This must not be run during the safe test.');
+ if(pSummary.images.logoBytes+pSummary.images.projectPhotoBytes+pSummary.images.subprojectPhotoBytes===0)notes.push('No base64 logo/project photos detected by data-URI scan');
+ return {result:issues.length?'FAIL — structural incompatibility detected':'PASS — backup meets v212 restore/load structural checks',readOnly:true,accounting,projects:pSummary,contracts,partnerReferences:partnerRefs,issues,notes};
+}
+$('compatButton').addEventListener('click',async()=>{const b=$('compatButton');b.disabled=true;status('Checking saved backup against v212 structures…');try{const rec=await readStoredRecord();if(!rec)throw Error('No saved backup found. Complete Step 1 first.');if(await hash(rec.raw)!==rec.sha256)throw Error('Stored backup hash mismatch');const report=compatibility(JSON.parse(rec.raw));$('details').textContent=JSON.stringify({storedBackupSha256:rec.sha256,storedBytes:rec.bytes,...report},null,2);status(report.result+(report.issues.length?' — review details below.':' — no app data was changed.'),report.issues.length?'error':'ok')}catch(e){status('COMPATIBILITY CHECK FAILED: '+e.message,'error')}finally{b.disabled=false}});
