@@ -10,13 +10,13 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "ad9cf69da75060a29b4ce62bca390a7ef46ee4137a3ac235e5bac3a53517c703"
+      "sha256": "d9a09816c5d74595b9192bc86c073c29515f060b525351717dab0ca3027a0746"
     },
     "storage-foundation.js": {
-      "sha256": "a6096f3067bab4110342ba45e0979afc7de675c37e8214f244751a1c666175f1"
+      "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
     },
     "version-manager.js": {
-      "sha256": "7f8908be2863a8e4019e0ada8e552201a534d93bbc72c5964f2ea77004d92ccb"
+      "sha256": "96c6745e373173b8f5fb6c9fdf4cc6be082e171bb72a81307c1ede973b38b3ca"
     }
   }
 }
