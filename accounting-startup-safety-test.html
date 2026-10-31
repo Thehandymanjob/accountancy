@@ -22,6 +22,6 @@ document.getElementById('run').onclick=()=>{
   const p=HandymanAccountingStartupSafety.inspect(db),r=HandymanAccountingStartupSafety.apply(db,p,{explicitApproval:true});
   if(r.numberedIncome!==1||r.removedOrphans!==1||db.entries.length!==1||db.entries[0].number!==247)throw Error('Approved migration result incorrect');
  });
- document.getElementById('out').textContent=lines.join('\\n')+'\\n\\n'+passed+'/4 tests passed. Synthetic in-memory data only.';
+ document.getElementById('out').textContent=lines.join('\n')+'\n\n'+passed+'/4 tests passed. Synthetic in-memory data only.';
 };
 </script></html>
