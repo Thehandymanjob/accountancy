@@ -32,7 +32,8 @@ async function run(){
   if(b.payload.data.invoiceSequence!==246)throw Error('expected 246, got '+b.payload.data.invoiceSequence);
  });
  await test('Backup matches app minimum shared record sequence of 142',async()=>{
-  const s=new MockStorage({[K.accounting]:JSON.stringify(account([])),[K.invoiceSequence]:'0'});
+  const baseline=account([]);baseline.entries=[];
+  const s=new MockStorage({[K.accounting]:JSON.stringify(baseline),[K.invoiceSequence]:'0'});
   const b=await api.buildBackup(s,'test');
   if(b.payload.data.invoiceSequence!==142)throw Error('expected app baseline 142, got '+b.payload.data.invoiceSequence);
  });
