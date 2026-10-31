@@ -1,7 +1,7 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "217",
-  "buildId": "THA-217-MIGRATION-20261031-A",
+  "version": "218",
+  "buildId": "THA-218-MIGRATION-20261031-B",
   "releaseDate": "2026-10-31",
   "releaseStatus": "isolated-user-migration",
   "databaseSchema": 1,
@@ -10,7 +10,7 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "b1e3b330230dec2f24da0334efa03af0b2d6fdbb79087eb92ed5465777798d7b"
+      "sha256": "604d0616c6e60157a47b33078b73ce7cbd1a53bb4462034b782c051e3a3f341a"
     },
     "storage-foundation.js": {
       "sha256": "6a481078c0c195daa1955b8cc55ab50d5fd6e75794c737bcc2a46060e226e875"
