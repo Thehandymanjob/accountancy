@@ -28,6 +28,38 @@
     'appLanguagePrefVersion'
   ];
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const RAW_STRING_KEYS = new Set(['appLanguage']);
+  const RAW_NUMBER_KEYS = new Set(['invoiceSequence', 'appLanguagePrefVersion']);
+
+  function readStored(storage, name) {
+    const raw = storage.getItem(KEYS[name]);
+    if (raw === null) return { present: false, value: null, raw: null };
+    if (RAW_STRING_KEYS.has(name)) return { present: true, value: raw, raw };
+    if (RAW_NUMBER_KEYS.has(name)) {
+      const value = Number(raw);
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error('Stored numeric setting is invalid: ' + name);
+      }
+      return { present: true, value, raw };
+    }
+    return { present: true, value: JSON.parse(raw), raw };
+  }
+
+  function writeStored(storage, name, value) {
+    if (RAW_STRING_KEYS.has(name)) {
+      if (typeof value !== 'string') throw new Error(name + ' must be a string.');
+      storage.setItem(KEYS[name], value);
+    } else if (RAW_NUMBER_KEYS.has(name)) {
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error(name + ' must be a non-negative safe integer.');
+      }
+      storage.setItem(KEYS[name], String(value));
+    } else if (value === null && name === 'businessProfile') {
+      storage.removeItem(KEYS[name]);
+    } else {
+      storage.setItem(KEYS[name], JSON.stringify(value));
+    }
+  }
 
   function canonical(value) {
     if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -46,9 +78,8 @@
     return Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  function parseStored(storage, key) {
-    const raw = storage.getItem(key);
-    return raw === null ? { present: false, value: null } : { present: true, value: JSON.parse(raw) };
+  function parseStored(storage, name) {
+    return readStored(storage, name);
   }
 
   function validateSection(name, value) {
@@ -72,7 +103,15 @@
       if (!Number.isSafeInteger(value) || value < 0) {
         throw new Error('Invoice sequence must be a non-negative safe integer.');
       }
-    } else if (value !== null && (typeof value !== 'object' && typeof value !== 'string')) {
+    } else if (RAW_STRING_KEYS.has(name)) {
+      if (value !== null && typeof value !== 'string') {
+        throw new Error(name + ' section must be a string or null.');
+      }
+    } else if (RAW_NUMBER_KEYS.has(name)) {
+      if (value !== null && (!Number.isSafeInteger(value) || value < 0)) {
+        throw new Error(name + ' section must be a non-negative safe integer or null.');
+      }
+    } else if (value !== null && (typeof value !== 'object' || Array.isArray(value))) {
       throw new Error(name + ' section has an unsupported type.');
     }
   }
@@ -93,7 +132,7 @@
     const data = {};
     const settings = {};
     for (const name of REQUIRED) {
-      const stored = parseStored(storage, KEYS[name]);
+      const stored = parseStored(storage, name);
       if (name === 'businessProfile' && !stored.present) stored.value = null;
       if (name === 'invoiceSequence' && !stored.present) stored.value = 0;
       if (name !== 'businessProfile' && name !== 'invoiceSequence' && !stored.present) {
@@ -103,7 +142,7 @@
       data[name] = stored.value;
     }
     for (const name of OPTIONAL) {
-      const stored = parseStored(storage, KEYS[name]);
+      const stored = parseStored(storage, name);
       const value = stored.present ? stored.value : null;
       validateSection(name, value);
       settings[name] = { present: stored.present, value };
@@ -163,6 +202,10 @@
         throw new Error('Required backup section is missing: ' + name);
       }
       validateSection(name, payload.data[name]);
+      if (canonical(recordCount(name, payload.data[name])) !==
+          canonical(payload.integrity.sections[name].recordCounts)) {
+        throw new Error('Record-count check failed: ' + name);
+      }
       if (await digest(payload.data[name]) !== payload.integrity.sections[name].sha256) {
         throw new Error('Integrity check failed: ' + name);
       }
@@ -176,6 +219,11 @@
         throw new Error('Invalid settings section: ' + name);
       }
       validateSection(name, item.value);
+      if (canonical(recordCount(name, item.value)) !==
+          canonical(payload.integrity.sections[name].recordCounts) ||
+          item.present !== payload.integrity.sections[name].present) {
+        throw new Error('Settings record-count/presence check failed: ' + name);
+      }
       if (await digest(item) !== payload.integrity.sections[name].sha256) {
         throw new Error('Integrity check failed: ' + name);
       }
@@ -194,12 +242,15 @@
     const previous = {};
     const previousRaw = {};
     for (const name of targetNames) {
-      const key = KEYS[name];
-      previousRaw[key] = storage.getItem(key);
-      previous[name] = previousRaw[key] === null ? null : JSON.parse(previousRaw[key]);
+      const stored = readStored(storage, name);
+      previousRaw[KEYS[name]] = stored.raw;
+      previous[name] = stored.value;
     }
 
     const recoveryKey = 'tha_v212_migration_restore_recovery_v1';
+    if (storage.getItem(recoveryKey) !== null) {
+      throw new Error('An existing recovery snapshot is present. Preserve it and resolve it before starting another restore.');
+    }
     const recovery = {
       schema: 1,
       createdAt: new Date().toISOString(),
@@ -218,23 +269,20 @@
         const value = payload.data[name];
         if (name === 'invoiceSequence') {
           const current = Number(previous.invoiceSequence) || 0;
-          storage.setItem(KEYS[name], String(Math.max(current, value)));
-        } else if (name === 'businessProfile' && value === null) {
-          storage.removeItem(KEYS[name]);
+          writeStored(storage, name, Math.max(current, value));
         } else {
-          storage.setItem(KEYS[name], JSON.stringify(value));
+          writeStored(storage, name, value);
         }
       }
       for (const name of OPTIONAL) {
         const item = payload.settings[name];
-        if (item.present) storage.setItem(KEYS[name], JSON.stringify(item.value));
+        if (item.present) writeStored(storage, name, item.value);
         else storage.removeItem(KEYS[name]);
       }
 
       for (const name of REQUIRED) {
         const raw = storage.getItem(KEYS[name]);
-        const actual = name === 'invoiceSequence' ? Number(raw) :
-          (raw === null ? null : JSON.parse(raw));
+        const actual = raw === null ? null : readStored(storage, name).value;
         const expected = name === 'invoiceSequence'
           ? Math.max(Number(previous.invoiceSequence) || 0, payload.data.invoiceSequence)
           : payload.data[name];
@@ -246,7 +294,7 @@
         const item = payload.settings[name];
         const raw = storage.getItem(KEYS[name]);
         if (item.present) {
-          if (raw === null || canonical(JSON.parse(raw)) !== canonical(item.value)) {
+          if (raw === null || canonical(readStored(storage, name).value) !== canonical(item.value)) {
             throw new Error('Post-restore verification failed: ' + name);
           }
         } else if (raw !== null) {
