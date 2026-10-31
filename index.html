@@ -1457,16 +1457,6 @@ function openInvoicePrintView(){
 }
 
 // Payment tracking and draft quotation support.
-function ensureInvoiceFields(){
- const a=db.invoices.find(i=>String(i.number)==='133');if(a&&!a.paymentStatus){a.paymentStatus='paid';a.paymentDate='2026-08-24';a.paymentMethod='bank';}
- const b=db.invoices.find(i=>String(i.number)==='134');if(b&&!b.paymentStatus)b.paymentStatus='unpaid';
- db.invoices.forEach(i=>{if(!i.paymentStatus)i.paymentStatus='unpaid';});
- // Ensure the known paid invoice is included in income reports exactly once.
- const paid133=db.invoices.find(i=>String(i.number)==='133'&&i.paymentStatus==='paid');
- if(paid133&&!db.entries.some(e=>e.invoiceId===paid133.id||(e.type==='income'&&e.reference===`Invoice ${paid133.number}`))){
-   db.entries.push({id:`invoice-income-${paid133.id}`,type:'income',date:paid133.paymentDate||'2026-08-24',amount:invoiceAmounts(paid133).total,method:paid133.paymentMethod||'bank',category:'Work income',reference:`Invoice ${paid133.number}`,notes:`Payment received for invoice ${paid133.number} — ${paid133.customerName||''}`,invoiceId:paid133.id,createdAt:new Date().toISOString()});
- }
-}
 function recordInvoicePayment(id){return markInvoicePaid(id);}
 
 function renderInvoices(){
@@ -1477,20 +1467,6 @@ function renderInvoices(){
  const p=$('invoicePagination');if(p)p.innerHTML=paginationMarkup('invoices',pg.total,pg.page,pg.pages,pg.start,pg.end,'renderInvoices');
 }
 function newQuote(){newInvoice();$('invNumber').value='';setInvoiceDraftMode(true);$('invStatus').value='draft';$('invDescription').value='';$('invNotes').value='';renderInvoiceLineItems([]);$('invoiceEditorTitle').textContent='Draft Invoice';$('invDescription').placeholder='Paste or write the full work scope, stages, materials, exclusions and terms. Draft only; no invoice number.';}
-function ensureInvoicePaymentFields(){
- db.invoices.forEach(i=>{
-   if(i.paymentStatus==='paid')i.status='issued';
-   if(!i.paymentStatus){
-     if(String(i.number)==='133'){i.paymentStatus='paid';i.paymentDate='2026-08-24';i.paymentMethod='bank';}
-     else i.paymentStatus='unpaid';
-   }
- });
- const paid133=db.invoices.find(i=>String(i.number)==='133'&&i.paymentStatus==='paid');
- if(paid133){
-   const exists=db.entries.some(e=>e.type==='income'&&(e.invoiceId===paid133.id||e.reference===`Invoice ${paid133.number}`));
-   if(!exists)db.entries.push({id:`invoice-income-${paid133.id}`,type:'income',date:paid133.paymentDate||'2026-08-24',amount:invoiceAmounts(paid133).total,method:paid133.paymentMethod||'bank',category:'Work income',reference:`Invoice ${paid133.number}`,notes:'Payment received for invoice 133 (date estimated)',invoiceId:paid133.id,createdAt:new Date().toISOString()});
- }
-}
 function markInvoicePaid(id){
  const i=db.invoices.find(x=>x.id===id);if(!i)return;
  const date=prompt('Payment date (YYYY-MM-DD):',i.paymentDate|| (String(i.number)==='133'?'2026-08-24':today()));if(!date)return;
