@@ -1,0 +1,136 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Accounting Backup v7 — Restore File Test</title><style>body{font:16px system-ui;max-width:850px;margin:28px auto;padding:0 18px;color:#222}button,input{padding:14px;margin:8px 0;font:inherit}button{font-weight:700;border:0;border-radius:10px;background:#ddd}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f3f5;padding:18px;border-radius:12px;line-height:1.5}.warning{color:#8a3d00}</style></head><body><h1>Accounting Backup v7 — Restore File Test</h1><p>This test reads the JSON file you select, validates it, and restores it only into an in-memory mock storage. It does not access browser LocalStorage, Projects, Company, Contracts, or production data.</p><p class="warning"><b>Important:</b> Select the downloaded synthetic file Qwe.json only. Do not select a real business backup.</p><input id="file" type="file" accept=".json,application/json"><br><button id="run" disabled>Validate and run synthetic restore</button><pre id="output">Choose the downloaded Qwe.json file.</pre><script>
+/* The Handyman Accountancy — isolated Accounting-only Backup v7
+ * Scope: accounting DB object and invoice sequence only.
+ * Does not read or write Projects, Company, Contracts, business profile, or browser app data during tests.
+ */
+(function(root){
+'use strict';
+const APP='The Handyman Accountancy';
+const SCHEMA=7;
+const ACCOUNTING_KEY='tha_v212_migration_accounting_v1';
+const SEQUENCE_KEY='tha_v212_migration_invoice_sequence_v1';
+const RECOVERY_KEY='tha_accounting_backup_v7_recovery_v1';
+const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
+function canonical(v){
+ if(v===null||typeof v!=='object')return JSON.stringify(v);
+ if(Array.isArray(v))return '['+v.map(x=>canonical(x)??'null').join(',')+']';
+ return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+(canonical(v[k])??'null')).join(',')+'}';
+}
+async function digest(v){
+ if(!root.crypto||!root.crypto.subtle||typeof TextEncoder==='undefined')throw new Error('SHA-256 unavailable; backup cancelled.');
+ const bytes=new TextEncoder().encode(canonical(v));
+ const hash=await root.crypto.subtle.digest('SHA-256',bytes);
+ return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+}
+function parseAccounting(raw){
+ if(raw===null)throw new Error('Accounting data is absent; backup cancelled.');
+ let v;try{v=JSON.parse(raw)}catch(_){throw new Error('Accounting data is not valid JSON; original data left untouched.')}
+ if(!v||typeof v!=='object'||Array.isArray(v)||
+ !Array.isArray(v.entries)||!Array.isArray(v.customers)||!Array.isArray(v.invoices)||
+ !v.settings||typeof v.settings!=='object'||Array.isArray(v.settings))
+ throw new Error('Accounting data has an unexpected structure; backup cancelled.');
+ if(v.customExpenseCategories!==undefined&&!Array.isArray(v.customExpenseCategories))
+ throw new Error('Custom expense categories are invalid; backup cancelled.');
+ return v;
+}
+function sequenceValue(raw){
+ if(raw===null||raw==='')return 0;
+ const n=Number(raw);if(!Number.isSafeInteger(n)||n<0)throw new Error('Invoice sequence is invalid.');
+ return n;
+}
+async function buildBackup(storage,version){
+ const accounting=parseAccounting(storage.getItem(ACCOUNTING_KEY));
+ const sequence=sequenceValue(storage.getItem(SEQUENCE_KEY));
+ const data={accounting,invoiceSequence:sequence};
+ const integrity={accounting:await digest(accounting),invoiceSequence:await digest(sequence)};
+ const payload={app:APP,backupType:'accounting-only',backupSchemaVersion:SCHEMA,appVersion:String(version||'unknown'),createdAt:new Date().toISOString(),data,integrity};
+ const serialized=JSON.stringify(payload,null,2);
+ const copy=JSON.parse(serialized);
+ if(await digest(copy.data.accounting)!==copy.integrity.accounting||await digest(copy.data.invoiceSequence)!==copy.integrity.invoiceSequence)throw new Error('Backup verification failed.');
+ return {payload:copy,serialized};
+}
+async function validateBackup(p){
+ if(!p||typeof p!=='object'||Array.isArray(p)||p.app!==APP||p.backupType!=='accounting-only'||p.backupSchemaVersion!==SCHEMA||!p.data||!p.integrity||!own(p.data,'accounting')||!own(p.data,'invoiceSequence'))throw new Error('Unsupported or invalid Accounting Backup v7.');
+ parseAccounting(JSON.stringify(p.data.accounting));
+ if(!Number.isSafeInteger(p.data.invoiceSequence)||p.data.invoiceSequence<0)throw new Error('Invoice sequence is invalid.');
+ if(await digest(p.data.accounting)!==p.integrity.accounting||await digest(p.data.invoiceSequence)!==p.integrity.invoiceSequence)throw new Error('Backup integrity check failed.');
+ return true;
+}
+async function restoreBackup(p,storage,confirmFn){
+ await validateBackup(p);
+ if(typeof confirmFn!=='function'||!confirmFn('Restore Accounting only? Accounting records, customers, invoices and settings will be replaced. Projects and other sections will not be changed.'))return {restored:false,reason:'cancelled'};
+ if(storage.getItem(RECOVERY_KEY)!==null)throw new Error('An existing Accounting recovery snapshot exists. Preserve it and resolve it before another restore.');
+ const oldAccounting=storage.getItem(ACCOUNTING_KEY),oldSequence=storage.getItem(SEQUENCE_KEY);
+ const recoveryText=JSON.stringify({schema:1,createdAt:new Date().toISOString(),accounting:oldAccounting,invoiceSequence:oldSequence});
+ storage.setItem(RECOVERY_KEY,recoveryText);
+ if(storage.getItem(RECOVERY_KEY)!==recoveryText)throw new Error('Recovery snapshot verification failed; restore stopped before changing data.');
+ let commit=false;
+ try{
+  commit=true;
+  storage.setItem(ACCOUNTING_KEY,JSON.stringify(p.data.accounting));
+  storage.setItem(SEQUENCE_KEY,String(Math.max(sequenceValue(oldSequence),p.data.invoiceSequence)));
+  if(canonical(parseAccounting(storage.getItem(ACCOUNTING_KEY)))!==canonical(p.data.accounting))throw new Error('Accounting read-back verification failed.');
+  if(sequenceValue(storage.getItem(SEQUENCE_KEY))!==Math.max(sequenceValue(oldSequence),p.data.invoiceSequence))throw new Error('Invoice sequence read-back verification failed.');
+  return {restored:true,recoveryKey:RECOVERY_KEY,note:'Recovery snapshot retained until separately verified.'};
+ }catch(err){
+  let rollbackOK=true;
+  if(commit){
+   try{
+    if(oldAccounting===null)storage.removeItem(ACCOUNTING_KEY);else storage.setItem(ACCOUNTING_KEY,oldAccounting);
+    if(oldSequence===null)storage.removeItem(SEQUENCE_KEY);else storage.setItem(SEQUENCE_KEY,oldSequence);
+    if(storage.getItem(ACCOUNTING_KEY)!==oldAccounting||storage.getItem(SEQUENCE_KEY)!==oldSequence)throw new Error('Rollback read-back failed.');
+   }catch(_){rollbackOK=false;}
+  }
+  if(rollbackOK){try{storage.removeItem(RECOVERY_KEY)}catch(_){}throw new Error('Restore failed; previous Accounting data rollback was verified. '+err.message);}
+  throw new Error('CRITICAL: Accounting restore and rollback could not be verified. Keep '+RECOVERY_KEY+' and do not clear browser storage. '+err.message);
+ }
+}
+async function exportToDownload(storage,version){
+ const result=await buildBackup(storage,version);
+ const blob=new Blob([result.serialized],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='The_Handyman_Accounting_Backup_v7_'+new Date().toISOString().slice(0,10)+'.json';
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+ return {initiated:true,verified:true};
+}
+root.HandymanAccountingBackupV7=Object.freeze({schemaVersion:SCHEMA,keys:Object.freeze({accounting:ACCOUNTING_KEY,invoiceSequence:SEQUENCE_KEY,recovery:RECOVERY_KEY}),buildBackup,validateBackup,restoreBackup,exportToDownload});
+})(typeof window!=='undefined'?window:globalThis);
+
+</script><script>
+(function(){
+'use strict';
+const fileInput=document.getElementById('file'),run=document.getElementById('run'),out=document.getElementById('output');
+let selected=null;
+fileInput.addEventListener('change',()=>{selected=fileInput.files&&fileInput.files[0]||null;run.disabled=!selected;out.textContent=selected?'Selected: '+selected.name+' ('+selected.size+' bytes). Ready.':'Choose the downloaded Qwe.json file.';});
+function assert(x,m){if(!x)throw new Error(m)}
+function mock(seed){const d={...seed};return{getItem:k=>Object.prototype.hasOwnProperty.call(d,k)?d[k]:null,setItem:(k,v)=>{d[k]=String(v)},removeItem:k=>{delete d[k]},snapshot:()=>JSON.stringify(d)}}
+run.addEventListener('click',async()=>{
+ const lines=[],pass=x=>lines.push('PASS  '+x);
+ try{
+  if(!selected)throw new Error('Select Qwe.json first.');
+  const text=await selected.text();const payload=JSON.parse(text);
+  await HandymanAccountingBackupV7.validateBackup(payload);
+  assert(payload.backupType==='accounting-only','Selected file is not an Accounting-only backup.');
+  pass('Selected JSON file parsed and SHA-256 validated');
+  const api=HandymanAccountingBackupV7,K=api.keys;
+  const oldDb={entries:[{id:'OLD-1',type:'expense',amount:10}],customers:[{id:'OLD-C',name:'Old customer'}],invoices:[],customExpenseCategories:[],settings:{businessName:'Old synthetic data'}};
+  const target=mock({[K.accounting]:JSON.stringify(oldDb),[K.invoiceSequence]:'950'});
+  const before=JSON.parse(target.getItem(K.accounting));
+  const result=await api.restoreBackup(payload,target,()=>true);
+  assert(result.restored===true,'Restore did not complete');
+  const after=JSON.parse(target.getItem(K.accounting));
+  assert(after.entries.length===1&&after.entries[0].id==='SYN-1'&&after.entries[0].amount===42.5,'Restored transaction differs from selected file');
+  assert(after.customers[0].id==='SYN-C1','Customer was not restored');
+  assert(after.invoices[0].id==='SYN-I1','Invoice was not restored');
+  pass('Synthetic accounting records restored correctly');
+  assert(target.getItem(K.invoiceSequence)==='950','Invoice high-water sequence decreased');
+  pass('Existing higher invoice sequence was preserved');
+  assert(target.getItem(K.recovery)!==null,'Pre-restore recovery snapshot missing');
+  const snap=JSON.parse(target.getItem(K.recovery));
+  assert(JSON.parse(snap.accounting).entries[0].id===before.entries[0].id,'Recovery snapshot does not contain prior data');
+  pass('Pre-restore synthetic data retained in recovery snapshot');
+  out.textContent=lines.join('\n')+'\n\nSynthetic file restore passed. Only in-memory mock storage was changed.';
+ }catch(e){out.textContent=lines.join('\n')+'\nFAIL  '+e.message+'\n\nNo real browser storage was accessed.'}
+});
+})();
+</script></body></html>
