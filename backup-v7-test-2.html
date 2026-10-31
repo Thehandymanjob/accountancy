@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Backup v7 — Isolated Synthetic Tests</title>
+<style>body{font:16px system-ui,sans-serif;max-width:760px;margin:32px auto;padding:0 16px;color:#222}button{padding:12px 18px;font-size:16px}pre{white-space:pre-wrap;background:#f3f4f6;padding:16px;border-radius:8px}.note{color:#555}</style></head>
+<body><h1>Backup v7 — Isolated Synthetic Tests</h1>
+<p class="note">Uses an in-memory storage mock and synthetic records only. Does not read or write browser LocalStorage, app data, Company data, or production files.</p>
+<button id="run">Run synthetic tests</button><pre id="output">Ready. No tests have run.</pre>
+<script src="https://raw.githubusercontent.com/Thehandymanjob/accountancy/71f21d563c4e51486a3dfe8094b3d9f70311917/backup-v7.js"></script><script>
+(function(){
+'use strict';
+const output=document.getElementById('output');
+function assert(c,m){if(!c)throw new Error(m);}
+function memoryStorage(seed){const data=Object.assign({},seed||{});return{getItem:k=>Object.prototype.hasOwnProperty.call(data,k)?data[k]:null,setItem:(k,v)=>{data[k]=String(v);},removeItem:k=>{delete data[k];}};}
+document.getElementById('run').addEventListener('click',async function(){
+const lines=[];const pass=n=>lines.push('PASS  '+n);
+try{
+if(!window.crypto||!crypto.subtle||typeof TextEncoder==='undefined')throw new Error('Web Crypto / TextEncoder unavailable. Run from a secure browser context.');
+const K=window.HandymanBackupV7.storageKeys;
+const seed={
+[K.accounting]:JSON.stringify({entries:[{id:'synthetic-entry'}],customers:[],invoices:[],settings:{currency:'GBP'}}),
+[K.projects]:JSON.stringify({projects:[{id:'synthetic-project'}],workers:[]}),
+[K.businessProfile]:JSON.stringify({businessName:'Synthetic Test'}),
+[K.invoiceSequence]:'321',[K.appLanguage]:'fa',[K.appLanguagePrefVersion]:'204',[K.reportArchive]:JSON.stringify([])
+};
+const storage=memoryStorage(seed);
+const built=await HandymanBackupV7.buildBackup(storage,'TEST-ONLY');
+assert(built.payload.settings.appLanguage.value==='fa','Language scalar not read as raw text');
+assert(built.payload.settings.appLanguagePrefVersion.value===204,'Language preference version not read as a number');
+pass('Backup build reads raw scalar settings correctly');
+await HandymanBackupV7.validateBackup(built.payload);pass('Backup SHA-256 and record-count validation');
+const restored=memoryStorage({
+[K.accounting]:JSON.stringify({entries:[],customers:[],invoices:[],settings:{}}),
+[K.projects]:JSON.stringify({projects:[],workers:[]}),[K.invoiceSequence]:'400',[K.appLanguage]:'en',[K.appLanguagePrefVersion]:'1'
+});
+const result=await HandymanBackupV7.restoreBackup(built.payload,restored,()=>true);
+assert(result.restored===true,'Restore did not report success');
+assert(restored.getItem(K.appLanguage)==='fa','Language was not restored in raw format');
+assert(restored.getItem(K.appLanguagePrefVersion)==='204','Language version was not restored in raw format');
+assert(restored.getItem(K.invoiceSequence)==='400','Invoice sequence was incorrectly decreased');
+assert(restored.getItem('tha_v212_migration_restore_recovery_v1')!==null,'Recovery snapshot missing');
+pass('Restore preserves raw settings and does not decrease invoice sequence');
+let blocked=false;try{await HandymanBackupV7.restoreBackup(built.payload,restored,()=>true);}catch(e){blocked=/existing recovery snapshot/.test(e.message);}
+assert(blocked,'Existing recovery snapshot was not protected');pass('Existing recovery snapshot cannot be overwritten');
+const tampered=JSON.parse(JSON.stringify(built.payload));tampered.integrity.sections.accounting.recordCounts.entries++;
+let countBlocked=false;try{await HandymanBackupV7.validateBackup(tampered);}catch(e){countBlocked=/Record-count check failed/.test(e.message);}
+assert(countBlocked,'Tampered record counts were not rejected');pass('Tampered record counts are rejected');
+output.textContent=lines.join('\n')+'\n\nAll synthetic tests passed. No real app data was accessed.';
+}catch(error){output.textContent=lines.join('\n')+'\nFAIL  '+error.message+'\n\nNo real app data was accessed.';}
+});
+})();
+</script></body></html>
