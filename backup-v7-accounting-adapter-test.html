@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Accounting v7 Adapter — Synthetic Tests</title>
+<style>body{font:17px system-ui;margin:24px;line-height:1.5;color:#222}button{font:700 18px system-ui;padding:14px 20px;border:0;border-radius:12px;background:#e5e5e5;margin:10px 0}pre{white-space:pre-wrap;background:#f0f1f3;border-radius:14px;padding:18px;font:16px ui-monospace,monospace}.warn{background:#fff1d8;padding:16px;border-radius:12px}</style></head><body>
+<h1>Accounting Backup v7 — Adapter Tests</h1>
+<p class="warn"><b>Isolated synthetic test.</b> Uses only in-memory mock storage and generated records. Does not access browser LocalStorage, live app data, Projects, or production files.</p>
+<button id="run">Run adapter tests</button><pre id="out">Ready.</pre>
+<script src="./backup-v7-accounting.js"></script><script src="./backup-v7-accounting-adapter.js"></script>
+<script>
+const out=document.getElementById('out');
+function assert(ok,msg){if(!ok)throw new Error(msg)}
+function memoryStore(seed){const m=new Map(Object.entries(seed||{}));return{getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k),dump:()=>Object.fromEntries(m)}}
+function accounting(label){return{entries:[{id:'e-'+label,type:'income',number:150,amount:100}],customers:[{id:'c-'+label,name:'Synthetic '+label}],invoices:[{id:'i-'+label,number:151}],settings:{businessName:'Synthetic '+label},customExpenseCategories:[]}}
+async function run(){
+ const lines=[];const pass=s=>lines.push('PASS  '+s);const fail=s=>lines.push('FAIL  '+s);
+ const keys=HandymanAccountingBackupV7.keys;
+ const source=memoryStore({[keys.accounting]:JSON.stringify(accounting('import')),[keys.invoiceSequence]:'155'});
+ const built=await HandymanAccountingBackupV7.buildBackup(source,'synthetic');
+ const target=memoryStore({[keys.accounting]:JSON.stringify(accounting('old')),[keys.invoiceSequence]:'190'});
+ let current='old',refreshCount=0;
+ const bridge={reloadAccounting(){current=JSON.parse(target.getItem(keys.accounting)).settings.businessName;return true},refreshAccountingViews(){refreshCount++;return true}};
+ let r=await HandymanAccountingBackupV7Adapter.restoreAndRefresh(built.payload,target,()=>true,bridge);
+ assert(r.appRefreshed&&current==='Synthetic import'&&refreshCount===1,'successful restore must reload DB and refresh views');pass('Successful restore reloads Accounting and refreshes views');
+ assert(target.getItem(keys.invoiceSequence)==='190','existing higher invoice sequence must remain');pass('Higher existing invoice sequence is preserved');
+ const before=target.dump();let reloadCalls=0;
+ const badBridge={reloadAccounting(){reloadCalls++;if(reloadCalls===1)return true;return true},refreshAccountingViews(){if(reloadCalls===1)throw new Error('synthetic refresh failure');return true}};
+ try{await HandymanAccountingBackupV7Adapter.restoreAndRefresh(built.payload,target,()=>true,badBridge);throw new Error('expected refresh failure')}catch(e){assert(String(e.message).includes('previous Accounting data and views were restored'),'refresh failure should roll back');}
+ assert(target.getItem(keys.accounting)===before[keys.accounting]&&target.getItem(keys.invoiceSequence)===before[keys.invoiceSequence],'refresh failure must restore pre-restore values');pass('Failed view refresh rolls Accounting storage back');
+ assert(target.getItem(keys.recovery)===null,'verified rollback should clear recovery snapshot');pass('Recovery snapshot is cleared only after verified rollback');
+ out.textContent=lines.join('\n')+'\n\n'+lines.length+'/4 adapter tests passed. In-memory synthetic storage only.';
+}
+document.getElementById('run').addEventListener('click',()=>run().catch(e=>out.textContent='FAIL  '+e.message));
+</script></body></html>
