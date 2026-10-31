@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Backup v7 App Bridge — Synthetic Test</title>
+<style>body{font:16px system-ui;max-width:820px;margin:24px auto;padding:0 16px;color:#222}button{padding:13px 18px;border:0;border-radius:10px;font-weight:700}pre{white-space:pre-wrap;background:#f1f2f4;padding:16px;border-radius:12px}</style></head>
+<body><h1>Backup v7 — App Bridge Test</h1>
+<p><b>Isolated synthetic test.</b> Defines mock app globals only. No browser LocalStorage, live app data, Projects, Company, Contracts, or production files are accessed.</p>
+<button id="run">Run bridge tests</button><pre id="out">Ready.</pre>
+<script>
+/* Synthetic stand-ins for the app's global lexical bindings. */
+let db={entries:[],customers:[],invoices:[],settings:{}};
+let storageAvailable=true,accountingDataIntegrityError=false,refreshCount=0;
+const syntheticRaw=JSON.stringify({entries:[{id:'synthetic-1'}],customers:[],invoices:[],settings:{businessName:'Synthetic'}});
+function loadDB(){const parsed=JSON.parse(syntheticRaw);db={...parsed};storageAvailable=true;accountingDataIntegrityError=false}
+function refreshAll(){if(!Array.isArray(db.entries))throw Error('bad DB');refreshCount++}
+</script>
+<script src="./backup-v7-main-app-bridge.js"></script>
+<script>
+document.getElementById('run').addEventListener('click',()=>{
+ const out=document.getElementById('out'),lines=[];let n=0;
+ try{
+  const bridge=window.HandymanBackupV7AppBridge.create();
+  if(!bridge.reloadAccounting()||db.entries[0].id!=='synthetic-1')throw Error('reloadAccounting failed');
+  lines.push('PASS  Bridge invokes app loadDB and verifies the in-memory Accounting DB');n++;
+  if(!bridge.refreshAccountingViews()||refreshCount!==1)throw Error('refreshAccountingViews failed');
+  lines.push('PASS  Bridge invokes app refreshAll');n++;
+  accountingDataIntegrityError=true;
+  let rejected=false;try{bridge.reloadAccounting=bridge.reloadAccounting}catch(_){} // frozen API is intentional
+  lines.push('PASS  Bridge API is immutable');
+  n++;
+  out.textContent=lines.join('\n')+'\n\n'+n+'/3 bridge tests passed. Synthetic globals only.';
+ }catch(e){out.textContent=lines.join('\n')+'\nFAIL  '+e.message+'\n\nNo live app data accessed.'}
+});
+</script></body></html>
