@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Backup v7 — Full Accounting Bridge Integration</title>
+<style>body{font:17px/1.5 system-ui;margin:24px auto;max-width:850px;padding:0 16px;color:#222}button{font:700 18px system-ui;padding:14px 20px;border:0;border-radius:12px;background:#e5e5e5;margin:12px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f1f3;border-radius:14px;padding:18px;font:16px ui-monospace,monospace}.notice{background:#fff2d9;padding:16px;border-radius:12px}</style></head>
+<body><h1>Backup v7 — Full Accounting Bridge Integration</h1>
+<p class="notice"><b>Synthetic end-to-end test.</b> Loads the actual Backup v7 module, app adapter and app bridge. Uses an in-memory storage mock and synthetic app globals. It does not access browser LocalStorage, Projects, Company, Contracts, production data, or index.html.</p>
+<button id="run">Run full bridge integration tests</button><pre id="out">Ready.</pre>
+<script src="./backup-v7.js"></script><script src="./backup-v7-main-app-bridge.js"></script><script>
+/* Mock app globals. loadDB reads only the explicitly injected in-memory storage. */
+let db={entries:[],customers:[],invoices:[],settings:{}};
+let storageAvailable=true,accountingDataIntegrityError=false,syntheticStorage=null,refreshCount=0,failRefresh=false;
+const APP_ACCOUNTING_KEY='tha_v212_migration_accounting_v1';
+function loadDB(){
+ const raw=syntheticStorage&&syntheticStorage.getItem(APP_ACCOUNTING_KEY);
+ if(raw===null){accountingDataIntegrityError=true;storageAvailable=false;return}
+ let parsed;try{parsed=JSON.parse(raw)}catch(_){accountingDataIntegrityError=true;storageAvailable=false;return}
+ if(!parsed||!Array.isArray(parsed.entries)){accountingDataIntegrityError=true;storageAvailable=false;return}
+ db={entries:[],customers:[],invoices:[],settings:{},...parsed,
+  customers:Array.isArray(parsed.customers)?parsed.customers:[],
+  invoices:Array.isArray(parsed.invoices)?parsed.invoices:[],
+  settings:{...(parsed.settings||{})}};
+ accountingDataIntegrityError=false;storageAvailable=true;
+}
+function refreshAll(){if(failRefresh)throw Error('Synthetic view refresh failure');if(!db||!Array.isArray(db.entries))throw Error('Invalid synthetic DB');refreshCount++}
+</script>
+<script>
+(function(){
+'use strict';
+const out=document.getElementById('out'),api=window.HandymanBackupV7,K=api.storageKeys;
+class MemoryStorage{constructor(seed){this.map=new Map(Object.entries(seed||{}))}
+ getItem(k){return this.map.has(k)?this.map.get(k):null}
+ setItem(k,v){this.map.set(k,String(v))}
+ removeItem(k){this.map.delete(k)}}
+function sample(label,n){return{entries:[{id:'entry-'+label,type:'income',number:n,amount:100}],customers:[{id:'customer-'+label,name:label}],invoices:[{id:'invoice-'+label,number:n}],customExpenseCategories:[],settings:{businessName:label,ownerName:'Synthetic'}}}
+function same(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+document.getElementById('run').addEventListener('click',async()=>{
+ const lines=[];let passed=0;
+ const test=async(name,fn)=>{try{await fn();lines.push('PASS  '+name);passed++}catch(e){lines.push('FAIL  '+name+' — '+e.message)}};
+ await test('Actual module + actual app bridge reloads synthetic Accounting state',async()=>{
+  const source=new MemoryStorage({[K.accounting]:JSON.stringify(sample('Imported',246)),[K.invoiceSequence]:'246'});
+  const backup=await api.buildBackup(source,'synthetic');
+  syntheticStorage=new MemoryStorage({[K.accounting]:JSON.stringify(sample('Original',200)),[K.invoiceSequence]:'200'});
+  const bridge=window.HandymanBackupV7AppBridge.create();
+  const adapter=window.HandymanBackupV7Adapter;
+  if(!adapter)throw Error('Main adapter script is not loaded');
+  const result=await adapter.restoreAndRefresh(backup.payload,syntheticStorage,()=>true,bridge);
+  if(!result.appRefreshed||db.settings.businessName!=='Imported'||refreshCount!==1)throw Error('app state or view refresh mismatch');
+ });
+ await test('Higher existing invoice sequence is preserved during bridged restore',async()=>{
+  const source=new MemoryStorage({[K.accounting]:JSON.stringify(sample('Import2',155)),[K.invoiceSequence]:'155'});
+  const backup=await api.buildBackup(source,'synthetic');
+  syntheticStorage=new MemoryStorage({[K.accounting]:JSON.stringify(sample('Old2',190)),[K.invoiceSequence]:'300'});
+  const bridge=window.HandymanBackupV7AppBridge.create();
+  const adapter=window.HandymanBackupV7Adapter;
+  await adapter.restoreAndRefresh(backup.payload,syntheticStorage,()=>true,bridge);
+  if(syntheticStorage.getItem(K.invoiceSequence)!=='300')throw Error('sequence was lowered');
+ });
+ await test('Failed view refresh rolls back storage and in-memory Accounting state',async()=>{
+  const source=new MemoryStorage({[K.accounting]:JSON.stringify(sample('Import3',260)),[K.invoiceSequence]:'260'});
+  const backup=await api.buildBackup(source,'synthetic');
+  const original=JSON.stringify(sample('Original3',230));
+  syntheticStorage=new MemoryStorage({[K.accounting]:original,[K.invoiceSequence]:'230'});
+  refreshCount=0;failRefresh=true;
+  const bridge=window.HandymanBackupV7AppBridge.create();
+  const adapter=window.HandymanBackupV7Adapter;let rejected=false;
+  try{await adapter.restoreAndRefresh(backup.payload,syntheticStorage,()=>true,bridge)}catch(e){rejected=String(e.message).includes('previous Accounting data and views were restored')}
+  failRefresh=false;
+  if(!rejected||syntheticStorage.getItem(K.accounting)!==original||db.settings.businessName!=='Original3')throw Error('rollback was not complete');
+ });
+ await test('Cancelled restore changes no synthetic storage',async()=>{
+  const source=new MemoryStorage({[K.accounting]:JSON.stringify(sample('Import4',270)),[K.invoiceSequence]:'270'});
+  const backup=await api.buildBackup(source,'synthetic');
+  const before=new MemoryStorage({[K.accounting]:JSON.stringify(sample('Original4',240)),[K.invoiceSequence]:'240'});
+  const raw=before.getItem(K.accounting),seq=before.getItem(K.invoiceSequence);
+  const result=await api.restoreBackup(backup.payload,before,()=>false);
+  if(result.restored!==false||before.getItem(K.accounting)!==raw||before.getItem(K.invoiceSequence)!==seq)throw Error('cancel changed storage');
+ });
+ out.textContent=lines.join('\n')+'\n\n'+passed+'/4 end-to-end tests passed. Actual module + actual app bridge + synthetic storage only.';
+});
+})();
+</script>
+<script src="./backup-v7-main-adapter.js"></script>
+</body></html>
