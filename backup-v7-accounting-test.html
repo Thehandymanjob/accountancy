@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Accounting Backup v7 — Isolated Tests</title><style>body{font:16px system-ui;max-width:850px;margin:32px auto;padding:0 18px;color:#222}button{padding:14px 22px;font:inherit;font-weight:700;border:0;border-radius:10px;background:#ddd}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f3f5;padding:18px;border-radius:12px;line-height:1.5}</style></head><body><h1>Accounting Backup v7 — Isolated Tests</h1><p>Uses only synthetic Accounting records and an in-memory storage mock. Does not read or write browser LocalStorage, Projects, Company, Contracts, or production data.</p><button id="run">Run synthetic tests</button><pre id="output">Ready.</pre><script src="./backup-v7-accounting.js"></script><script>
+(function(){
+'use strict';
+const out=document.getElementById('output');
+function assert(x,m){if(!x)throw new Error(m)}
+function mock(seed,fail){
+ const d=Object.assign({},seed||{}),f=(fail||[]).map(x=>({...x}));
+ return {getItem:k=>Object.prototype.hasOwnProperty.call(d,k)?d[k]:null,
+ setItem(k,v){const i=f.findIndex(x=>x.op==='set'&&x.key===k);if(i>=0){f.splice(i,1);throw Error('synthetic write failure '+k)}d[k]=String(v)},
+ removeItem(k){const i=f.findIndex(x=>x.op==='remove'&&x.key===k);if(i>=0){f.splice(i,1);throw Error('synthetic remove failure '+k)}delete d[k]},
+ snapshot:()=>JSON.stringify(d)};
+}
+document.getElementById('run').addEventListener('click',async()=>{
+ const lines=[],pass=x=>lines.push('PASS  '+x);
+ try{
+  assert(window.crypto&&crypto.subtle&&typeof TextEncoder!=='undefined','Web Crypto unavailable');
+  const api=window.HandymanAccountingBackupV7,K=api.keys;
+  const record={entries:[{id:'E1',type:'income',amount:125}],customers:[{id:'C1',name:'Synthetic'}],invoices:[{id:'I1',customerId:'C1'}],customExpenseCategories:['Test'],settings:{businessName:'Synthetic Builder'}};
+  const src=mock({[K.accounting]:JSON.stringify(record),[K.invoiceSequence]:'350'});
+  const b=await api.buildBackup(src,'TEST');
+  assert(b.payload.backupType==='accounting-only','Wrong backup type');
+  assert(await api.validateBackup(b.payload),'Backup did not validate');
+  pass('Build and SHA-256 validation of Accounting-only backup');
+  const bad=JSON.parse(JSON.stringify(b.payload));bad.data.accounting.entries[0].amount=999;
+  let rejected=false;try{await api.validateBackup(bad)}catch(_){rejected=true}
+  assert(rejected,'Tampered backup accepted');pass('Tampered Accounting backup rejected');
+  const target=mock({[K.accounting]:JSON.stringify({entries:[],customers:[],invoices:[],settings:{old:true}}),[K.invoiceSequence]:'500'});
+  const before=target.snapshot();const cancelled=await api.restoreBackup(b.payload,target,()=>false);
+  assert(!cancelled.restored&&target.snapshot()===before,'Cancelled restore changed data');
+  pass('Cancelled restore leaves existing Accounting data unchanged');
+  const restored=await api.restoreBackup(b.payload,target,()=>true);
+  assert(restored.restored,'Restore did not complete');
+  assert(JSON.parse(target.getItem(K.accounting)).entries[0].amount===125,'Accounting read-back mismatch');
+  assert(target.getItem(K.invoiceSequence)==='500','Invoice sequence decreased');
+  assert(target.getItem(K.recovery)!==null,'Recovery snapshot not retained');
+  pass('Restore verified and invoice sequence never decreases');
+  const corrupt=mock({[K.accounting]:'{broken',[K.invoiceSequence]:'1'});
+  let invalid=false;try{await api.buildBackup(corrupt,'TEST')}catch(_){invalid=true}
+  assert(invalid,'Corrupt source data exported');pass('Corrupt source Accounting data blocks backup');
+  const existingRecovery=mock({[K.accounting]:JSON.stringify(record),[K.invoiceSequence]:'350',[K.recovery]:'KEEP'});
+  let blocked=false;try{await api.restoreBackup(b.payload,existingRecovery,()=>true)}catch(_){blocked=true}
+  assert(blocked&&existingRecovery.getItem(K.recovery)==='KEEP','Existing recovery snapshot overwritten');
+  pass('Existing recovery snapshot is protected');
+  out.textContent=lines.join('\n')+'\n\nAll six Accounting-only synthetic tests passed. No real app data was accessed.';
+ }catch(e){out.textContent=lines.join('\n')+'\nFAIL  '+e.message+'\n\nNo real app data was accessed.'}
+});
+})();
+</script></body></html>
