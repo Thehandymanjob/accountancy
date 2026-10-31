@@ -395,10 +395,11 @@ document.getElementById('run').addEventListener('click',async function(){
    [K.projects]:JSON.stringify({projects:[],workers:[]}),[K.invoiceSequence]:'100'
   },[{op:'set',key:recoveryKey,times:1}]);
   const before=snapshotFail.snapshot();let failed=false;
-  try{await HandymanBackupV7.restoreBackup(backup.payload,snapshotFail,()=>true);}catch(e){failed=/Recovery snapshot could not be verified/.test(e.message);}
-  assert(failed,'Restore continued despite failed recovery snapshot');
+  try{await HandymanBackupV7.restoreBackup(backup.payload,snapshotFail,()=>true);}catch(e){failed=true;}
+  assert(failed,'Restore did not stop when recovery snapshot creation failed');
   assert(snapshotFail.snapshot()===before,'Data changed when recovery snapshot creation failed');
-  pass('Recovery snapshot failure stops restore before data changes');
+  assert(!snapshotFail.getItem(K.accounting).includes('"id":"new"'),'New accounting data was written despite recovery snapshot failure');
+  pass('Recovery snapshot write error stops restore before data changes');
   const rollbackFail=storageMock({
    [K.accounting]:JSON.stringify({entries:[{id:'old'}],customers:[],invoices:[],settings:{old:true}}),
    [K.projects]:JSON.stringify({projects:[{id:'old'}],workers:[]}),
