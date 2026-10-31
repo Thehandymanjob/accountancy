@@ -8,9 +8,9 @@
 <script>
 /* Synthetic stand-ins for the app's global lexical bindings. */
 let db={entries:[],customers:[],invoices:[],settings:{}};
-let storageAvailable=true,accountingDataIntegrityError=false,refreshCount=0;
+let storageAvailable=true,accountingDataIntegrityError=false,refreshCount=0,syntheticRejectLoad=false;
 const syntheticRaw=JSON.stringify({entries:[{id:'synthetic-1'}],customers:[],invoices:[],settings:{businessName:'Synthetic'}});
-function loadDB(){const parsed=JSON.parse(syntheticRaw);db={...parsed};storageAvailable=true;accountingDataIntegrityError=false}
+function loadDB(){if(syntheticRejectLoad){accountingDataIntegrityError=true;storageAvailable=false;return}const parsed=JSON.parse(syntheticRaw);db={...parsed};storageAvailable=true;accountingDataIntegrityError=false}
 function refreshAll(){if(!Array.isArray(db.entries))throw Error('bad DB');refreshCount++}
 </script>
 <script src="./backup-v7-main-app-bridge.js"></script>
@@ -23,10 +23,10 @@ document.getElementById('run').addEventListener('click',()=>{
   lines.push('PASS  Bridge invokes app loadDB and verifies the in-memory Accounting DB');n++;
   if(!bridge.refreshAccountingViews()||refreshCount!==1)throw Error('refreshAccountingViews failed');
   lines.push('PASS  Bridge invokes app refreshAll');n++;
-  accountingDataIntegrityError=true;
-  let rejected=false;try{bridge.reloadAccounting=bridge.reloadAccounting}catch(_){} // frozen API is intentional
-  lines.push('PASS  Bridge API is immutable');
-  n++;
+  syntheticRejectLoad=true;
+  let rejected=false;try{bridge.reloadAccounting()}catch(_){rejected=true}
+  if(!rejected)throw Error('invalid app load was not rejected');
+  lines.push('PASS  Bridge rejects an Accounting load when the app integrity flag is set');n++;
   out.textContent=lines.join('\n')+'\n\n'+n+'/3 bridge tests passed. Synthetic globals only.';
  }catch(e){out.textContent=lines.join('\n')+'\nFAIL  '+e.message+'\n\nNo live app data accessed.'}
 });
