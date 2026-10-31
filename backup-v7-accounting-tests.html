@@ -14,12 +14,12 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f1f3;padding:20px;
 </head>
 <body>
 <main>
-<h1>Accounting Backup v7 — Synthetic Test Suite</h1>
+<h1>Accounting Backup v7 — Accounting-only Synthetic Test Suite</h1>
 <div class="notice"><strong>Isolated synthetic test.</strong> Uses only an in-memory storage mock and generated Accounting records. It does not access browser LocalStorage, live app data, Projects, or production files.</div>
-<button id="run">Run seven Accounting-only tests</button>
+<button id="run">Run seven Accounting-only tests (fresh module)</button>
 <pre id="out">Ready. No tests have run.</pre>
 </main>
-<script src="./backup-v7.js"></script>
+<script src="./backup-v7.js?v=d709173bc55fef0123c810ffcda682338ac4848c"></script>
 <script>
 (function(){
 'use strict';
