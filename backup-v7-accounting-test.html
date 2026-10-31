@@ -62,7 +62,7 @@ async function run(){
   let rejected=false;try{await api.buildBackup(s,'test')}catch(_){rejected=true}
   if(!rejected||s.getItem(K.invoiceSequence)!=='190')throw Error('invalid structure accepted or storage changed');
  });
- out.textContent=lines.join('\n')+'\n\n'+passed+'/6 tests passed. Synthetic in-memory mock only.';
+ out.textContent=lines.join('\n')+'\n\n'+passed+'/7 tests passed. Synthetic in-memory mock only.';
 }
 document.getElementById('run').addEventListener('click',()=>run().catch(e=>out.textContent='TEST RUN FAILED: '+e.message));
 })();
