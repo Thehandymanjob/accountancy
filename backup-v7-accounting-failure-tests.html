@@ -1,0 +1,134 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Accounting Backup v7 — Failure Safety Tests</title><style>body{font:16px system-ui;max-width:820px;margin:24px auto;padding:0 16px;color:#202124}button{padding:13px 17px;margin:6px 6px 6px 0;font:inherit;font-weight:650;border:0;border-radius:10px;background:#e6e6e6}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f2f4;padding:14px;border-radius:10px;line-height:1.5}.warn{background:#fff2d9;padding:12px;border-radius:10px}</style></head><body><h1>Accounting Backup v7 — Failure Safety Tests</h1><p class="warn"><b>Isolated synthetic test.</b> Uses an in-memory storage mock only. Does not access browser LocalStorage, app data, Projects, Company, Contracts, or production files.</p><button id="run">Run failure safety tests</button><pre id="output">Ready.</pre><script>
+/* The Handyman Accountancy — isolated Accounting-only Backup v7
+ * Scope: accounting DB object and invoice sequence only.
+ * Does not read or write Projects, Company, Contracts, business profile, or browser app data during tests.
+ */
+(function(root){
+'use strict';
+const APP='The Handyman Accountancy';
+const SCHEMA=7;
+const ACCOUNTING_KEY='tha_v212_migration_accounting_v1';
+const SEQUENCE_KEY='tha_v212_migration_invoice_sequence_v1';
+const RECOVERY_KEY='tha_accounting_backup_v7_recovery_v1';
+const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
+function canonical(v){
+ if(v===null||typeof v!=='object')return JSON.stringify(v);
+ if(Array.isArray(v))return '['+v.map(x=>canonical(x)??'null').join(',')+']';
+ return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+(canonical(v[k])??'null')).join(',')+'}';
+}
+async function digest(v){
+ if(!root.crypto||!root.crypto.subtle||typeof TextEncoder==='undefined')throw new Error('SHA-256 unavailable; backup cancelled.');
+ const bytes=new TextEncoder().encode(canonical(v));
+ const hash=await root.crypto.subtle.digest('SHA-256',bytes);
+ return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+}
+function parseAccounting(raw){
+ if(raw===null)throw new Error('Accounting data is absent; backup cancelled.');
+ let v;try{v=JSON.parse(raw)}catch(_){throw new Error('Accounting data is not valid JSON; original data left untouched.')}
+ if(!v||typeof v!=='object'||Array.isArray(v)||
+ !Array.isArray(v.entries)||!Array.isArray(v.customers)||!Array.isArray(v.invoices)||
+ !v.settings||typeof v.settings!=='object'||Array.isArray(v.settings))
+ throw new Error('Accounting data has an unexpected structure; backup cancelled.');
+ if(v.customExpenseCategories!==undefined&&!Array.isArray(v.customExpenseCategories))
+ throw new Error('Custom expense categories are invalid; backup cancelled.');
+ return v;
+}
+function sequenceValue(raw){
+ if(raw===null||raw==='')return 0;
+ const n=Number(raw);if(!Number.isSafeInteger(n)||n<0)throw new Error('Invoice sequence is invalid.');
+ return n;
+}
+async function buildBackup(storage,version){
+ const accounting=parseAccounting(storage.getItem(ACCOUNTING_KEY));
+ const sequence=sequenceValue(storage.getItem(SEQUENCE_KEY));
+ const data={accounting,invoiceSequence:sequence};
+ const integrity={accounting:await digest(accounting),invoiceSequence:await digest(sequence)};
+ const payload={app:APP,backupType:'accounting-only',backupSchemaVersion:SCHEMA,appVersion:String(version||'unknown'),createdAt:new Date().toISOString(),data,integrity};
+ const serialized=JSON.stringify(payload,null,2);
+ const copy=JSON.parse(serialized);
+ if(await digest(copy.data.accounting)!==copy.integrity.accounting||await digest(copy.data.invoiceSequence)!==copy.integrity.invoiceSequence)throw new Error('Backup verification failed.');
+ return {payload:copy,serialized};
+}
+async function validateBackup(p){
+ if(!p||typeof p!=='object'||Array.isArray(p)||p.app!==APP||p.backupType!=='accounting-only'||p.backupSchemaVersion!==SCHEMA||!p.data||!p.integrity||!own(p.data,'accounting')||!own(p.data,'invoiceSequence'))throw new Error('Unsupported or invalid Accounting Backup v7.');
+ parseAccounting(JSON.stringify(p.data.accounting));
+ if(!Number.isSafeInteger(p.data.invoiceSequence)||p.data.invoiceSequence<0)throw new Error('Invoice sequence is invalid.');
+ if(await digest(p.data.accounting)!==p.integrity.accounting||await digest(p.data.invoiceSequence)!==p.integrity.invoiceSequence)throw new Error('Backup integrity check failed.');
+ return true;
+}
+async function restoreBackup(p,storage,confirmFn){
+ await validateBackup(p);
+ if(typeof confirmFn!=='function'||!confirmFn('Restore Accounting only? Accounting records, customers, invoices and settings will be replaced. Projects and other sections will not be changed.'))return {restored:false,reason:'cancelled'};
+ if(storage.getItem(RECOVERY_KEY)!==null)throw new Error('An existing Accounting recovery snapshot exists. Preserve it and resolve it before another restore.');
+ const oldAccounting=storage.getItem(ACCOUNTING_KEY),oldSequence=storage.getItem(SEQUENCE_KEY);
+ const recoveryText=JSON.stringify({schema:1,createdAt:new Date().toISOString(),accounting:oldAccounting,invoiceSequence:oldSequence});
+ storage.setItem(RECOVERY_KEY,recoveryText);
+ if(storage.getItem(RECOVERY_KEY)!==recoveryText)throw new Error('Recovery snapshot verification failed; restore stopped before changing data.');
+ let commit=false;
+ try{
+  commit=true;
+  storage.setItem(ACCOUNTING_KEY,JSON.stringify(p.data.accounting));
+  storage.setItem(SEQUENCE_KEY,String(Math.max(sequenceValue(oldSequence),p.data.invoiceSequence)));
+  if(canonical(parseAccounting(storage.getItem(ACCOUNTING_KEY)))!==canonical(p.data.accounting))throw new Error('Accounting read-back verification failed.');
+  if(sequenceValue(storage.getItem(SEQUENCE_KEY))!==Math.max(sequenceValue(oldSequence),p.data.invoiceSequence))throw new Error('Invoice sequence read-back verification failed.');
+  return {restored:true,recoveryKey:RECOVERY_KEY,note:'Recovery snapshot retained until separately verified.'};
+ }catch(err){
+  let rollbackOK=true;
+  if(commit){
+   try{
+    if(oldAccounting===null)storage.removeItem(ACCOUNTING_KEY);else storage.setItem(ACCOUNTING_KEY,oldAccounting);
+    if(oldSequence===null)storage.removeItem(SEQUENCE_KEY);else storage.setItem(SEQUENCE_KEY,oldSequence);
+    if(storage.getItem(ACCOUNTING_KEY)!==oldAccounting||storage.getItem(SEQUENCE_KEY)!==oldSequence)throw new Error('Rollback read-back failed.');
+   }catch(_){rollbackOK=false;}
+  }
+  if(rollbackOK){try{storage.removeItem(RECOVERY_KEY)}catch(_){}throw new Error('Restore failed; previous Accounting data rollback was verified. '+err.message);}
+  throw new Error('CRITICAL: Accounting restore and rollback could not be verified. Keep '+RECOVERY_KEY+' and do not clear browser storage. '+err.message);
+ }
+}
+async function exportToDownload(storage,version){
+ const result=await buildBackup(storage,version);
+ const blob=new Blob([result.serialized],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='The_Handyman_Accounting_Backup_v7_'+new Date().toISOString().slice(0,10)+'.json';
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+ return {initiated:true,verified:true};
+}
+root.HandymanAccountingBackupV7=Object.freeze({schemaVersion:SCHEMA,keys:Object.freeze({accounting:ACCOUNTING_KEY,invoiceSequence:SEQUENCE_KEY,recovery:RECOVERY_KEY}),buildBackup,validateBackup,restoreBackup,exportToDownload});
+})(typeof window!=='undefined'?window:globalThis);
+
+</script><script>
+(function(){
+'use strict';
+const api=window.HandymanAccountingBackupV7,K=api.keys;
+function mock(seed,fail){const d={...seed};return{getItem:k=>Object.prototype.hasOwnProperty.call(d,k)?d[k]:null,setItem(k,v){if(fail&&fail(k,v))throw new Error('Synthetic write failure');d[k]=String(v)},removeItem:k=>{delete d[k]},snapshot:()=>JSON.stringify(d)}}
+function assert(v,m){if(!v)throw new Error(m)}
+function makeDb(id,amount){return{entries:[{id,type:'income',amount}],customers:[],invoices:[],customExpenseCategories:[],settings:{businessName:'Synthetic'}}}
+document.getElementById('run').addEventListener('click',async()=>{
+ const lines=[],pass=s=>lines.push('PASS  '+s),out=document.getElementById('output');
+ try{
+  const source=mock({[K.accounting]:JSON.stringify(makeDb('NEW',200)),[K.invoiceSequence]:'200'});
+  const backup=await api.buildBackup(source,'FAILURE-TEST');
+  const base={ [K.accounting]:JSON.stringify(makeDb('OLD',50)),[K.invoiceSequence]:'250'};
+  const target=mock(base);
+  const before=target.snapshot();
+  let cancelled=false;try{await api.restoreBackup(backup.payload,target,()=>false)}catch(_){cancelled=true}
+  assert(cancelled&&target.snapshot()===before,'Cancelled restore changed storage');
+  pass('Cancelled restore leaves all existing synthetic data unchanged');
+  const corrupt=JSON.parse(JSON.stringify(backup.payload));corrupt.data.accounting.entries[0].amount=999;
+  let rejected=false;try{await api.validateBackup(corrupt)}catch(_){rejected=true}
+  assert(rejected,'Tampered backup was accepted');
+  pass('Tampered backup content is rejected');
+  const broken=mock(base,(k)=>k===K.accounting&&brokenWrites++>0);let brokenWrites=0;
+  let writeRejected=false;try{await api.restoreBackup(backup.payload,broken,()=>true)}catch(_){writeRejected=true}
+  assert(writeRejected,'Synthetic write failure did not stop restore');
+  assert(JSON.parse(broken.getItem(K.accounting)).entries[0].id==='OLD','Write failure did not preserve original data');
+  pass('Storage write failure is rejected without replacing original Accounting data');
+  const badShape=JSON.parse(JSON.stringify(backup.payload));badShape.data.accounting={entries:'not-array'};
+  let shapeRejected=false;try{await api.validateBackup(badShape)}catch(_){shapeRejected=true}
+  assert(shapeRejected,'Invalid Accounting shape was accepted');
+  pass('Invalid Accounting record structure is rejected');
+  out.textContent=lines.join('\n')+'\n\nAll failure safety tests passed. Synthetic in-memory data only.';
+ }catch(e){out.textContent=lines.join('\n')+'\nFAIL  '+e.message+'\n\nNo real app storage was accessed.'}
+});
+})();
+</script></body></html>
