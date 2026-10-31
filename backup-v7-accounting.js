@@ -35,11 +35,12 @@ function sequenceValue(raw){
  return n;
 }
 function highestRecordNumber(accounting){
- if(!accounting||typeof accounting!=='object')return 0;
- const nums=[];
+ // Match the app's highestSharedRecordNumber() floor (Math.max(142,134,...)).
+ if(!accounting||typeof accounting!=='object')return 142;
+ const nums=[142,134];
  if(Array.isArray(accounting.invoices))for(const i of accounting.invoices)nums.push(Number(i&&i.number)||0);
  if(Array.isArray(accounting.entries))for(const e of accounting.entries)if(e&&e.type==='income')nums.push(Number(e.number)||0);
- return nums.reduce((m,n)=>Number.isSafeInteger(n)&&n>m?n:m,0);
+ return nums.reduce((m,n)=>Number.isSafeInteger(n)&&n>m?n:m,142);
 }
 function safeMax(){
  return Math.max.apply(null,Array.from(arguments).map(n=>Number.isSafeInteger(n)&&n>=0?n:0));
