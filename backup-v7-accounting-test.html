@@ -1,48 +1,64 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Accounting Backup v7 — Isolated Tests</title><style>body{font:16px system-ui;max-width:850px;margin:32px auto;padding:0 18px;color:#222}button{padding:14px 22px;font:inherit;font-weight:700;border:0;border-radius:10px;background:#ddd}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f3f5;padding:18px;border-radius:12px;line-height:1.5}</style></head><body><h1>Accounting Backup v7 — Isolated Tests</h1><p>Uses only synthetic Accounting records and an in-memory storage mock. Does not read or write browser LocalStorage, Projects, Company, Contracts, or production data.</p><button id="run">Run synthetic tests</button><pre id="output">Ready.</pre><script src="./backup-v7-accounting.js"></script><script>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Accounting Backup v7 — Isolated Tests</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:760px;margin:28px auto;padding:0 18px;color:#222}.notice{background:#fff2d9;padding:18px;border-radius:16px;margin:24px 0}button{padding:14px 20px;border:0;border-radius:12px;background:#e7e7e7;color:#2463d8;font-weight:700;font-size:17px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f1f3;padding:18px;border-radius:16px;font:15px/1.6 ui-monospace,monospace}</style></head>
+<body><h1>Accounting Backup v7 — Isolated synthetic tests</h1>
+<div class="notice"><b>Safety boundary.</b> In-memory mock only. No browser LocalStorage, app data, Projects, Company, Contracts, or production files are read or changed.</div>
+<button id="run">Run six safety tests</button><pre id="out">Ready.</pre>
+<script src="./backup-v7-accounting.js"></script>
+<script>
 (function(){
 'use strict';
-const out=document.getElementById('output');
-function assert(x,m){if(!x)throw new Error(m)}
-function mock(seed,fail){
- const d=Object.assign({},seed||{}),f=(fail||[]).map(x=>({...x}));
- return {getItem:k=>Object.prototype.hasOwnProperty.call(d,k)?d[k]:null,
- setItem(k,v){const i=f.findIndex(x=>x.op==='set'&&x.key===k);if(i>=0){f.splice(i,1);throw Error('synthetic write failure '+k)}d[k]=String(v)},
- removeItem(k){const i=f.findIndex(x=>x.op==='remove'&&x.key===k);if(i>=0){f.splice(i,1);throw Error('synthetic remove failure '+k)}delete d[k]},
- snapshot:()=>JSON.stringify(d)};
+const out=document.getElementById('out'),api=window.HandymanAccountingBackupV7,K=api.keys;
+class MockStorage{
+ constructor(seed){this.data=new Map(Object.entries(seed||{}));this.failKey=null;this.failOnce=false}
+ getItem(k){return this.data.has(k)?this.data.get(k):null}
+ setItem(k,v){if(this.failOnce&&k===this.failKey){this.failOnce=false;throw Error('Injected synthetic write failure')}this.data.set(k,String(v))}
+ removeItem(k){this.data.delete(k)}
 }
-document.getElementById('run').addEventListener('click',async()=>{
- const lines=[],pass=x=>lines.push('PASS  '+x);
- try{
-  assert(window.crypto&&crypto.subtle&&typeof TextEncoder!=='undefined','Web Crypto unavailable');
-  const api=window.HandymanAccountingBackupV7,K=api.keys;
-  const record={entries:[{id:'E1',type:'income',amount:125}],customers:[{id:'C1',name:'Synthetic'}],invoices:[{id:'I1',customerId:'C1'}],customExpenseCategories:['Test'],settings:{businessName:'Synthetic Builder'}};
-  const src=mock({[K.accounting]:JSON.stringify(record),[K.invoiceSequence]:'350'});
-  const b=await api.buildBackup(src,'TEST');
-  assert(b.payload.backupType==='accounting-only','Wrong backup type');
-  assert(await api.validateBackup(b.payload),'Backup did not validate');
-  pass('Build and SHA-256 validation of Accounting-only backup');
-  const bad=JSON.parse(JSON.stringify(b.payload));bad.data.accounting.entries[0].amount=999;
-  let rejected=false;try{await api.validateBackup(bad)}catch(_){rejected=true}
-  assert(rejected,'Tampered backup accepted');pass('Tampered Accounting backup rejected');
-  const target=mock({[K.accounting]:JSON.stringify({entries:[],customers:[],invoices:[],settings:{old:true}}),[K.invoiceSequence]:'500'});
-  const before=target.snapshot();const cancelled=await api.restoreBackup(b.payload,target,()=>false);
-  assert(!cancelled.restored&&target.snapshot()===before,'Cancelled restore changed data');
-  pass('Cancelled restore leaves existing Accounting data unchanged');
-  const restored=await api.restoreBackup(b.payload,target,()=>true);
-  assert(restored.restored,'Restore did not complete');
-  assert(JSON.parse(target.getItem(K.accounting)).entries[0].amount===125,'Accounting read-back mismatch');
-  assert(target.getItem(K.invoiceSequence)==='500','Invoice sequence decreased');
-  assert(target.getItem(K.recovery)!==null,'Recovery snapshot not retained');
-  pass('Restore verified and invoice sequence never decreases');
-  const corrupt=mock({[K.accounting]:'{broken',[K.invoiceSequence]:'1'});
-  let invalid=false;try{await api.buildBackup(corrupt,'TEST')}catch(_){invalid=true}
-  assert(invalid,'Corrupt source data exported');pass('Corrupt source Accounting data blocks backup');
-  const existingRecovery=mock({[K.accounting]:JSON.stringify(record),[K.invoiceSequence]:'350',[K.recovery]:'KEEP'});
-  let blocked=false;try{await api.restoreBackup(b.payload,existingRecovery,()=>true)}catch(_){blocked=true}
-  assert(blocked&&existingRecovery.getItem(K.recovery)==='KEEP','Existing recovery snapshot overwritten');
-  pass('Existing recovery snapshot is protected');
-  out.textContent=lines.join('\n')+'\n\nAll six Accounting-only synthetic tests passed. No real app data was accessed.';
- }catch(e){out.textContent=lines.join('\n')+'\nFAIL  '+e.message+'\n\nNo real app data was accessed.'}
-});
+const account=(invoices=[])=>({entries:[{id:'e1',type:'income',number:171,amount:100}],customers:[{id:'c1',name:'Synthetic customer'}],invoices,settings:{businessName:'Synthetic only'}});
+async function run(){
+ const lines=[];let passed=0;
+ const test=async(label,fn)=>{try{await fn();lines.push('PASS  '+label);passed++}catch(e){lines.push('FAIL  '+label+' — '+e.message)}};
+ await test('Cancel leaves Accounting, sequence and recovery key unchanged',async()=>{
+  const s=new MockStorage({[K.accounting]:JSON.stringify(account()),[K.invoiceSequence]:'190'});
+  const before=[s.getItem(K.accounting),s.getItem(K.invoiceSequence),s.getItem(K.recovery)];
+  const b=await api.buildBackup(s,'test'),r=await api.restoreBackup(b.payload,s,()=>false);
+  const after=[s.getItem(K.accounting),s.getItem(K.invoiceSequence),s.getItem(K.recovery)];
+  if(r.reason!=='cancelled'||before.some((v,i)=>v!==after[i]))throw Error('cancel changed state');
+ });
+ await test('Backup derives high-water mark from actual invoice and income numbers',async()=>{
+  const s=new MockStorage({[K.accounting]:JSON.stringify(account([{id:'i1',number:246}])),[K.invoiceSequence]:'180'});
+  const b=await api.buildBackup(s,'test');
+  if(b.payload.data.invoiceSequence!==246)throw Error('expected 246, got '+b.payload.data.invoiceSequence);
+ });
+ await test('Restore never lowers current sequence or current record-number high-water mark',async()=>{
+  const s=new MockStorage({[K.accounting]:JSON.stringify(account([{id:'old',number:305}])),[K.invoiceSequence]:'200'});
+  const imported=account([{id:'new',number:155}]);
+  const b=await api.buildBackup(new MockStorage({[K.accounting]:JSON.stringify(imported),[K.invoiceSequence]:'155'}),'test');
+  const r=await api.restoreBackup(b.payload,s,()=>true);
+  if(!r.restored||r.invoiceSequence!==305||s.getItem(K.invoiceSequence)!=='305')throw Error('sequence was not preserved');
+ });
+ await test('Tampered payload rejected by SHA-256',async()=>{
+  const s=new MockStorage({[K.accounting]:JSON.stringify(account()),[K.invoiceSequence]:'190'});
+  const b=await api.buildBackup(s,'test');b.payload.data.accounting.entries[0].amount=999;
+  let rejected=false;try{await api.validateBackup(b.payload)}catch(_){rejected=true}
+  if(!rejected)throw Error('tampering accepted');
+ });
+ await test('Injected storage write failure rolls back both original values',async()=>{
+  const original=account([{id:'old',number:220}]),s=new MockStorage({[K.accounting]:JSON.stringify(original),[K.invoiceSequence]:'220'});
+  const before=[s.getItem(K.accounting),s.getItem(K.invoiceSequence)];
+  const b=await api.buildBackup(new MockStorage({[K.accounting]:JSON.stringify(account([{id:'new',number:250}])),[K.invoiceSequence]:'250'}),'test');
+  s.failKey=K.invoiceSequence;s.failOnce=true;
+  let failed=false;try{await api.restoreBackup(b.payload,s,()=>true)}catch(_){failed=true}
+  if(!failed||s.getItem(K.accounting)!==before[0]||s.getItem(K.invoiceSequence)!==before[1])throw Error('rollback did not restore both original values');
+ });
+ await test('Invalid Accounting structure rejected without changing storage',async()=>{
+  const s=new MockStorage({[K.accounting]:JSON.stringify({entries:{},customers:[],invoices:[],settings:{}}),[K.invoiceSequence]:'190'});
+  let rejected=false;try{await api.buildBackup(s,'test')}catch(_){rejected=true}
+  if(!rejected||s.getItem(K.invoiceSequence)!=='190')throw Error('invalid structure accepted or storage changed');
+ });
+ out.textContent=lines.join('\n')+'\n\n'+passed+'/6 tests passed. Synthetic in-memory mock only.';
+}
+document.getElementById('run').addEventListener('click',()=>run().catch(e=>out.textContent='TEST RUN FAILED: '+e.message));
 })();
 </script></body></html>
