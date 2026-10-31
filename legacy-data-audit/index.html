@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#142b4a"><title>The Handyman — Legacy Data Audit</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#172235;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{background:#142b4a;color:#fff;padding:20px 16px;border-bottom:5px solid #d3a52d}h1{font-size:21px;margin:0 0 6px}header p,.muted{color:#647187;font-size:13px;line-height:1.5}header p{color:#dce5f0}main{max-width:900px;margin:18px auto;padding:0 14px}.card{background:#fff;border:1px solid #dbe3ed;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 3px 12px #142b4a0a}h2{font-size:18px;margin:0 0 12px}button{border:0;border-radius:10px;background:#173c69;color:#fff;font-weight:700;padding:12px 16px;font-size:15px}.secondary{background:#e8edf4;color:#172235}.row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #edf1f6;align-items:flex-start}.row:last-child{border:0}.row span{overflow-wrap:anywhere;min-width:0}.row strong{text-align:right;max-width:52%;overflow-wrap:anywhere}.tag{font-size:12px;border-radius:20px;padding:4px 8px;background:#edf2f7;white-space:nowrap}.good{color:#17613c}.warn{color:#8a4b12}.notice{background:#fff7e8;border:1px solid #f1d69d;border-radius:10px;padding:12px;font-size:13px;line-height:1.5}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:#536176}
+</style></head><body>
+<header><h1>The Handyman — Legacy Data Audit</h1><p>Read-only comparison · same Safari website storage · no migration or deletion</p></header>
+<main>
+<section class="card"><h2>Audit status</h2><div id="status">Waiting for audit…</div><p class="muted">This tool reads only the named Local Storage keys. It does not show customer names, addresses, invoice details, amounts or project descriptions, and it does not send data to a server.</p><div class="actions"><button id="run">Run audit</button><button id="export" class="secondary" disabled>Download private audit report</button></div></section>
+<section class="card"><h2>Accounting datasets</h2><div id="accounting" class="muted">Not audited</div></section>
+<section class="card"><h2>Project datasets</h2><div id="projects" class="muted">Not audited</div></section>
+<section class="card"><h2>Other related keys</h2><div id="other" class="muted">Not audited</div></section>
+<section class="card"><h2>Comparison results</h2><div id="compare" class="muted">Not audited</div></section>
+<div class="notice"><strong>Safety:</strong> Do not clear Safari website data and do not delete any listed key. Matching hashes indicate byte-for-byte identical saved values; different hashes mean the datasets differ. The report contains key names, sizes, record counts and hashes only.</div>
+</main>
+<script>
+const KEYS={
+accounting:['tha_restore_test_v1_accounting_v1','handyman_accounting_v2','tha_v206_accounting_v1'],
+projects:['tha_restore_test_v1_projects_v1','handyman_projects_workspace_v1','tha_v206_projects_v1'],
+other:['tha_restore_test_v1_contracts_v1','tha_restore_test_v1_report_archive_v1','tha_restore_test_v1_monitor_log','handyman_monitor_log_v1','tha_v206_contracts_v1','tha_v206_invoice_sequence_v1','tha_restore_test_v1_invoice_sequence_v1','tha_v206_report_notifications_v1','tha_restore_test_v1_report_notifications_v1','tha_baseline_v167_isolated_20261030','tha_v206_factory_reset_recovery_v1']
+};
+let report=null;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function shape(v){if(v===null)return'null';if(Array.isArray(v))return'array ('+v.length+' items)';if(typeof v!=='object')return typeof v;const a=Object.keys(v);let z='object · '+a.length+' fields';for(const k of a){if(Array.isArray(v[k]))z+=' · '+k+': '+v[k].length;if(v[k]&&typeof v[k]==='object'&&!Array.isArray(v[k])){for(const q of Object.keys(v[k]))if(Array.isArray(v[k][q]))z+=' · '+k+'.'+q+': '+v[k][q].length}}return z}
+async function hash(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+async function inspect(key){let raw;try{raw=localStorage.getItem(key)}catch(e){return{key,present:false,error:String(e)}}if(raw===null)return{key,present:false};let parsed;try{parsed=JSON.parse(raw)}catch(e){return{key,present:true,bytes:new Blob([key,raw]).size,validJson:false}}return{key,present:true,bytes:new Blob([key,raw]).size,validJson:true,shape:shape(parsed),hash:await hash(raw)}}
+function render(id,items){document.getElementById(id).innerHTML=items.map(x=>'<div class="row"><span>'+esc(x.key)+'</span><strong>'+(x.present?(x.validJson?esc(x.shape)+'<br>'+((x.bytes/1024).toFixed(2))+' KB':'Invalid/non-JSON · '+x.bytes+' B'):'Not present')+'</strong></div>').join('')||'No keys listed'}
+async function run(){document.getElementById('status').textContent='Reading keys and calculating local fingerprints…';const all={};for(const group of Object.keys(KEYS)){all[group]=[];for(const k of KEYS[group])all[group].push(await inspect(k));render(group,all[group])}
+const pairs=[['Accounting: restore-test vs older','tha_restore_test_v1_accounting_v1','handyman_accounting_v2'],['Accounting: restore-test vs current app','tha_restore_test_v1_accounting_v1','tha_v206_accounting_v1'],['Projects: restore-test vs older','tha_restore_test_v1_projects_v1','handyman_projects_workspace_v1'],['Projects: restore-test vs current app','tha_restore_test_v1_projects_v1','tha_v206_projects_v1']];
+const find=k=>[...all.accounting,...all.projects,...all.other].find(x=>x.key===k);
+const comparisons=pairs.map(([label,a,b])=>{const x=find(a),y=find(b);let result='Cannot compare: one or both keys missing';if(x?.present&&y?.present)result=x.validJson&&y.validJson?(x.hash===y.hash?'Exact match (same SHA-256)':'Different data (different SHA-256)'):'One or both values are not valid JSON';return{label,a,b,result}});
+document.getElementById('compare').innerHTML=comparisons.map(x=>'<div class="row"><span>'+esc(x.label)+'</span><strong>'+esc(x.result)+'</strong></div>').join('');
+report={createdAt:new Date().toISOString(),origin:location.origin,groups:all,comparisons};document.getElementById('status').innerHTML='<span class="good">Audit complete.</span> Read-only scan finished. No storage values were changed.';document.getElementById('export').disabled=false}
+document.getElementById('run').addEventListener('click',()=>run().catch(e=>document.getElementById('status').textContent='Audit error: '+e.message));
+document.getElementById('export').addEventListener('click',()=>{if(!report)return;const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='handyman-storage-audit.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
+run().catch(e=>document.getElementById('status').textContent='Audit error: '+e.message);
+</script></body></html>
