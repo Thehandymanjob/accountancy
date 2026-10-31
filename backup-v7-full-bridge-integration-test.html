@@ -20,7 +20,7 @@ function loadDB(){
   settings:{...(parsed.settings||{})}};
  accountingDataIntegrityError=false;storageAvailable=true;
 }
-function refreshAll(){if(failRefresh)throw Error('Synthetic view refresh failure');if(!db||!Array.isArray(db.entries))throw Error('Invalid synthetic DB');refreshCount++}
+function refreshAll(){if(failRefresh){failRefresh=false;throw Error('Synthetic view refresh failure')}if(!db||!Array.isArray(db.entries))throw Error('Invalid synthetic DB');refreshCount++}
 </script>
 <script>
 (function(){
