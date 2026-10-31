@@ -12,8 +12,8 @@
   const orphanIds=[];
   for(const e of db.entries){
    if(!e||e.type!=='income')continue;
-   const ref=String(e.reference||'').trim().match(/^Invoice\\s+(.+)$/i);
-   const note=String(e.notes||'').match(/payment received for invoice\\s+([\\w-]+)/i);
+   const ref=String(e.reference||'').trim().match(/^Invoice\s+(.+)$/i);
+   const note=String(e.notes||'').match(/payment received for invoice\s+([\w-]+)/i);
    const id=String(e.id||'').match(/^invoice-income-invoice-(.+)$/i);
    const number=ref&&ref[1].trim()||note&&note[1].trim()||id&&id[1].trim();
    if(number&&!invoiceNumbers.has(String(number))&&(ref||note||id))orphanIds.push(String(e.id||''));
