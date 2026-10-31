@@ -27,7 +27,7 @@ iframe{width:100%;height:72vh;border:1px solid #dbe3ed;border-radius:12px;backgr
 <div class="track"><div id="bar" class="bar"></div></div>
 <div id="quota" class="muted"></div>
 <div id="details"></div>
-<p class="muted" id="local"></p><div id="keyInventory" class="muted"></div>
+<p class="muted" id="local"></p><div id="keyInventory" class="muted"></div><div id="dataShape" class="muted"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
 <button id="refresh" type="button">Refresh measurements</button>
 <button id="openApp" class="secondary" type="button">Open app below</button>
@@ -51,6 +51,8 @@ function measureLocal(){let bytes=0,keys=0,items=[];try{for(let i=0;i<localStora
 async function refresh(){ $('status').textContent='Measuring…';$('details').textContent='';$('dbs').textContent='Checking…';
  const ls=measureLocal();$('local').textContent=ls.ok?'Local Storage measured key/value bytes: '+fmt(ls.bytes)+' across '+ls.keys+' keys.':'Local Storage measurement failed: '+ls.error;
  $('keyInventory').innerHTML=ls.ok?'<h3>Local Storage inventory (names and sizes only)</h3>'+ls.items.map(x=>'<div class="stat"><span>'+String(x.key).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]))+'</span><strong>'+fmt(x.bytes)+'</strong></div>').join(''):'';
+ $('dataShape').innerHTML=ls.ok?'<h3>JSON structure summary (no record contents)</h3>'+ls.items.map(x=>{try{const raw=localStorage.getItem(x.key);const v=JSON.parse(raw);let summary='JSON '+(Array.isArray(v)?'array ('+v.length+' items)':v===null?'null':typeof v);if(v&&typeof v==='object'&&!Array.isArray(v)){const fields=Object.keys(v);summary+=' · '+fields.length+' top-level fields';for(const k of fields){if(Array.isArray(v[k]))summary+=' · '+k+': '+v[k].length+' items';}}return '<div class="stat"><span>'+String(x.key).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]))+'</span><strong>'+summary+'</strong></div>'}catch(e){return '<div class="stat"><span>'+String(x.key).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]))+'</span><strong>Not JSON / unavailable</strong></div>'}}).join(''):'';
+
  let est=null;if(navigator.storage&&navigator.storage.estimate){try{est=await navigator.storage.estimate()}catch(e){}}
  const used=est&&Number.isFinite(est.usage)?est.usage:null,quota=est&&Number.isFinite(est.quota)?est.quota:null,pct=used!==null&&quota>0?used/quota*100:null;
  $('status').textContent=pct===null?'Browser quota estimate is not exposed in this Safari context.':'Estimated website-origin usage: '+pct.toFixed(1)+'%';
