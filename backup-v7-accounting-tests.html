@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Backup v7 — Accounting-only synthetic tests</title>
+<style>
+:root{color-scheme:light}body{font:16px/1.5 system-ui,sans-serif;margin:0;padding:24px;background:#fff;color:#202124}
+main{max-width:900px;margin:auto}h1{font-size:clamp(28px,5vw,44px);line-height:1.1}
+.notice{background:#fff2d9;padding:18px 20px;border-radius:18px;margin:24px 0}
+button{border:0;border-radius:16px;background:#e7e7e7;color:#2563eb;font-weight:800;font-size:20px;padding:18px 24px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f1f3;padding:20px;border-radius:18px;font:16px/1.6 ui-monospace,monospace;margin-top:24px}
+</style>
+</head>
+<body>
+<main>
+<h1>Accounting Backup v7 — Synthetic Test Suite</h1>
+<div class="notice"><strong>Isolated synthetic test.</strong> Uses only an in-memory storage mock and generated Accounting records. It does not access browser LocalStorage, live app data, Projects, or production files.</div>
+<button id="run">Run seven Accounting-only tests</button>
+<pre id="out">Ready. No tests have run.</pre>
+</main>
+<script src="./backup-v7.js"></script>
+<script>
+(function(){
+'use strict';
+const out=document.getElementById('out'),button=document.getElementById('run');
+const K=window.HandymanBackupV7.storageKeys;
+function mock(seed,failKey){
+ const map=new Map(Object.entries(seed||{}));
+ return {
+  getItem(k){return map.has(k)?map.get(k):null},
+  setItem(k,v){if(failKey===k){failKey=null;throw new Error('Injected synthetic write failure')}map.set(k,String(v))},
+  removeItem(k){map.delete(k)},
+  snapshot(){return Object.fromEntries(map.entries())}
+ };
+}
+function seed(){
+ return {
+  [K.accounting]:JSON.stringify({
+   entries:[{id:'e1',type:'income',number:246,amount:100}],
+   customers:[{id:'c1',name:'Synthetic Customer'}],
+   invoices:[{id:'i1',number:245,total:100}],
+   settings:{currency:'GBP'}
+  }),
+  [K.invoiceSequence]:'180',
+  [K.reportSettings]:JSON.stringify({period:'monthly'}),
+  [K.reportWorkflow]:JSON.stringify({enabled:true})
+ };
+}
+function assert(ok,message){if(!ok)throw new Error(message)}
+async function run(){
+ const results=[];
+ async function test(name,fn){try{await fn();results.push('PASS  '+name)}catch(e){results.push('FAIL  '+name+' — '+e.message)}}
+ await test('Valid Accounting backup builds and validates',async()=>{
+  const s=mock(seed()),b=await window.HandymanBackupV7.buildBackup(s,'synthetic');
+  assert(await window.HandymanBackupV7.validateBackup(b.payload),'payload did not validate');
+  assert(b.payload.data.invoiceSequence===246,'sequence did not derive from highest record number');
+  assert(b.payload.backupType==='accounting-only','wrong backup scope');
+ });
+ await test('Tampered Accounting payload is rejected',async()=>{
+  const b=await window.HandymanBackupV7.buildBackup(mock(seed()),'synthetic');
+  b.payload.data.accounting.entries[0].amount=999;
+  let rejected=false;try{await window.HandymanBackupV7.validateBackup(b.payload)}catch(_){rejected=true}
+  assert(rejected,'tampered payload was accepted');
+ });
+ await test('Cancelled restore leaves all keys and recovery key unchanged',async()=>{
+  const s=mock(seed()),before=JSON.stringify(s.snapshot()),b=await window.HandymanBackupV7.buildBackup(mock(seed()),'synthetic');
+  const r=await window.HandymanBackupV7.restoreBackup(b.payload,s,()=>false);
+  assert(!r.restored,'cancel was ignored');
+  assert(JSON.stringify(s.snapshot())===before,'storage changed after cancellation');
+ });
+ await test('Restore preserves the higher existing sequence and recovery snapshot',async()=>{
+  const current=seed();current[K.invoiceSequence]='300';
+  const s=mock(current),b=await window.HandymanBackupV7.buildBackup(mock(seed()),'synthetic');
+  const r=await window.HandymanBackupV7.restoreBackup(b.payload,s,()=>true);
+  assert(r.restored,'restore did not complete');
+  assert(s.getItem(K.invoiceSequence)==='300','existing sequence was lowered');
+  assert(s.getItem('tha_v212_migration_restore_recovery_v1')!==null,'recovery snapshot missing');
+ });
+ await test('Injected write failure rolls back every original value',async()=>{
+  const s=mock(seed(),K.reportSettings),before=JSON.stringify(s.snapshot()),b=await window.HandymanBackupV7.buildBackup(mock(seed()),'synthetic');
+  let failed=false;try{await window.HandymanBackupV7.restoreBackup(b.payload,s,()=>true)}catch(_){failed=true}
+  assert(failed,'injected failure was not reported');
+  assert(JSON.stringify(s.snapshot())===before,'rollback did not restore exact original storage');
+ });
+ await test('Invalid Accounting structure is rejected without mutation',async()=>{
+  const s=mock(seed()),before=JSON.stringify(s.snapshot()),b=await window.HandymanBackupV7.buildBackup(mock(seed()),'synthetic');
+  b.payload.data.accounting.entries='invalid';
+  let rejected=false;try{await window.HandymanBackupV7.restoreBackup(b.payload,s,()=>true)}catch(_){rejected=true}
+  assert(rejected,'invalid structure was accepted');
+  assert(JSON.stringify(s.snapshot())===before,'storage changed after validation rejection');
+ });
+ await test('Existing recovery snapshot blocks a second restore',async()=>{
+  const initial=seed();initial.tha_v212_migration_restore_recovery_v1='KEEP';
+  const s=mock(initial),before=JSON.stringify(s.snapshot()),b=await window.HandymanBackupV7.buildBackup(mock(seed()),'synthetic');
+  let rejected=false;try{await window.HandymanBackupV7.restoreBackup(b.payload,s,()=>true)}catch(_){rejected=true}
+  assert(rejected,'existing recovery snapshot was overwritten');
+  assert(JSON.stringify(s.snapshot())===before,'storage changed while recovery snapshot existed');
+ });
+ out.textContent=results.join('\n')+'\n\n'+results.filter(x=>x.startsWith('PASS')).length+'/7 tests passed. In-memory synthetic storage only.';
+}
+button.addEventListener('click',()=>{button.disabled=true;run().catch(e=>out.textContent='TEST SUITE ERROR: '+e.message).finally(()=>button.disabled=false)});
+})();
+</script>
+</body>
+</html>
