@@ -1575,10 +1575,12 @@ function showAccountingStartupReadOnlyReport(){
  lines.push('This report does not delete, renumber, or save anything.');
  host.textContent=lines.join('\n');host.style.display='block';
 }
-loadDB();accountingStartupReadOnlySnapshot=captureAccountingStartupReadOnlySnapshot();assignNumbersToExistingIncome();const removedOrphanInvoiceIncome=removeOrphanedInvoiceIncome();if(removedOrphanInvoiceIncome&&storageAvailable){persist();setStatus(`Removed ${removedOrphanInvoiceIncome} orphaned invoice-linked income record(s) because the invoice no longer exists.`,'warn')}ensureInvoicePaymentFields();if(storageAvailable){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
-// Clean distribution: do not seed personal customers or historical invoices.
-ensureInvoicePaymentFields();if(storageAvailable){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
-ensureInvoiceFields();if(storageAvailable){try{window.localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}} $('date').value=today();setPeriod();show('accountancyHome');syncLauncherBrand();
+loadDB();accountingStartupReadOnlySnapshot=captureAccountingStartupReadOnlySnapshot();
+if(accountingStartupReadOnlySnapshot.available&&(accountingStartupReadOnlySnapshot.unnumberedIncome.length||accountingStartupReadOnlySnapshot.orphanCandidates.length)){
+ setStatus('Accounting startup check: '+accountingStartupReadOnlySnapshot.unnumberedIncome.length+' unnumbered income record(s), '+accountingStartupReadOnlySnapshot.orphanCandidates.length+' possible orphan record(s). No records were changed. Review the read-only check on the Accountancy home page.','warn');
+}
+// Startup is read-only: no automatic income numbering, orphan deletion, invoice payment-field migration, or invoice-income creation.
+$('date').value=today();setPeriod();show('accountancyHome');syncLauncherBrand();
 
 /* Projects workspace logic: deliberately isolated from accounting database */
 const PR_KEY='tha_v212_migration_projects_v1';let prDB={projects:[],workers:[],partners:[],contractors:[],companies:[],companyJobs:[],profile:{},current:null,guide:'en'};let prPhotoData='';let prLogoData='';let prSubPhotoData='';let projectsDataIntegrityError=false;
