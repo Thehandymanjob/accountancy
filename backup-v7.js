@@ -111,7 +111,7 @@
       if (value !== null && (!Number.isSafeInteger(value) || value < 0)) {
         throw new Error(name + ' section must be a non-negative safe integer or null.');
       }
-    } else if (value !== null && (typeof value !== 'object' || Array.isArray(value))) {
+    } else if (value !== null && typeof value !== 'object') {
       throw new Error(name + ' section has an unsupported type.');
     }
   }
