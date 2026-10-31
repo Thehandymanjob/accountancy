@@ -150,6 +150,22 @@
       validateSection(name, stored.value);
       data[name] = stored.value;
     }
+
+    // The app uses one shared sequence for invoice numbers and standalone income records.
+    // Never trust the remembered counter alone: derive its high-water mark from actual records.
+    const accounting = data.accounting;
+    const invoiceNumbers = Array.isArray(accounting.invoices)
+      ? accounting.invoices.map(item => Number(item && item.number) || 0) : [];
+    const incomeNumbers = Array.isArray(accounting.entries)
+      ? accounting.entries.filter(item => item && item.type === 'income')
+          .map(item => Number(item.number) || 0) : [];
+    data.invoiceSequence = Math.max(
+      142,
+      Number(data.invoiceSequence) || 0,
+      ...invoiceNumbers,
+      ...incomeNumbers
+    );
+
     for (const name of OPTIONAL) {
       const stored = parseStored(storage, name);
       const value = stored.present ? stored.value : null;
