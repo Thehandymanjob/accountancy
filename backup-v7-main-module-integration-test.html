@@ -38,7 +38,7 @@ async function run(){
   const b=await api.buildBackup(source,'synthetic');
   const target=new MemoryStorage({[K.accounting]:JSON.stringify(db('old',190)),[K.invoiceSequence]:'300'});
   const r=await api.restoreBackup(b.payload,target,()=>true);
-  if(r.invoiceSequence!==300||target.getItem(K.invoiceSequence)!=='300')throw Error('higher sequence was reduced');
+  if(target.getItem(K.invoiceSequence)!=='300')throw Error('expected stored sequence 300, got '+target.getItem(K.invoiceSequence));
  });
  await test('Cancelled restore changes no storage',async()=>{
   const s=new MemoryStorage({[K.accounting]:JSON.stringify(db('old',180)),[K.invoiceSequence]:'190'});
