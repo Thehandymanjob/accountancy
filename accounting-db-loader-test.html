@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Accounting DB Loader Tests</title><style>body{font:17px system-ui;margin:24px;line-height:1.5}button{font:700 18px system-ui;padding:14px 20px;border:0;border-radius:12px;background:#e5e5e5}pre{white-space:pre-wrap;background:#f0f1f3;border-radius:14px;padding:18px;font:16px ui-monospace,monospace}.warn{background:#fff1d8;padding:16px;border-radius:12px}</style></head><body><h1>Accounting DB Loader — Synthetic Tests</h1><p class="warn"><b>Isolated synthetic test.</b> In-memory mock and generated Accounting records only. No browser LocalStorage, live app data, Projects, Company, Contracts, or production files.</p><button id="run">Run loader tests</button><pre id="out">Ready.</pre><script src="./accounting-db-loader-v1.js"></script><script>
+const api=HandymanAccountingDBLoader,out=document.getElementById('out');
+function mock(raw,fail){return{getItem(){if(fail)throw Error('synthetic storage denial');return raw}}}
+function check(v,m){if(!v)throw Error(m)}
+document.getElementById('run').onclick=()=>{const r=[];try{
+let x=api.load(mock(JSON.stringify({entries:[{id:'synthetic'}],customers:[],invoices:[],settings:{businessName:'Test'}})));check(x.ok&&x.kind==='loaded'&&!x.integrityError&&x.db.entries.length===1,'valid load');r.push('PASS  Valid Accounting data loads and clears stale integrity state');
+x=api.load(mock(null));check(x.ok&&x.kind==='empty'&&x.db.entries.length===0&&x.storageAvailable,'missing key');r.push('PASS  Missing key returns clean default DB');
+x=api.load(mock('not-json'));check(!x.ok&&x.kind==='corrupt-json','corrupt JSON');r.push('PASS  Corrupt JSON is rejected without storage mutation');
+x=api.load(mock(JSON.stringify({entries:'wrong'})));check(!x.ok&&x.kind==='invalid-structure','invalid structure');r.push('PASS  Invalid structure is rejected');
+x=api.load(mock(null,true));check(!x.ok&&x.kind==='storage-unavailable','storage exception');r.push('PASS  Storage access failure is reported safely');
+out.textContent=r.join('\n')+'\n\n5/5 tests passed. In-memory synthetic mock only.';
+}catch(e){out.textContent=r.join('\n')+'\nFAIL  '+e.message}};
+</script></body></html>
