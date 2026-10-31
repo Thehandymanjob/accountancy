@@ -14,4 +14,4 @@
 </main><script>
 window.addEventListener("error",function(e){var n=document.getElementById("runtimeDiag");if(n)n.textContent="JAVASCRIPT ERROR: "+(e.message||"unknown")+" ("+(e.filename||"")+")";});
 window.addEventListener("unhandledrejection",function(e){var n=document.getElementById("runtimeDiag");if(n)n.textContent="PROMISE ERROR: "+String(e.reason&&e.reason.message||e.reason);});
-</script><script src="restore-lab-v4.js" onload="document.getElementById('runtimeDiag').textContent='DIAGNOSTIC: JavaScript file loaded successfully. Starting compatibility test…'" onerror="document.getElementById('runtimeDiag').textContent='SCRIPT LOAD ERROR: restore-lab-v4.js could not be loaded'"></script></body></html>
+</script><script src="restore-lab-v4.js?v=20261031-05" onload="if(document.getElementById('runtimeDiag').textContent.startsWith('DIAGNOSTIC PAGE'))document.getElementById('runtimeDiag').textContent='DIAGNOSTIC: JavaScript file loaded; waiting for test…'" onerror="document.getElementById('runtimeDiag').textContent='SCRIPT LOAD ERROR: restore-lab-v4.js could not be loaded'"></script></body></html>
