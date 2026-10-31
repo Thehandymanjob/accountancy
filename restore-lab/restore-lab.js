@@ -29,7 +29,7 @@ status('Ready. Separate test database only; the live app storage is untouched.')
 'use strict';
 const DB='tha_restore_lab_v1', STORE='backupRecords', ID='trusted-backup-reference';
 const el=id=>document.getElementById(id);
-const setStatus=(s,k='info')=>{el('status').textContent=s;el('status').dataset.kind=k};
+const setStatus=(s,k='info')=>{el('compatStatus').textContent=s;el('compatStatus').dataset.kind=k};
 function openLabDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB,1);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||Error('Cannot open isolated test database'))})}
 function getRecord(db){return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(ID);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error||Error('Cannot read saved test snapshot'))})}
 async function sha256(s){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(digest)].map(v=>v.toString(16).padStart(2,'0')).join('')}
@@ -50,5 +50,7 @@ function inspect(x){
 }
 const button=el('compatButton');
 if(!button){setStatus('COMPATIBILITY CHECKER ERROR: button not found in page markup.','error');return}
-button.addEventListener('click',async()=>{button.disabled=true;setStatus('Checking the saved backup against v212…');try{const db=await openLabDB();let rec;try{rec=await getRecord(db)}finally{db.close()}if(!rec)throw Error('No backup snapshot found. Run Step 1 first.');if(await sha256(rec.raw)!==rec.sha256)throw Error('Saved backup SHA-256 mismatch');const report=inspect(JSON.parse(rec.raw));el('details').textContent=JSON.stringify({database:DB,source:rec.sourceName,bytes:rec.bytes,sha256:rec.sha256,...report},null,2);setStatus(report.result+(report.issues.length?' — inspect details below.':' — inspection complete; live app data untouched.'),report.issues.length?'error':'ok')}catch(e){setStatus('COMPATIBILITY CHECK ERROR: '+(e.message||String(e)),'error')}finally{button.disabled=false}});
+async function runCompatibility(){button.disabled=true;setStatus('Running read-only compatibility inspection…');try{const db=await openLabDB();let rec;try{rec=await getRecord(db)}finally{db.close()}if(!rec)throw Error('No backup snapshot found in this browser. Import the trusted JSON in Step 1 first.');if(await sha256(rec.raw)!==rec.sha256)throw Error('Saved backup SHA-256 mismatch');const report=inspect(JSON.parse(rec.raw));el('details').textContent=JSON.stringify({database:DB,source:rec.sourceName,bytes:rec.bytes,sha256:rec.sha256,...report},null,2);setStatus(report.result+(report.issues.length?' — inspect details below.':' — inspection complete; live app data untouched.'),report.issues.length?'error':'ok')}catch(e){setStatus('COMPATIBILITY CHECK ERROR: '+(e.message||String(e)),'error')}finally{button.disabled=false}}
+button.addEventListener('click',runCompatibility);
+runCompatibility();
 })();
