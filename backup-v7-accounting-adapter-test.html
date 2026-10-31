@@ -21,6 +21,8 @@ async function run(){
  let r=await HandymanAccountingBackupV7Adapter.restoreAndRefresh(built.payload,target,()=>true,bridge);
  assert(r.appRefreshed&&current==='Synthetic import'&&refreshCount===1,'successful restore must reload DB and refresh views');pass('Successful restore reloads Accounting and refreshes views');
  assert(target.getItem(keys.invoiceSequence)==='190','existing higher invoice sequence must remain');pass('Higher existing invoice sequence is preserved');
+ // The first successful restore deliberately retains its recovery snapshot for manual verification.
+ target.removeItem(keys.recovery);
  const before=target.dump();let reloadCalls=0;
  const badBridge={reloadAccounting(){reloadCalls++;if(reloadCalls===1)return true;return true},refreshAccountingViews(){if(reloadCalls===1)throw new Error('synthetic refresh failure');return true}};
  try{await HandymanAccountingBackupV7Adapter.restoreAndRefresh(built.payload,target,()=>true,badBridge);throw new Error('expected refresh failure')}catch(e){assert(String(e.message).includes('previous Accounting data and views were restored'),'refresh failure should roll back');}
