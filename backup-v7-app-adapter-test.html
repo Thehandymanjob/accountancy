@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Backup v7 App Adapter — Synthetic Tests</title>
+<style>
+body{font:16px system-ui,sans-serif;max-width:850px;margin:24px auto;padding:0 16px;color:#172235}
+.notice{background:#fff1d6;padding:16px;border-radius:12px;line-height:1.5}
+button{padding:13px 18px;border:0;border-radius:10px;background:#e5b63f;font-weight:800;font-size:16px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f2f5;padding:18px;border-radius:14px;line-height:1.5}
+</style>
+<script src="./backup-v7.js"></script>
+<script src="./backup-v7-app-adapter.js"></script>
+</head>
+<body>
+<h1>Backup v7 — App Adapter Tests</h1>
+<p class="notice"><strong>Isolated synthetic test.</strong> Uses only an in-memory Map and generated Accounting records. It does not access browser LocalStorage, the live app database, Projects, Company, Contracts, or production files.</p>
+<button id="run" type="button">Run adapter integration tests</button>
+<pre id="output">Not run.</pre>
+<script>
+(function(){
+  'use strict';
+  const out=document.getElementById('output');
+  const clone=value=>JSON.parse(JSON.stringify(value));
+  function memoryStorage(seed){
+    const map=new Map(Object.entries(seed||{}));
+    return {
+      getItem:key=>map.has(key)?map.get(key):null,
+      setItem:(key,value)=>map.set(key,String(value)),
+      removeItem:key=>map.delete(key),
+      snapshot:()=>Object.fromEntries(map.entries())
+    };
+  }
+  const original={
+    entries:[{id:'old-income',type:'income',number:220,amount:100}],
+    customers:[{id:'old-customer',name:'Synthetic Old Customer'}],
+    invoices:[{id:'old-invoice',number:220}],
+    settings:{currency:'GBP'}
+  };
+  const imported={
+    entries:[{id:'new-income',type:'income',number:246,amount:250}],
+    customers:[{id:'new-customer',name:'Synthetic New Customer'}],
+    invoices:[{id:'new-invoice',number:246}],
+    settings:{currency:'GBP'}
+  };
+  async function run(){
+    const lines=[];let passed=0;
+    const check=(label,condition)=>{if(!condition)throw new Error(label);passed++;lines.push('PASS  '+label)};
+    try{
+      const source=memoryStorage({
+        [HandymanBackupV7.storageKeys.accounting]:JSON.stringify(imported),
+        [HandymanBackupV7.storageKeys.invoiceSequence]:'246'
+      });
+      const built=await HandymanBackupV7.buildBackup(source,'synthetic');
+      check('Backup v7 creates a valid Accounting-only payload',await HandymanBackupV7.validateBackup(built.payload));
+
+      const storage=memoryStorage({
+        [HandymanBackupV7.storageKeys.accounting]:JSON.stringify(original),
+        [HandymanBackupV7.storageKeys.invoiceSequence]:'220'
+      });
+      let live=clone(original),refreshCount=0;
+      const adapter=HandymanBackupV7AppAdapter.create({
+        storage,
+        readAccounting:()=>live,
+        writeAccounting:value=>{live=clone(value)},
+        refreshViews:()=>{refreshCount++}
+      });
+      const restored=await adapter.restore(built.payload,()=>true);
+      check('Successful restore reloads the app in-memory Accounting state',restored.restored===true&&restored.appReloaded===true&&live.invoices[0].number===246);
+      check('Successful restore retains the pre-restore recovery snapshot',storage.getItem('tha_v212_migration_restore_recovery_v1')!==null);
+      check('Successful restore preserves the highest shared invoice sequence',Number(storage.getItem(HandymanBackupV7.storageKeys.invoiceSequence))>=246);
+
+      const cancelStorage=memoryStorage({
+        [HandymanBackupV7.storageKeys.accounting]:JSON.stringify(original),
+        [HandymanBackupV7.storageKeys.invoiceSequence]:'220'
+      });
+      let cancelLive=clone(original),cancelRefresh=0;
+      const cancelAdapter=HandymanBackupV7AppAdapter.create({
+        storage:cancelStorage,readAccounting:()=>cancelLive,
+        writeAccounting:value=>{cancelLive=clone(value)},
+        refreshViews:()=>{cancelRefresh++}
+      });
+      const cancelled=await cancelAdapter.restore(built.payload,()=>false);
+      check('Cancelled restore leaves app memory and storage unchanged',cancelled.restored===false&&JSON.stringify(cancelLive)===JSON.stringify(original)&&cancelRefresh===0&&cancelStorage.getItem('tha_v212_migration_restore_recovery_v1')===null);
+
+      const failStorage=memoryStorage({
+        [HandymanBackupV7.storageKeys.accounting]:JSON.stringify(original),
+        [HandymanBackupV7.storageKeys.invoiceSequence]:'220'
+      });
+      let failLive=clone(original),refreshCalls=0;
+      const failAdapter=HandymanBackupV7AppAdapter.create({
+        storage:failStorage,readAccounting:()=>failLive,
+        writeAccounting:value=>{failLive=clone(value)},
+        refreshViews:()=>{refreshCalls++;if(refreshCalls===1)throw new Error('Synthetic refresh failure');}
+      });
+      let failed=false;
+      try{await failAdapter.restore(built.payload,()=>true)}catch(e){failed=true}
+      check('Failed app refresh rolls back in-memory Accounting and storage',failed&&JSON.stringify(failLive)===JSON.stringify(original)&&JSON.parse(failStorage.getItem(HandymanBackupV7.storageKeys.accounting)).invoices[0].number===220);
+      check('Failed restore removes recovery snapshot only after verified rollback',failStorage.getItem('tha_v212_migration_restore_recovery_v1')===null);
+
+      out.textContent=lines.join('\n')+'\n\n'+passed+'/7 tests passed. In-memory synthetic storage only.';
+    }catch(error){
+      out.textContent=lines.join('\n')+'\nFAIL  '+(error&&error.message?error.message:String(error))+'\n\n'+passed+'/7 tests passed. In-memory synthetic storage only.';
+    }
+  }
+  document.getElementById('run').addEventListener('click',run);
+})();
+</script>
+</body>
+</html>
