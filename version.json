@@ -1,7 +1,7 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "224",
-  "buildId": "THA-224-PROJECT-PNL-CONTRACTORS-20261031-D",
+  "version": "225",
+  "buildId": "THA-225-RESTORE-ROLLBACK-PROFILE-20261031-E",
   "releaseDate": "2026-10-31",
   "releaseStatus": "isolated-test-only-not-browser-validated",
   "databaseSchema": 1,
@@ -10,7 +10,7 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "545e5a5e536926d94d4b2ab901e6e29a26c6ee597078be59b997b6e913ddf7aa"
+      "sha256": "94b021eff99a22951f22b155d3fa77bb147d5e1a2a713ed14133b91e84604ae0"
     },
     "storage-foundation.js": {
       "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
