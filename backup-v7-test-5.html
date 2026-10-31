@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Backup v7 — Isolated Synthetic Tests</title>
+<style>body{font:16px system-ui,sans-serif;max-width:760px;margin:32px auto;padding:0 16px;color:#222}button{padding:12px 18px;font-size:16px}pre{white-space:pre-wrap;background:#f3f4f6;padding:16px;border-radius:8px}.note{color:#555}</style></head>
+<body><h1>Backup v7 — Isolated Synthetic Tests</h1>
+<p class="note">Uses an in-memory storage mock and synthetic records only. Does not read or write browser LocalStorage, app data, Company data, or production files.</p>
+<button id="run">Run synthetic tests</button><pre id="output">Ready. No tests have run.</pre>
+<script>
+/* The Handyman Accountancy — Backup v7 isolated module
+ * Design implementation; not loaded by index.html.
+ * Company data/code is deliberately excluded.
+ */
+(function (root) {
+  'use strict';
+
+  const APP = 'The Handyman Accountancy';
+  const SCHEMA = 7;
+  const KEYS = Object.freeze({
+    accounting: 'tha_v212_migration_accounting_v1',
+    projects: 'tha_v212_migration_projects_v1',
+    businessProfile: 'tha_v212_migration_business_profile_v1',
+    invoiceSequence: 'tha_v212_migration_invoice_sequence_v1',
+    reportArchive: 'tha_v212_migration_report_archive_v1',
+    reportEmailSettings: 'tha_v212_migration_report_email_settings_v1',
+    reportNotifications: 'tha_v212_migration_report_notifications_v1',
+    reportSettings: 'tha_v212_migration_report_settings_v1',
+    reportWorkflow: 'tha_v212_migration_report_workflow_v1',
+    appLanguage: 'tha_v212_migration_app_language_v1',
+    appLanguagePrefVersion: 'tha_v212_migration_app_language_pref_version_v1'
+  });
+
+  const REQUIRED = ['accounting', 'projects', 'businessProfile', 'invoiceSequence'];
+  const OPTIONAL = [
+    'reportArchive', 'reportEmailSettings', 'reportNotifications',
+    'reportSettings', 'reportWorkflow', 'appLanguage',
+    'appLanguagePrefVersion'
+  ];
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const RAW_STRING_KEYS = new Set(['appLanguage']);
+  const RAW_NUMBER_KEYS = new Set(['invoiceSequence', 'appLanguagePrefVersion']);
+
+  function readStored(storage, name) {
+    const raw = storage.getItem(KEYS[name]);
+    if (raw === null) return { present: false, value: null, raw: null };
+    if (RAW_STRING_KEYS.has(name)) return { present: true, value: raw, raw };
+    if (RAW_NUMBER_KEYS.has(name)) {
+      const value = Number(raw);
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error('Stored numeric setting is invalid: ' + name);
+      }
+      return { present: true, value, raw };
+    }
+    return { present: true, value: JSON.parse(raw), raw };
+  }
+
+  function writeStored(storage, name, value) {
+    if (RAW_STRING_KEYS.has(name)) {
+      if (typeof value !== 'string') throw new Error(name + ' must be a string.');
+      storage.setItem(KEYS[name], value);
+    } else if (RAW_NUMBER_KEYS.has(name)) {
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error(name + ' must be a non-negative safe integer.');
+      }
+      storage.setItem(KEYS[name], String(value));
+    } else if (value === null && name === 'businessProfile') {
+      storage.removeItem(KEYS[name]);
+    } else {
+      storage.setItem(KEYS[name], JSON.stringify(value));
+    }
+  }
+
+  function canonical(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(v => canonical(v) ?? 'null').join(',') + ']';
+    return '{' + Object.keys(value).sort().map(k =>
+      JSON.stringify(k) + ':' + (canonical(value[k]) ?? 'null')
+    ).join(',') + '}';
+  }
+
+  async function digest(value) {
+    if (!root.crypto || !root.crypto.subtle || typeof TextEncoder === 'undefined') {
+      throw new Error('SHA-256 is unavailable in this browser context. No backup was created.');
+    }
+    const bytes = new TextEncoder().encode(canonical(value));
+    const hash = await root.crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function parseStored(storage, name) {
+    return readStored(storage, name);
+  }
+
+  function validateSection(name, value) {
+    if (name === 'accounting') {
+      if (!value || typeof value !== 'object' || Array.isArray(value) ||
+          !Array.isArray(value.entries) || !Array.isArray(value.customers) ||
+          !Array.isArray(value.invoices) || !value.settings ||
+          typeof value.settings !== 'object' || Array.isArray(value.settings)) {
+        throw new Error('Accounting section is missing or invalid.');
+      }
+    } else if (name === 'projects') {
+      if (!value || typeof value !== 'object' || Array.isArray(value) ||
+          !Array.isArray(value.projects) || !Array.isArray(value.workers)) {
+        throw new Error('Projects section is missing or invalid.');
+      }
+    } else if (name === 'businessProfile') {
+      if (value !== null && (!value || typeof value !== 'object' || Array.isArray(value))) {
+        throw new Error('Business profile section is invalid.');
+      }
+    } else if (name === 'invoiceSequence') {
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error('Invoice sequence must be a non-negative safe integer.');
+      }
+    } else if (RAW_STRING_KEYS.has(name)) {
+      if (value !== null && typeof value !== 'string') {
+        throw new Error(name + ' section must be a string or null.');
+      }
+    } else if (RAW_NUMBER_KEYS.has(name)) {
+      if (value !== null && (!Number.isSafeInteger(value) || value < 0)) {
+        throw new Error(name + ' section must be a non-negative safe integer or null.');
+      }
+    } else if (value !== null && typeof value !== 'object') {
+      throw new Error(name + ' section has an unsupported type.');
+    }
+  }
+
+  function recordCount(name, value) {
+    if (name === 'accounting') return {
+      entries: value.entries.length, customers: value.customers.length,
+      invoices: value.invoices.length
+    };
+    if (name === 'projects') return {
+      projects: value.projects.length, workers: value.workers.length
+    };
+    if (Array.isArray(value)) return { records: value.length };
+    return { present: value !== null };
+  }
+
+  async function buildBackup(storage, appVersion) {
+    const data = {};
+    const settings = {};
+    for (const name of REQUIRED) {
+      const stored = parseStored(storage, name);
+      if (name === 'businessProfile' && !stored.present) stored.value = null;
+      if (name === 'invoiceSequence' && !stored.present) stored.value = 0;
+      if (name !== 'businessProfile' && name !== 'invoiceSequence' && !stored.present) {
+        throw new Error('Required data is absent: ' + name + '. Export cancelled.');
+      }
+      validateSection(name, stored.value);
+      data[name] = stored.value;
+    }
+    for (const name of OPTIONAL) {
+      const stored = parseStored(storage, name);
+      const value = stored.present ? stored.value : null;
+      validateSection(name, value);
+      settings[name] = { present: stored.present, value };
+    }
+
+    const sections = {};
+    for (const name of REQUIRED) {
+      sections[name] = {
+        sha256: await digest(data[name]),
+        recordCounts: recordCount(name, data[name])
+      };
+    }
+    for (const name of OPTIONAL) {
+      sections[name] = {
+        sha256: await digest(settings[name]),
+        recordCounts: recordCount(name, settings[name].value),
+        present: settings[name].present
+      };
+    }
+
+    const payload = {
+      app: APP,
+      backupType: 'complete-user-data',
+      backupSchemaVersion: SCHEMA,
+      appVersion: String(appVersion || 'unknown'),
+      createdAt: new Date().toISOString(),
+      data,
+      settings,
+      integrity: { algorithm: 'SHA-256', sections }
+    };
+    const serialized = JSON.stringify(payload, null, 2);
+    const parsed = JSON.parse(serialized);
+    for (const name of REQUIRED) {
+      if (await digest(parsed.data[name]) !== parsed.integrity.sections[name].sha256) {
+        throw new Error('Generated backup verification failed: ' + name);
+      }
+    }
+    for (const name of OPTIONAL) {
+      if (await digest(parsed.settings[name]) !== parsed.integrity.sections[name].sha256) {
+        throw new Error('Generated backup verification failed: ' + name);
+      }
+    }
+    return { payload: parsed, serialized };
+  }
+
+  async function validateBackup(payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
+        payload.app !== APP || payload.backupType !== 'complete-user-data' ||
+        payload.backupSchemaVersion !== SCHEMA ||
+        !payload.data || !payload.settings || !payload.integrity ||
+        payload.integrity.algorithm !== 'SHA-256' ||
+        !payload.integrity.sections) {
+      throw new Error('Unsupported or invalid Backup v7 file.');
+    }
+    for (const name of REQUIRED) {
+      if (!own(payload.data, name) || !own(payload.integrity.sections, name)) {
+        throw new Error('Required backup section is missing: ' + name);
+      }
+      validateSection(name, payload.data[name]);
+      if (canonical(recordCount(name, payload.data[name])) !==
+          canonical(payload.integrity.sections[name].recordCounts)) {
+        throw new Error('Record-count check failed: ' + name);
+      }
+      if (await digest(payload.data[name]) !== payload.integrity.sections[name].sha256) {
+        throw new Error('Integrity check failed: ' + name);
+      }
+    }
+    for (const name of OPTIONAL) {
+      if (!own(payload.settings, name) || !own(payload.integrity.sections, name)) {
+        throw new Error('Settings section is missing: ' + name);
+      }
+      const item = payload.settings[name];
+      if (!item || typeof item.present !== 'boolean' || !own(item, 'value')) {
+        throw new Error('Invalid settings section: ' + name);
+      }
+      validateSection(name, item.value);
+      if (canonical(recordCount(name, item.value)) !==
+          canonical(payload.integrity.sections[name].recordCounts) ||
+          item.present !== payload.integrity.sections[name].present) {
+        throw new Error('Settings record-count/presence check failed: ' + name);
+      }
+      if (await digest(item) !== payload.integrity.sections[name].sha256) {
+        throw new Error('Integrity check failed: ' + name);
+      }
+    }
+    return true;
+  }
+
+  async function restoreBackup(payload, storage, confirmFn) {
+    await validateBackup(payload);
+    if (typeof confirmFn !== 'function' ||
+        !confirmFn('Restore Backup v7? Current accounting, projects, profile, invoice sequence and report settings will be replaced.')) {
+      return { restored: false, reason: 'cancelled' };
+    }
+
+    const targetNames = REQUIRED.concat(OPTIONAL);
+    const previous = {};
+    const previousRaw = {};
+    for (const name of targetNames) {
+      const stored = readStored(storage, name);
+      previousRaw[KEYS[name]] = stored.raw;
+      previous[name] = stored.value;
+    }
+
+    const recoveryKey = 'tha_v212_migration_restore_recovery_v1';
+    if (storage.getItem(recoveryKey) !== null) {
+      throw new Error('An existing recovery snapshot is present. Preserve it and resolve it before starting another restore.');
+    }
+    const recovery = {
+      schema: 1,
+      createdAt: new Date().toISOString(),
+      keys: previousRaw
+    };
+    const recoveryText = JSON.stringify(recovery);
+    storage.setItem(recoveryKey, recoveryText);
+    if (storage.getItem(recoveryKey) !== recoveryText) {
+      throw new Error('Recovery snapshot could not be verified. Restore cancelled.');
+    }
+
+    let commitStarted = false;
+    try {
+      commitStarted = true;
+      for (const name of REQUIRED) {
+        const value = payload.data[name];
+        if (name === 'invoiceSequence') {
+          const current = Number(previous.invoiceSequence) || 0;
+          writeStored(storage, name, Math.max(current, value));
+        } else {
+          writeStored(storage, name, value);
+        }
+      }
+      for (const name of OPTIONAL) {
+        const item = payload.settings[name];
+        if (item.present) writeStored(storage, name, item.value);
+        else storage.removeItem(KEYS[name]);
+      }
+
+      for (const name of REQUIRED) {
+        const raw = storage.getItem(KEYS[name]);
+        const actual = raw === null ? null : readStored(storage, name).value;
+        const expected = name === 'invoiceSequence'
+          ? Math.max(Number(previous.invoiceSequence) || 0, payload.data.invoiceSequence)
+          : payload.data[name];
+        if (canonical(actual) !== canonical(expected)) {
+          throw new Error('Post-restore verification failed: ' + name);
+        }
+      }
+      for (const name of OPTIONAL) {
+        const item = payload.settings[name];
+        const raw = storage.getItem(KEYS[name]);
+        if (item.present) {
+          if (raw === null || canonical(readStored(storage, name).value) !== canonical(item.value)) {
+            throw new Error('Post-restore verification failed: ' + name);
+          }
+        } else if (raw !== null) {
+          throw new Error('Post-restore removal verification failed: ' + name);
+        }
+      }
+
+      return { restored: true, recoveryKey, note: 'Recovery snapshot retained until separately confirmed safe to remove.' };
+    } catch (error) {
+      let rollbackOk = true;
+      if (commitStarted) {
+        try {
+          for (const name of targetNames) {
+            const key = KEYS[name];
+            const raw = previousRaw[key];
+            if (raw === null) storage.removeItem(key);
+            else storage.setItem(key, raw);
+          }
+          for (const name of targetNames) {
+            if (storage.getItem(KEYS[name]) !== previousRaw[KEYS[name]]) {
+              throw new Error('Rollback verification failed: ' + name);
+            }
+          }
+        } catch (rollbackError) {
+          rollbackOk = false;
+        }
+      }
+      if (rollbackOk) {
+        try { storage.removeItem(recoveryKey); } catch (_) {}
+        throw new Error('Restore failed; previous data rollback was verified. ' + error.message);
+      }
+      throw new Error('CRITICAL: restore and rollback could not be verified. Keep recovery snapshot ' +
+        recoveryKey + ' and do not edit or clear browser storage. Original error: ' + error.message);
+    }
+  }
+
+  async function exportToDownload(storage, appVersion) {
+    const result = await buildBackup(storage, appVersion);
+    const blob = new Blob([result.serialized], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'The_Handyman_Backup_v7_' +
+      new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    return { initiated: true, verified: true, message: 'Download initiated. Confirm the file exists in Files before resetting or replacing data.' };
+  }
+
+  root.HandymanBackupV7 = Object.freeze({
+    schemaVersion: SCHEMA,
+    storageKeys: KEYS,
+    buildBackup,
+    validateBackup,
+    restoreBackup,
+    exportToDownload
+  });
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script><script>
+(function(){
+'use strict';
+const output=document.getElementById('output');
+function assert(c,m){if(!c)throw new Error(m);}
+function storageMock(seed,failPlan){
+ const data=Object.assign({},seed||{});let plan=(failPlan||[]).slice();
+ return {
+  getItem:k=>Object.prototype.hasOwnProperty.call(data,k)?data[k]:null,
+  setItem:(k,v)=>{const i=plan.findIndex(x=>x.op==='set'&&x.key===k);if(i>=0){const p=plan.splice(i,1)[0];if(p.times>1){p.times--;plan.push(p);}throw new Error('Synthetic storage failure: '+k);}data[k]=String(v);},
+  removeItem:k=>{const i=plan.findIndex(x=>x.op==='remove'&&x.key===k);if(i>=0){plan.splice(i,1);throw new Error('Synthetic remove failure: '+k);}delete data[k];},
+  snapshot:()=>JSON.stringify(data)
+ };
+}
+document.getElementById('run').addEventListener('click',async function(){
+ const lines=[];const pass=n=>lines.push('PASS  '+n);
+ try{
+  if(!window.crypto||!crypto.subtle||typeof TextEncoder==='undefined')throw new Error('Web Crypto / TextEncoder unavailable.');
+  const K=window.HandymanBackupV7.storageKeys;
+  const seed={
+   [K.accounting]:JSON.stringify({entries:[{id:'new'}],customers:[],invoices:[],settings:{}}),
+   [K.projects]:JSON.stringify({projects:[{id:'new'}],workers:[]}),
+   [K.businessProfile]:JSON.stringify({businessName:'New'}),
+   [K.invoiceSequence]:'600',[K.appLanguage]:'fa'
+  };
+  const backup=await HandymanBackupV7.buildBackup(storageMock(seed),'TEST-ONLY');
+  const recoveryKey='tha_v212_migration_restore_recovery_v1';
+  const snapshotFail=storageMock({
+   [K.accounting]:JSON.stringify({entries:[{id:'old'}],customers:[],invoices:[],settings:{}}),
+   [K.projects]:JSON.stringify({projects:[],workers:[]}),[K.invoiceSequence]:'100'
+  },[{op:'set',key:recoveryKey,times:1}]);
+  const before=snapshotFail.snapshot();let failed=false;
+  try{await HandymanBackupV7.restoreBackup(backup.payload,snapshotFail,()=>true);}catch(e){failed=/Recovery snapshot could not be verified/.test(e.message);}
+  assert(failed,'Restore continued despite failed recovery snapshot');
+  assert(snapshotFail.snapshot()===before,'Data changed when recovery snapshot creation failed');
+  pass('Recovery snapshot failure stops restore before data changes');
+  const rollbackFail=storageMock({
+   [K.accounting]:JSON.stringify({entries:[{id:'old'}],customers:[],invoices:[],settings:{old:true}}),
+   [K.projects]:JSON.stringify({projects:[{id:'old'}],workers:[]}),
+   [K.businessProfile]:JSON.stringify({businessName:'Old'}),[K.invoiceSequence]:'100'
+  },[
+   {op:'set',key:K.projects,times:1},
+   {op:'set',key:K.accounting,times:2}
+  ]);
+  let critical=false;
+  try{await HandymanBackupV7.restoreBackup(backup.payload,rollbackFail,()=>true);}catch(e){critical=/CRITICAL: restore and rollback could not be verified/.test(e.message);}
+  assert(critical,'Failed rollback did not raise critical warning');
+  assert(rollbackFail.getItem(recoveryKey)!==null,'Recovery snapshot was not retained after failed rollback');
+  pass('Failed rollback retains recovery snapshot and raises critical warning');
+  output.textContent=lines.join('\n')+'\n\nBoth recovery-safety tests passed. No real app data was accessed.';
+ }catch(e){output.textContent=lines.join('\n')+'\nFAIL  '+e.message+'\n\nNo real app data was accessed.';}
+});
+})();
+</script></body></html>
