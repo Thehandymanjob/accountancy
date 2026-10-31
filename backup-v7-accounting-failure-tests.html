@@ -111,8 +111,8 @@ document.getElementById('run').addEventListener('click',async()=>{
   const base={ [K.accounting]:JSON.stringify(makeDb('OLD',50)),[K.invoiceSequence]:'250'};
   const target=mock(base);
   const before=target.snapshot();
-  let cancelled=false;try{await api.restoreBackup(backup.payload,target,()=>false)}catch(_){cancelled=true}
-  assert(cancelled&&target.snapshot()===before,'Cancelled restore changed storage');
+  const cancelled=await api.restoreBackup(backup.payload,target,()=>false);
+  assert(cancelled&&cancelled.restored===false&&cancelled.reason==='cancelled'&&target.snapshot()===before,'Cancelled restore changed storage or returned an unexpected result');
   pass('Cancelled restore leaves all existing synthetic data unchanged');
   const corrupt=JSON.parse(JSON.stringify(backup.payload));corrupt.data.accounting.entries[0].amount=999;
   let rejected=false;try{await api.validateBackup(corrupt)}catch(_){rejected=true}
