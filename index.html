@@ -1534,7 +1534,7 @@ function captureAccountingStartupReadOnlySnapshot(){
   if(!db||!Array.isArray(db.entries)||!Array.isArray(db.invoices))throw new Error('Accounting data structure is invalid.');
   const raw=window.localStorage.getItem(INVOICE_SEQUENCE_KEY);
   let sequence=0;
-  if(raw!==null){if(!/^(0|[1-9]\\d*)$/.test(raw.trim()))throw new Error('Saved invoice sequence is not a valid non-negative integer.');sequence=Number(raw);if(!Number.isSafeInteger(sequence))throw new Error('Saved invoice sequence exceeds the safe integer range.');}
+  if(raw!==null){if(!/^(0|[1-9]\d*)$/.test(raw.trim()))throw new Error('Saved invoice sequence is not a valid non-negative integer.');sequence=Number(raw);if(!Number.isSafeInteger(sequence))throw new Error('Saved invoice sequence exceeds the safe integer range.');}
   const invoiceNumbers=new Set(db.invoices.map(i=>String(i&&i.number||'').trim()).filter(Boolean));
   const income=db.entries.filter(e=>e&&e.type==='income');
   result.sequenceValue=sequence;
@@ -1542,12 +1542,12 @@ function captureAccountingStartupReadOnlySnapshot(){
   result.invoiceCount=db.invoices.length;
   result.unnumberedIncome=income.filter(e=>!e.invoiceId&&!(Number(e.number)>0)).map(e=>({id:String(e.id||'(no id)'),date:String(e.date||''),reference:String(e.reference||'')}));
   result.orphanCandidates=income.filter(e=>{
-   const ref=String(e.reference||'').trim().match(/^Invoice\\s+(.+)$/i);
-   const note=String(e.notes||'').match(/payment received for invoice\\s+([\\w-]+)/i);
+   const ref=String(e.reference||'').trim().match(/^Invoice\s+(.+)$/i);
+   const note=String(e.notes||'').match(/payment received for invoice\s+([\w-]+)/i);
    const id=String(e.id||'').match(/^invoice-income-invoice-(.+)$/i);
    const number=ref&&ref[1].trim()||note&&note[1].trim()||id&&id[1].trim();
    return !!number&&!invoiceNumbers.has(String(number))&&!!(ref||note||id);
-  }).map(e=>({id:String(e.id||'(no id)'),date:String(e.date||''),reference:String(e.reference||''),notesMarker:/payment received for invoice\\s+[\\w-]+/i.test(String(e.notes||''))}));
+  }).map(e=>({id:String(e.id||'(no id)'),date:String(e.date||''),reference:String(e.reference||''),notesMarker:/payment received for invoice\s+[\w-]+/i.test(String(e.notes||''))}));
   result.highestCurrentNumber=Math.max(142,134,sequence,0,...db.invoices.map(i=>Number(i&&i.number)||0),...income.map(e=>Number(e.number)||0));
   result.available=true;
  }catch(e){result.error=String(e&&e.message||e);}
@@ -1573,7 +1573,7 @@ function showAccountingStartupReadOnlyReport(){
  if(r.orphanCandidates.length)lines.push('Possible orphan candidates: '+JSON.stringify(r.orphanCandidates));
  if(r.error)lines.push('Diagnostic limitation: '+r.error);
  lines.push('This report does not delete, renumber, or save anything.');
- host.textContent=lines.join('\\n');host.style.display='block';
+ host.textContent=lines.join('\n');host.style.display='block';
 }
 loadDB();accountingStartupReadOnlySnapshot=captureAccountingStartupReadOnlySnapshot();assignNumbersToExistingIncome();const removedOrphanInvoiceIncome=removeOrphanedInvoiceIncome();if(removedOrphanInvoiceIncome&&storageAvailable){persist();setStatus(`Removed ${removedOrphanInvoiceIncome} orphaned invoice-linked income record(s) because the invoice no longer exists.`,'warn')}ensureInvoicePaymentFields();if(storageAvailable){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
 // Clean distribution: do not seed personal customers or historical invoices.
