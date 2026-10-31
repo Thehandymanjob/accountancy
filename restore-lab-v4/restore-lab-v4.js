@@ -30,7 +30,7 @@ status('Ready. Separate test database only; the live app storage is untouched.')
 const DB='tha_restore_lab_v1', STORE='backupRecords', ID='trusted-backup-reference';
 const el=id=>document.getElementById(id);
 const setStatus=(s,k='info')=>{el('compatStatus').textContent=s;el('compatStatus').dataset.kind=k};
-function openLabDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB,1);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||Error('Cannot open isolated test database'))})}
+function openLabDB(){return new Promise((resolve,reject)=>{if(!window.indexedDB)return reject(Error('This Safari page has no IndexedDB API'));const req=indexedDB.open(DB,1);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||Error('Cannot open isolated test database'));req.onblocked=()=>reject(Error('IndexedDB open request is BLOCKED by another open connection'))})}
 function getRecord(db){return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(ID);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error||Error('Cannot read saved test snapshot'))})}
 async function sha256(s){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(digest)].map(v=>v.toString(16).padStart(2,'0')).join('')}
 function dataUriBytes(v){if(typeof v!=='string'||!v.startsWith('data:')||!v.includes(','))return 0;const s=v.slice(v.indexOf(',')+1);return Math.max(0,Math.floor(s.length*3/4)-(s.endsWith('==')?2:s.endsWith('=')?1:0))}
