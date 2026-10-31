@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#142b4a">
+<title>The Handyman — Storage Monitor Test</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f3f6fa;color:#172235}
+header{background:#142b4a;color:white;padding:20px 16px;border-bottom:5px solid #d3a52d}header h1{font-size:21px;margin:0 0 6px}header p{margin:0;color:#d8e1ed;font-size:13px}
+main{max-width:900px;margin:18px auto;padding:0 14px}.card{background:white;border:1px solid #dbe3ed;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 3px 12px #142b4a0a}
+h2{font-size:18px;margin:0 0 12px}.muted{color:#617087;font-size:13px;line-height:1.5}
+button{border:0;border-radius:10px;background:#173c69;color:white;font-weight:700;padding:12px 16px;font-size:15px}button.secondary{background:#e8edf4;color:#172235}
+.stat{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #edf1f6}.stat:last-child{border:0}.stat strong{text-align:right;overflow-wrap:anywhere}
+.track{height:12px;background:#e8edf4;border-radius:20px;overflow:hidden;margin:12px 0}.bar{height:100%;width:0;background:#28734d}
+iframe{width:100%;height:72vh;border:1px solid #dbe3ed;border-radius:12px;background:white}
+.warning{color:#8a4b12;background:#fff7e8;border:1px solid #f1d69d;padding:12px;border-radius:10px;font-size:13px;line-height:1.5}
+</style>
+</head>
+<body>
+<header><h1>The Handyman Accountancy — Storage Monitor Test</h1><p>Read-only test page · same website origin as the existing app</p></header>
+<main>
+<section class="card">
+<h2>Safari website storage</h2>
+<p class="muted">This page measures storage for the same website origin used by the accountancy app. It does not write, move or delete records.</p>
+<div id="status" role="status">Waiting for measurement…</div>
+<div class="track"><div id="bar" class="bar"></div></div>
+<div id="quota" class="muted"></div>
+<div id="details"></div>
+<p class="muted" id="local"></p>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+<button id="refresh" type="button">Refresh measurements</button>
+<button id="openApp" class="secondary" type="button">Open app below</button>
+</div>
+</section>
+<section class="card">
+<h2>Existing IndexedDB databases</h2>
+<div id="dbs" class="muted">Checking…</div>
+</section>
+<p class="warning"><strong>Safety:</strong> Do not clear Safari website data. This test is read-only. It does not create an IndexedDB database or migrate any information. Keep an external JSON backup before any future migration.</p>
+<section class="card">
+<h2>Existing accountancy app</h2>
+<p class="muted">The app below is loaded from the production root without changing its files. Both pages share the same website origin and browser storage.</p>
+<iframe id="app" title="The Handyman Accountancy" src="../index.html"></iframe>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>{if(!Number.isFinite(n))return'Not available';const u=['B','KB','MB','GB','TB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return(n>=100?n.toFixed(0):n>=10?n.toFixed(1):n.toFixed(2))+' '+u[i]};
+function measureLocal(){let bytes=0,keys=0;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i),v=localStorage.getItem(k)||'';bytes+=new Blob([k||'',v]).size;keys++}return{ok:true,bytes,keys}}catch(e){return{ok:false,error:e.message||String(e)}}}
+async function refresh(){ $('status').textContent='Measuring…';$('details').textContent='';$('dbs').textContent='Checking…';
+ const ls=measureLocal();$('local').textContent=ls.ok?'Local Storage measured key/value bytes: '+fmt(ls.bytes)+' across '+ls.keys+' keys.':'Local Storage measurement failed: '+ls.error;
+ let est=null;if(navigator.storage&&navigator.storage.estimate){try{est=await navigator.storage.estimate()}catch(e){}}
+ const used=est&&Number.isFinite(est.usage)?est.usage:null,quota=est&&Number.isFinite(est.quota)?est.quota:null,pct=used!==null&&quota>0?used/quota*100:null;
+ $('status').textContent=pct===null?'Browser quota estimate is not exposed in this Safari context.':'Estimated website-origin usage: '+pct.toFixed(1)+'%';
+ $('bar').style.width=pct===null?'0%':Math.min(100,pct)+'%';$('bar').style.background=pct!==null&&pct>=85?'#b42332':pct!==null&&pct>=70?'#c58a19':'#28734d';
+ $('quota').textContent='Used: '+fmt(used)+' · Quota: '+fmt(quota)+' · Estimated remaining: '+(used!==null&&quota!==null?fmt(Math.max(0,quota-used)):'Not available');
+ if(used!==null)$('details').textContent='The browser estimate is for the whole website origin; it may include Local Storage, IndexedDB, cache and other origin-managed data. It is not a guaranteed allocation.';
+ if(!('indexedDB'in window)){$('dbs').textContent='IndexedDB unavailable.'}
+ else if(typeof indexedDB.databases!=='function'){$('dbs').textContent='IndexedDB is available, but this Safari version does not expose database enumeration. No database was opened or created.'}
+ else{try{const list=await indexedDB.databases();$('dbs').textContent=list.length?list.map(d=>(d.name||'(unnamed)')+' — version '+(d.version??'unknown')).join('\n'):'No existing IndexedDB databases reported.';$('dbs').style.whiteSpace='pre-line'}catch(e){$('dbs').textContent='Database enumeration unavailable: '+(e.message||e)}}
+}
+$('refresh').addEventListener('click',refresh);$('openApp').addEventListener('click',()=>$('app').scrollIntoView({behavior:'smooth'}));refresh();
+</script>
+</body></html>
