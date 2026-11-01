@@ -71,7 +71,7 @@ try {
     buildId: 'THA-225-INSTALL-OFFLINE-TEST',
     manifestSha256: hash(Buffer.from(JSON.stringify(nextManifest)))
   }));
-  page.on('console', msg => { if (msg.type() === 'error') console.error('Browser console:', msg.text()); });
+  page.on('console', msg => { console.log('Browser console ['+msg.type()+']:', msg.text()); });
   // Mock remote update-channel/release fetches inside the page realm. WebKit may
   // route page fetches through an active Service Worker before Playwright network
   // interception sees them, so use a deterministic fetch shim for this isolated test.
