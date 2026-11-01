@@ -77,7 +77,7 @@ try {
   });
   await page.evaluate(value => localStorage.setItem('tha_v206_accounting_v1', value), saved);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.evaluate(() => show('softwareUpdate'));
+  await page.evaluate(() => { openAccountancy(); show('softwareUpdate'); });
 
   await page.evaluate(() => window.checkForAppUpdate(true));
   await page.waitForFunction(() => {
@@ -92,11 +92,11 @@ try {
   const installed = await page.evaluate(() => ({
     version: document.querySelector('meta[name="app-version"]')?.content,
     build: document.querySelector('meta[name="app-build-id"]')?.content,
-    pageVisible: document.getElementById('softwareUpdate')?.classList.contains('active'),
+    pageVisible: document.getElementById('softwareUpdate')?.classList.contains('active') && document.body.classList.contains('accountancy-open'),
     saved: localStorage.getItem('tha_v206_accounting_v1')
   }));
   if (installed.version !== '225' || installed.build !== 'THA-225-INSTALL-OFFLINE-TEST') throw new Error('Installed build identity does not match the staged build.');
-  if (!installed.pageVisible) throw new Error('After installation the app did not return to Software Update.');
+  if (!installed.pageVisible) throw new Error('After installation the app did not return to a visible Software Update page.');
   if (installed.saved !== saved) throw new Error('Saved accounting records changed during installation.');
 
   await context.setOffline(true);
