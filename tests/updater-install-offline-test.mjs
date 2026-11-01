@@ -231,7 +231,8 @@ try {
     const failedName = 'tha-app-v999-rollback-test';
     const oldCache = await caches.open(oldName);
     const failedCache = await caches.open(failedName);
-    const shellUrl = new URL('index.html', location.href);
+    // The Service Worker maps root navigations to the cached /index.html URL.
+    const shellUrl = new URL('index.html', new URL('.', location.href));
     await oldCache.put(shellUrl, new Response('<!doctype html><html><head><meta name="app-version" content="224"><meta name="app-build-id" content="THA-224-ROLLBACK-TEST"></head><body>Previous stable app</body></html>', { headers: { 'content-type': 'text/html' } }));
     await failedCache.put(shellUrl, new Response('<!doctype html><html><head><meta name="app-version" content="999"><meta name="app-build-id" content="THA-999-FAILED-TEST"></head><body>Failed new app</body></html>', { headers: { 'content-type': 'text/html' } }));
     const pointer = await caches.open('tha-active-pointer-v1');
@@ -241,7 +242,24 @@ try {
     })));
   });
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === '224', null, { timeout: 10000 });
+  try {
+    await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === '224', null, { timeout: 10000 });
+  } catch (error) {
+    console.error('Rollback diagnostic:', await page.evaluate(async () => {
+      const p = await caches.open('tha-active-pointer-v1');
+      const a = await p.match(new URL('__tha_active_cache__', location.href));
+      const r = await p.match(new URL('__tha_pending_activation__', location.href));
+      return {
+        url: location.href,
+        version: document.querySelector('meta[name="app-version"]')?.content,
+        controller: !!navigator.serviceWorker.controller,
+        active: a ? await a.json() : null,
+        pending: r ? await r.json() : null,
+        cacheNames: await caches.keys()
+      };
+    }));
+    throw error;
+  }
   const rolledBack = await page.evaluate(async () => {
     const pointer = await caches.open('tha-active-pointer-v1');
     const active = await pointer.match(new URL('__tha_active_cache__', location.href));
