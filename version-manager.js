@@ -43,8 +43,10 @@ async function confirmPendingActivation(){
    const c=await caches.open(POINTER),r=await c.match(rollbackUrl);if(!r)return;
    const p=await r.json(),expected=cacheName(LOCAL_VERSION,LOCAL_BUILD);
    if(p.nextCache!==expected)return;
-   const healthy=typeof window.openAccountancy==='function'&&typeof window.show==='function'&&!!el('softwareUpdate')&&!!el('appReloadUpdate')&&!!document.body;
-   if(!healthy){await rollbackPendingActivation('Required app startup components are missing.');return;}
+   const health={openAccountancy:typeof window.openAccountancy==='function',show:typeof window.show==='function',softwareUpdate:!!el('softwareUpdate'),reloadButton:!!el('appReloadUpdate'),body:!!document.body};
+   const healthy=Object.values(health).every(Boolean);
+   console.info('Pending update startup health check', {expected, nextCache:p.nextCache, health});
+   if(!healthy){await rollbackPendingActivation('Required app startup components are missing: '+JSON.stringify(health));return;}
    await c.delete(rollbackUrl);
    console.info('App startup verified; rollback protection cleared for',LOCAL_VERSION,LOCAL_BUILD);
   }catch(e){console.error('Could not confirm app startup health.',e);}
