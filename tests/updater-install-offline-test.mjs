@@ -12,16 +12,22 @@ const files = {
 };
 const oldManifest = JSON.parse(await readFile(resolve('version.json'), 'utf8'));
 const hash = data => createHash('sha256').update(data).digest('hex');
-const newIndex = Buffer.from(files['index.html'].toString('utf8')
-  .replace('app-version" content="224"', 'app-version" content="225"')
-  .replace('app-build-id" content="THA-224-MANUAL-CACHED-UPDATER-20261101"', 'app-build-id" content="THA-225-INSTALL-OFFLINE-TEST"'));
+const installedVersion = String(oldManifest.version);
+const previousVersion = String(Number(installedVersion) - 1);
+const previousBuildId = 'THA-' + previousVersion + '-PREVIOUS-TEST';
+const installedIndexText = files['index.html'].toString('utf8');
+const installedBuildId = oldManifest.buildId;
+const previousIndex = Buffer.from(installedIndexText
+  .replace('app-version" content="' + installedVersion + '"', 'app-version" content="' + previousVersion + '"')
+  .replace('app-build-id" content="' + installedBuildId + '"', 'app-build-id" content="' + previousBuildId + '"'));
+const newIndex = files['index.html'];
 const makeManifest = (version, buildId, indexBytes) => ({
   app: 'The Handyman Accountancy',
   version: String(version),
   buildId,
   releaseDate: '2026-11-01',
   releaseStatus: 'automated-test-only',
-  releaseBranch: 'release-v224-20261101',
+  releaseBranch: oldManifest.releaseBranch,
   databaseSchema: 1,
   minimumAppVersion: '206',
   storageNamespace: 'tha_v206_',
@@ -34,8 +40,8 @@ const makeManifest = (version, buildId, indexBytes) => ({
   },
   releaseNotes: ['Automated test build only.']
 });
-const currentManifest = makeManifest('224', oldManifest.buildId, files['index.html']);
-const nextManifest = makeManifest('225', 'THA-225-INSTALL-OFFLINE-TEST', newIndex);
+const currentManifest = makeManifest(previousVersion, previousBuildId, previousIndex);
+const nextManifest = oldManifest;
 const server = createServer((req, res) => {
   const u = new URL(req.url, 'http://127.0.0.1');
   const name = u.pathname === '/' ? 'index.html' : u.pathname.slice(1);
@@ -44,8 +50,8 @@ const server = createServer((req, res) => {
   let body;
   if (name === 'version.json') {
     body = Buffer.from(JSON.stringify(isStage || isCheck ? nextManifest : currentManifest));
-  } else if (name === 'index.html' && isStage) {
-    body = newIndex;
+  } else if (name === 'index.html') {
+    body = isStage ? newIndex : previousIndex;
   } else if (files[name]) {
     body = files[name];
   } else {
@@ -70,10 +76,10 @@ try {
   const channelBytes = Buffer.from(JSON.stringify({
     app: 'The Handyman Accountancy',
     channel: 'test',
-    sourceBranch: 'release-v224-20261101',
+    sourceBranch: oldManifest.releaseBranch,
     sourceCommit: '1da46e18aae423f7488d6130a5e44542a2f4681d',
-    version: '225',
-    buildId: 'THA-225-INSTALL-OFFLINE-TEST',
+    version: installedVersion,
+    buildId: installedBuildId,
     manifestSha256: hash(Buffer.from(JSON.stringify(nextManifest)))
   }));
   page.on('console', msg => { console.log('Browser console ['+msg.type()+']:', msg.text()); });
@@ -115,7 +121,7 @@ try {
         if (branchName === 'update-channel-test' && name === 'update-channel.json') {
           return new Response(channelText, { status: 200, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
         }
-        if (branchName !== 'release-v224-20261101') return new Response('Unknown test release', { status: 404 });
+        if (branchName !== oldManifest.releaseBranch) return new Response('Unknown test release', { status: 404 });
         if (name === 'version.json') return new Response(manifestText, { status: 200, headers: { 'content-type': 'application/json' } });
         if (name === 'index.html') return new Response(decode(nextIndexBase64), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
         if (mockFiles[name]) return new Response(decode(mockFiles[name]), { status: 200, headers: { 'content-type': name.endsWith('.js') ? 'text/javascript' : 'application/octet-stream' } });
@@ -127,7 +133,7 @@ try {
     channelText: channelBytes.toString('utf8'),
     manifestText: JSON.stringify(nextManifest),
     previousManifestText: JSON.stringify(currentManifest),
-    previousIndexBase64: files['index.html'].toString('base64'),
+    previousIndexBase64: previousIndex.toString('base64'),
     nextIndexBase64: newIndex.toString('base64'),
     mockFiles
   });
@@ -178,7 +184,7 @@ try {
   if (!beforeInstall.includes('downloaded and verified')) throw new Error('Update package was not verified before installation.');
   await page.locator('#appReloadUpdate').click();
   try {
-    await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === '225', null, { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === installedVersion, null, { timeout: 15000 });
   } catch (error) {
     console.error('Install diagnostic:', await page.evaluate(async () => {
       const p = await caches.open('tha-active-pointer-v1');
@@ -219,7 +225,7 @@ try {
     pageVisible: document.getElementById('softwareUpdate')?.classList.contains('active') && document.body.classList.contains('accountancy-open'),
     saved: localStorage.getItem('tha_v206_accounting_v1')
   }));
-  if (installed.version !== '225' || installed.build !== 'THA-225-INSTALL-OFFLINE-TEST') throw new Error('Installed build identity does not match the staged build.');
+  if (installed.version !== installedVersion || installed.build !== installedBuildId) throw new Error('Installed build identity does not match the staged build.');
   if (!installed.pageVisible) throw new Error('After installation the app did not return to a visible Software Update page.');
   if (!preservesRecords(installed.saved)) throw new Error('Saved accounting records were not preserved during installation.');
 
@@ -247,7 +253,7 @@ try {
     const active = await pointer.match(new URL('__tha_active_cache__', location.href));
     return active ? await active.json() : null;
   });
-  if (confirmedActive?.cacheName !== 'tha-app-v225-THA-225-INSTALL-OFFLINE-TEST') {
+  if (confirmedActive?.cacheName !== 'tha-app-v' + installedVersion + '-' + installedBuildId) {
     console.error('Confirmed cache pointer mismatch:', await page.evaluate(async (expectedConfirmedActive) => {
       const pointer = await caches.open('tha-active-pointer-v1');
       const active = await pointer.match(new URL('__tha_active_cache__', location.href));
@@ -276,7 +282,7 @@ try {
       build: document.querySelector('meta[name="app-build-id"]')?.content,
       active: active ? await active.json() : null,
       pending: pending ? await pending.json() : null,
-      expectedCache: 'tha-app-v225-THA-225-INSTALL-OFFLINE-TEST',
+      expectedCache: 'tha-app-v' + installedVersion + '-' + installedBuildId,
       startupDiagnostics: window.__thaPendingActivationDiagnostics || null,
       status: document.getElementById('appUpdateStatus')?.textContent
     };
@@ -308,7 +314,7 @@ try {
     saved: localStorage.getItem('tha_v206_accounting_v1'),
     title: document.title
   }));
-  if (offline.version !== '225' || !preservesRecords(offline.saved)) throw new Error('Offline reload failed or saved records were not preserved.');
+  if (offline.version !== installedVersion || !preservesRecords(offline.saved)) throw new Error('Offline reload failed or saved records were not preserved.');
 
   // Simulate a new build that fails before it can confirm startup. On the next
   // navigation, the Service Worker must restore the previous known-good cache.
@@ -356,7 +362,7 @@ try {
   if (rolledBack.version !== '224' || rolledBack.active !== 'tha-app-v224-rollback-test' || rolledBack.pending || !rolledBack.body.includes('Previous stable app')) {
     throw new Error('Automatic rollback did not restore the previous cached app after a failed startup.');
   }
-  console.log('Updater browser test passed: v225 was staged and hash-verified, installed only after confirmation, preserved accounting data, reopened offline, and restored the previous app cache after a simulated failed startup.');
+  console.log('Updater browser test passed: v' + installedVersion + ' was staged and hash-verified from v' + previousVersion + ', installed only after confirmation, preserved accounting data, reopened offline, and restored the previous app cache after a simulated failed startup.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));
