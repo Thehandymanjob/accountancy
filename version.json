@@ -1,7 +1,7 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "214",
-  "buildId": "THA-214-SUBPROJECT-EXTRA-WORK-20261101",
+  "version": "215",
+  "buildId": "THA-215-CONTRACT-BLOB-PREVIEW-20261101",
   "releaseDate": "2026-11-01",
   "releaseStatus": "isolated-test-only-not-for-production",
   "databaseSchema": 1,
@@ -10,7 +10,7 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "19d3cbd0974975c30228c8d56b331cb150bb7186c221ed976c70695d50dbb381"
+      "sha256": "36cc259a799eae573f3ba542d9d5e4efdd5cf57642068d86cf761c329265481c"
     },
     "storage-foundation.js": {
       "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
