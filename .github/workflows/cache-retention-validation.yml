@@ -1,0 +1,23 @@
+name: Cache retention validation
+on:
+  push:
+    branches:
+      - release-v226-cache-retention-test-20261101
+  pull_request:
+    branches:
+      - release-v226-cache-retention-test-20261101
+jobs:
+  cache-retention:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check JavaScript syntax
+        run: node --check version-manager.js
+      - name: Test cache retention rules
+        run: node tests/cache-retention-test.mjs
+      - name: Validate manifest JSON and build metadata
+        run: |
+          node -e "const m=require('./version.json'); if(m.version!=='226'||m.releaseBranch!=='release-v226-cache-retention-test-20261101') process.exit(1); console.log('Manifest metadata valid')"
