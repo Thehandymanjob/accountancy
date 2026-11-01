@@ -1,18 +1,21 @@
-/* The Handyman Accountancy - manual staged updater v224. */
+/* The Handyman Accountancy - channel-based manual updater. */
 (function(){
 'use strict';
 const meta=n=>document.querySelector('meta[name="'+n+'"]')?.content||'';
 const LOCAL_VERSION=meta('app-version'),LOCAL_BUILD=meta('app-build-id');
 const base=new URL('.',document.baseURI),POINTER='tha-active-pointer-v1',pointerUrl=new URL('__tha_active_cache__',base).toString();
+const CHANNEL_URL='https://raw.githubusercontent.com/Thehandymanjob/accountancy/update-channel/update-channel.json';
+const RAW_ROOT='https://raw.githubusercontent.com/Thehandymanjob/accountancy/';
 let latest=null,staged=null,busy=false;
 const el=id=>document.getElementById(id);
-function compare(a,b){const x=String(a||'').split(/[.+-]/).map(v=>/^\d+$/.test(v)?+v:v),y=String(b||'').split(/[.+-]/).map(v=>/^\d+$/.test(v)?+v:v);for(let i=0;i<Math.max(x.length,y.length);i++){let p=x[i]??0,q=y[i]??0;if(p===q)continue;return p>q?1:-1;}return 0;}
+function compare(a,b){const x=String(a||'').split(/[.+-]/).map(v=>/^\\d+$/.test(v)?+v:v),y=String(b||'').split(/[.+-]/).map(v=>/^\\d+$/.test(v)?+v:v);for(let i=0;i<Math.max(x.length,y.length);i++){let p=x[i]??0,q=y[i]??0;if(p===q)continue;return p>q?1:-1;}return 0;}
 function status(t){if(el('appUpdateStatus'))el('appUpdateStatus').textContent=t;}
 function button(on,t){const b=el('appReloadUpdate');if(!b)return;b.disabled=!on;b.setAttribute('aria-disabled',String(!on));b.textContent=t||'Update Now';b.style.opacity=on?'1':'.55';}
 function progress(n,t,show=true){if(el('appUpdateProgressWrap'))el('appUpdateProgressWrap').style.display=show?'block':'none';if(el('appUpdateProgress'))el('appUpdateProgress').value=n;if(el('appUpdateProgressPercent'))el('appUpdateProgressPercent').textContent=Math.round(n)+'%';if(el('appUpdateProgressLabel'))el('appUpdateProgressLabel').textContent=t||'';}
 async function hash(buf){const d=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('');}
-async function bytes(url,cb){const r=await fetch(url,{cache:'no-store',credentials:'same-origin'});if(!r.ok)throw Error('HTTP '+r.status+' downloading '+new URL(url).pathname);const total=+(r.headers.get('content-length')||0);if(!r.body){const b=await r.arrayBuffer();cb(b.byteLength,total);return b;}const rd=r.body.getReader(),parts=[];let size=0;while(true){const q=await rd.read();if(q.done)break;parts.push(q.value);size+=q.value.byteLength;cb(q.value.byteLength,total);}const out=new Uint8Array(size);let off=0;for(const p of parts){out.set(p,off);off+=p.byteLength;}return out.buffer;}
-function cacheName(v){return 'tha-app-v'+String(v).replace(/[^\w.-]/g,'_');}
+async function bytes(url,cb){const r=await fetch(url,{cache:'no-store',credentials:'omit',mode:'cors'});if(!r.ok)throw Error('HTTP '+r.status+' downloading '+new URL(url).pathname);const total=+(r.headers.get('content-length')||0);if(!r.body){const b=await r.arrayBuffer();cb(b.byteLength,total);return b;}const rd=r.body.getReader(),parts=[];let size=0;while(true){const q=await rd.read();if(q.done)break;parts.push(q.value);size+=q.value.byteLength;cb(q.value.byteLength,total);}const out=new Uint8Array(size);let off=0;for(const p of parts){out.set(p,off);off+=p.byteLength;}return out.buffer;}
+function cacheName(v,b=''){return 'tha-app-v'+String(v).replace(/[^\\w.-]/g,'_')+(b?'-'+String(b).replace(/[^\\w.-]/g,'_'):'');}
+function branchRoot(branch){if(typeof branch!=='string'||!branch||branch.includes('..')||! /^[A-Za-z0-9._/-]+$/.test(branch))throw Error('Update channel contains an invalid release branch.');return RAW_ROOT+branch.split('/').map(encodeURIComponent).join('/')+'/';}
 async function activateCache(name){const c=await caches.open(POINTER);await c.put(pointerUrl,new Response(JSON.stringify({cacheName:name})));const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)r.active?.postMessage({type:'ACTIVATE_CACHE',cacheName:name});}
 async function bootstrap(){
  if(!('serviceWorker'in navigator)||!('caches'in window))return;
@@ -41,10 +44,7 @@ async function bootstrap(){
     await c.put(new URL('version.json',base),new Response(JSON.stringify(manifest),{headers:{'Content-Type':'application/json'}}));
     for(const name of required)if(!await c.match(new URL(name,base)))throw Error('Bootstrap cache is incomplete: '+name+'.');
     await activateCache(target);
-   }catch(err){
-    if(c)await caches.delete(target);
-    throw err;
-   }
+   }catch(err){if(c)await caches.delete(target);throw err;}
   }
   if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
  }catch(e){console.warn('Offline cache setup unavailable; existing app data was not changed.',e);}
@@ -54,20 +54,27 @@ window.checkForAppUpdate=async function(){
  if(busy)return;busy=true;latest=null;staged=null;button(false);progress(0,'',false);
  const check=document.querySelector('button[onclick="checkForAppUpdate(true)"]');if(check){check.disabled=true;check.textContent='Checking…';}
  try{
- status('Checking the published version…');const u=new URL('version.json',base);u.searchParams.set('_check',Date.now());const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw Error('version.json HTTP '+r.status);const m=await r.json();
- if(m.app!=='The Handyman Accountancy'||!m.version||!m.buildId||!m.files)throw Error('Invalid update manifest.');
- latest=m;notes(m);const newer=compare(m.version,LOCAL_VERSION)>0||m.buildId!==LOCAL_BUILD;
- if(!newer){status('This installation is up to date.');return;}
- status('Version '+m.version+' found. Downloading and verifying files; installation will wait for your confirmation.');
- const names=[...new Set(['index.html','version.json',...Object.keys(m.files)])],c=await caches.open(cacheName(m.version));let done=0;
- for(const n of names){const expected=n==='version.json'?null:m.files[n]?.sha256;if(n!=='version.json'&&!/^[a-f0-9]{64}$/i.test(String(expected||'')))throw Error('Missing SHA-256 for '+n);
- const url=new URL(n,base);url.searchParams.set('_stage',Date.now());let fileLoaded=0;
- const b=await bytes(url,(delta,len)=>{fileLoaded+=delta;const within=len?Math.min(.99,fileLoaded/len):.5;progress(Math.min(94,(done+within)/names.length*94),'Downloading '+n);});
- if(expected&&(await hash(b)).toLowerCase()!==String(expected).toLowerCase())throw Error('Integrity check failed: '+n);
- await c.put(new URL(n,base),new Response(b,{headers:{'Content-Type':n.endsWith('.json')?'application/json':n.endsWith('.js')?'text/javascript':'text/html'}}));done++;progress(done/names.length*94,'Verified '+done+' of '+names.length+' files');
- }
- if(!await c.match(new URL('index.html',base))||!await c.match(new URL('version-manager.js',base))||!await c.match(new URL('service-worker.js',base)))throw Error('Staged app package is incomplete.');
- staged=cacheName(m.version);progress(100,'Download and verification complete');status('Version '+m.version+' is downloaded and verified. Press Update Now when you are ready to install it.');button(true,'Update Now');
+  status('Checking the update channel…');
+  const cr=await fetch(CHANNEL_URL+'?_check='+Date.now(),{cache:'no-store',credentials:'omit',mode:'cors'});if(!cr.ok)throw Error('Update channel HTTP '+cr.status);
+  const channel=await cr.json();
+  if(channel.app!=='The Handyman Accountancy'||channel.channel!=='stable'||!channel.sourceBranch||!/^[a-f0-9]{64}$/i.test(String(channel.manifestSha256||'')))throw Error('Invalid update channel manifest.');
+  const root=branchRoot(channel.sourceBranch);
+  const mr=await fetch(root+'version.json?_check='+Date.now(),{cache:'no-store',credentials:'omit',mode:'cors'});if(!mr.ok)throw Error('Release manifest HTTP '+mr.status);
+  const manifestBytes=await mr.arrayBuffer();if((await hash(manifestBytes)).toLowerCase()!==String(channel.manifestSha256).toLowerCase())throw Error('Release manifest integrity check failed.');
+  const m=JSON.parse(new TextDecoder().decode(manifestBytes));
+  if(m.app!=='The Handyman Accountancy'||String(m.version)!==String(channel.version)||m.buildId!==channel.buildId||m.releaseBranch!==channel.sourceBranch||!m.files||typeof m.files!=='object')throw Error('Release manifest does not match the update channel.');
+  latest=m;notes(m);const newer=compare(m.version,LOCAL_VERSION)>0||m.buildId!==LOCAL_BUILD;
+  if(!newer){status('This installation is up to date.');return;}
+  status('Version '+m.version+' found. Downloading and verifying files; installation will wait for your confirmation.');
+  const names=[...new Set(['index.html','version.json',...Object.keys(m.files)])],c=await caches.open(cacheName(m.version,m.buildId));let done=0;
+  for(const n of names){const expected=n==='version.json'?String(channel.manifestSha256):m.files[n]?.sha256;if(!/^[a-f0-9]{64}$/i.test(String(expected||'')))throw Error('Missing SHA-256 for '+n);
+   const url=n==='version.json'?root+'version.json':root+n;let fileLoaded=0;
+   const b=await bytes(url,(delta,len)=>{fileLoaded+=delta;const within=len?Math.min(.99,fileLoaded/len):.5;progress(Math.min(94,(done+within)/names.length*94),'Downloading '+n);});
+   if((await hash(b)).toLowerCase()!==String(expected).toLowerCase())throw Error('Integrity check failed: '+n);
+   const localUrl=new URL(n,base);await c.put(localUrl,new Response(b,{headers:{'Content-Type':n.endsWith('.json')?'application/json':n.endsWith('.js')?'text/javascript':'text/html'}}));done++;progress(done/names.length*94,'Verified '+done+' of '+names.length+' files');
+  }
+  if(!await c.match(new URL('index.html',base))||!await c.match(new URL('version-manager.js',base))||!await c.match(new URL('service-worker.js',base)))throw Error('Staged app package is incomplete.');
+  staged=cacheName(m.version,m.buildId);progress(100,'Download and verification complete');status('Version '+m.version+' is downloaded and verified. Press Update Now when you are ready to install it.');button(true,'Update Now');
  }catch(e){latest=null;staged=null;progress(0,'',false);status('Update failed: '+(e.message||e)+'. The current installation and saved records were not changed.');}
  finally{busy=false;if(check){check.disabled=false;check.textContent='🔄 Check for Updates';}}
 };
