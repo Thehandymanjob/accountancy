@@ -17,7 +17,7 @@ jobs:
       - name: Install browser test dependencies
         run: |
           npm install --no-save playwright
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: Run isolated browser restore test
         run: |
           node tests/restore-browser-test.mjs
