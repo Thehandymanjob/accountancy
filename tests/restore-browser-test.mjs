@@ -43,12 +43,15 @@ try {
       entries: [{ id: 'backup-entry', amount: 120 }],
       customers: [{ id: 'backup-customer', name: 'Backup customer' }],
       invoices: [{ id: 'backup-invoice' }],
-      settings: { businessName: 'Backup business' }
+      settings: { businessName: 'Backup business' },
+      customExpenseCategories: [{ id: 'cat-1', name: 'Custom category' }],
+      thirdPartyTransactions: []
     },
     projects: {
       projects: [{
         id: 'ruthin-garden',
         name: '29 Ruthin Garden',
+        photo: 'data:image/jpeg;base64,' + 'P'.repeat(389459),
         price: 10500,
         subprojects: [
           { id: 'roof', price: 6000, income: [{ amount: 300, receiptType: 'extra-work' }] },
@@ -58,7 +61,9 @@ try {
         ]
       }],
       workers: [{ id: 'backup-worker', name: 'Worker' }],
-      profile: { businessName: 'Backup profile' },
+      partners: [{ id: 'backup-partner', name: 'Partner' }],
+      contractors: [{ id: 'backup-contractor', name: 'Contractor' }],
+      profile: { businessName: 'Backup profile', logo: 'data:image/png;base64,' + 'L'.repeat(383911) },
       companies: [
         { id: 'shared-company', name: 'Backup company version' },
         { id: 'backup-company', name: 'B&q' }
@@ -90,9 +95,16 @@ try {
 
   assert(result.accounting.entries[0].id === 'backup-entry', 'Accounting backup entries were not restored');
   assert(result.accounting.customers[0].id === 'backup-customer', 'Backup customers were not restored');
+  assert(result.accounting.customExpenseCategories[0].id === 'cat-1', 'Custom expense categories were not restored');
+  assert(Array.isArray(result.accounting.thirdPartyTransactions), 'Third-party transaction data was not preserved');
   assert(result.contracts[0].id === 'backup-contract', 'Backup contracts were not restored');
   assert(project?.price === 11700, 'Project agreed price should be £11,700; got ' + project?.price);
   assert(project.price !== 12000, 'Extra-work receipt was incorrectly included in agreed project price');
+  assert(project.photo?.length === 389459 + 'data:image/jpeg;base64,'.length, 'Project photo payload was not preserved');
+  assert(result.projects.profile.logo?.length === 383911 + 'data:image/png;base64,'.length, 'Company logo payload was not preserved');
+  assert(result.projects.workers.some(x => x.id === 'backup-worker'), 'Workers were not restored');
+  assert(result.projects.partners.some(x => x.id === 'backup-partner'), 'Partners were not restored');
+  assert(result.projects.contractors.some(x => x.id === 'backup-contractor'), 'Contractors were not restored');
   assert(byId(result.projects.companies, 'shared-company')?.name === 'Device company version', 'Existing company did not take precedence');
   assert(byId(result.projects.companies, 'device-company'), 'Device-only company was lost');
   assert(byId(result.projects.companies, 'backup-company')?.name === 'B&q', 'Backup company was not imported');
@@ -100,7 +112,7 @@ try {
   assert(byId(result.projects.companyJobs, 'device-job'), 'Device-only company job was lost');
   assert(byId(result.projects.companyJobs, 'backup-job'), 'Backup company job was not imported');
   assert(result.recovery === null, 'Temporary recovery snapshot should be cleared after successful restore');
-  console.log('Browser restore test passed: accounting/contracts replacement, company merge, existing-record precedence, and £11,700 project total.');
+  console.log('Browser restore test passed: accounting, contracts, custom categories, workers, partners, contractors, company merge, logo/photo payloads, existing-record precedence, and £11,700 project total.');
 
 } finally {
   await browser.close();
