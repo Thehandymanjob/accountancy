@@ -85,6 +85,30 @@ try {
     return route.fulfill({ status: 404, body: 'Unknown release asset' });
   });
   page.on('console', msg => { if (msg.type() === 'error') console.error('Browser console:', msg.text()); });
+  const liveProbe = await context.newPage();
+  await liveProbe.goto('http://127.0.0.1:4175/', { waitUntil: 'domcontentloaded' });
+  const liveChannel = await liveProbe.evaluate(async () => {
+    const channelUrl = 'https://raw.githubusercontent.com/Thehandymanjob/accountancy/update-channel-test/update-channel.json';
+    const response = await fetch(channelUrl, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Live update channel fetch failed: HTTP ' + response.status);
+    const channel = await response.json();
+    const root = 'https://raw.githubusercontent.com/Thehandymanjob/accountancy/' + channel.sourceBranch + '/';
+    const manifestResponse = await fetch(root + 'version.json', { cache: 'no-store' });
+    if (!manifestResponse.ok) throw new Error('Live release manifest fetch failed: HTTP ' + manifestResponse.status);
+    const manifestBytes = await manifestResponse.arrayBuffer();
+    const digest = async bytes => [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(x => x.toString(16).padStart(2, '0')).join('');
+    if (await digest(manifestBytes) !== channel.manifestSha256) throw new Error('Live release manifest hash mismatch.');
+    const manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
+    if (manifest.releaseBranch !== channel.sourceBranch || String(manifest.version) !== String(channel.version) || manifest.buildId !== channel.buildId) throw new Error('Live channel and release identity do not match.');
+    for (const [name, spec] of Object.entries(manifest.files)) {
+      const asset = await fetch(root + name, { cache: 'no-store' });
+      if (!asset.ok) throw new Error('Live release asset fetch failed: ' + name);
+      if (await digest(await asset.arrayBuffer()) !== spec.sha256) throw new Error('Live release asset hash mismatch: ' + name);
+    }
+    return { branch: channel.sourceBranch, version: channel.version, assets: Object.keys(manifest.files).length };
+  });
+  if (liveChannel.version !== '224' || liveChannel.assets !== 4) throw new Error('Live update channel probe returned an unexpected release.');
+  await liveProbe.close();
   await page.goto('http://127.0.0.1:4175/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(async () => {
     if (!('serviceWorker' in navigator) || !('caches' in window)) return false;
