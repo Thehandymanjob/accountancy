@@ -4,6 +4,7 @@ on:
     branches:
       - fix/backup-restore-v212-safe-merge
       - updater-v224-service-worker-test
+      - release-v226-cache-retention-test-20261101
   pull_request:
     branches:
       - main
@@ -25,6 +26,8 @@ jobs:
           PW_BROWSER=webkit node tests/updater-install-offline-test.mjs
           node tests/restore-browser-test.mjs
           node tests/restore-failure-test.mjs
+      - name: Run cache retention unit test
+        run: node tests/cache-retention-test.mjs
       - name: Verify manifest hashes and inline JavaScript syntax
         run: |
           node --input-type=module <<'NODE'
