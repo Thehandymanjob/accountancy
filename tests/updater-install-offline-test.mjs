@@ -87,8 +87,8 @@ try {
       for (const [name, encoded] of Object.entries(mockFiles)) {
         await previous.put(new URL(name, base), new Response(decode(encoded)));
       }
-      await previous.put(new URL('index.html', base), new Response(decode(indexBase64), { headers: { 'content-type': 'text/html; charset=utf-8' } }));
-      await previous.put(new URL('version.json', base), new Response(manifestText, { headers: { 'content-type': 'application/json' } }));
+      await previous.put(new URL('index.html', base), new Response(decode(previousIndexBase64), { headers: { 'content-type': 'text/html; charset=utf-8' } }));
+      await previous.put(new URL('version.json', base), new Response(previousManifestText, { headers: { 'content-type': 'application/json' } }));
       const pointer = await caches.open('tha-active-pointer-v1');
       await pointer.put(new URL('__tha_active_cache__', base), new Response(JSON.stringify({ cacheName: 'tha-app-v224' })));
     })();
@@ -107,7 +107,7 @@ try {
         }
         if (branchName !== 'release-v224-20261101') return new Response('Unknown test release', { status: 404 });
         if (name === 'version.json') return new Response(manifestText, { status: 200, headers: { 'content-type': 'application/json' } });
-        if (name === 'index.html') return new Response(decode(indexBase64), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+        if (name === 'index.html') return new Response(decode(nextIndexBase64), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
         if (mockFiles[name]) return new Response(decode(mockFiles[name]), { status: 200, headers: { 'content-type': name.endsWith('.js') ? 'text/javascript' : 'application/octet-stream' } });
         return new Response('Unknown release asset', { status: 404 });
       }
@@ -116,7 +116,9 @@ try {
   }, {
     channelText: channelBytes.toString('utf8'),
     manifestText: JSON.stringify(nextManifest),
-    indexBase64: newIndex.toString('base64'),
+    previousManifestText: JSON.stringify(currentManifest),
+    previousIndexBase64: files['index.html'].toString('base64'),
+    nextIndexBase64: newIndex.toString('base64'),
     mockFiles
   });
   await page.goto('http://127.0.0.1:4175/', { waitUntil: 'domcontentloaded' });
