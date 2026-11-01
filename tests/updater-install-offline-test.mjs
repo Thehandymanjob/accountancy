@@ -213,6 +213,15 @@ try {
   if (!installed.pageVisible) throw new Error('After installation the app did not return to a visible Software Update page.');
   if (!preservesRecords(installed.saved)) throw new Error('Saved accounting records were not preserved during installation.');
 
+  // The new build confirms healthy startup asynchronously after DOMContentLoaded.
+  // Do not simulate a later offline reload until that confirmation has cleared
+  // the rollback marker; otherwise the next navigation is correctly treated as
+  // a failed first startup and the worker restores the previous cache.
+  await page.waitForFunction(async () => {
+    const pointer = await caches.open('tha-active-pointer-v1');
+    return !(await pointer.match(new URL('__tha_pending_activation__', location.href)));
+  }, null, { timeout: 7000 });
+
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
   try {
