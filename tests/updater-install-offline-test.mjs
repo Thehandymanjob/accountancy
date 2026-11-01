@@ -86,6 +86,11 @@ try {
     // must exist before the user checks for v225. The fallback cache created by
     // the Service Worker is not itself proof of a known-good previous build.
     const seedPreviousBuild = (async () => {
+      // addInitScript runs again after every navigation. Seed the previous
+      // installation only once; otherwise this test harness resets the active
+      // cache pointer to v224 after the v225 install navigation.
+      if (sessionStorage.getItem('__tha_test_previous_build_seeded') === '1') return;
+      sessionStorage.setItem('__tha_test_previous_build_seeded', '1');
       const base = new URL('.', document.baseURI);
       const previous = await caches.open('tha-app-v224');
       const decode = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
