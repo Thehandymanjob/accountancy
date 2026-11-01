@@ -213,14 +213,33 @@ try {
   if (!installed.pageVisible) throw new Error('After installation the app did not return to a visible Software Update page.');
   if (!preservesRecords(installed.saved)) throw new Error('Saved accounting records were not preserved during installation.');
 
-  // The new build confirms healthy startup asynchronously after DOMContentLoaded.
-  // Do not simulate a later offline reload until that confirmation has cleared
-  // the rollback marker; otherwise the next navigation is correctly treated as
-  // a failed first startup and the worker restores the previous cache.
-  await page.waitForFunction(async () => {
+  // Wait for the new build's own startup confirmation, not merely for a
+  // transiently absent rollback marker (which can race with cache activation).
+  try {
+    await page.waitForFunction(() => window.__thaPendingActivationDiagnostics?.result === 'confirmed', null, { timeout: 7000 });
+  } catch (error) {
+    console.error('Startup confirmation diagnostic:', await page.evaluate(async () => {
+      const pointer = await caches.open('tha-active-pointer-v1');
+      const active = await pointer.match(new URL('__tha_active_cache__', location.href));
+      const pending = await pointer.match(new URL('__tha_pending_activation__', location.href));
+      return {
+        startupDiagnostics: window.__thaPendingActivationDiagnostics || null,
+        active: active ? await active.json() : null,
+        pending: pending ? await pending.json() : null,
+        cacheNames: await caches.keys(),
+        status: document.getElementById('appUpdateStatus')?.textContent
+      };
+    }));
+    throw error;
+  }
+  const confirmedActive = await page.evaluate(async () => {
     const pointer = await caches.open('tha-active-pointer-v1');
-    return !(await pointer.match(new URL('__tha_pending_activation__', location.href)));
-  }, null, { timeout: 7000 });
+    const active = await pointer.match(new URL('__tha_active_cache__', location.href));
+    return active ? await active.json() : null;
+  });
+  if (confirmedActive?.cacheName !== 'tha-app-v225-THA-225-INSTALL-OFFLINE-TEST') {
+    throw new Error('Startup was confirmed but the active cache pointer does not identify the installed build.');
+  }
 
   console.log('Pre-offline activation diagnostic:', await page.evaluate(async () => {
     const pointer = await caches.open('tha-active-pointer-v1');
