@@ -104,7 +104,9 @@ try {
   });
   if (liveChannel.version !== '224' || liveChannel.assets !== 4) throw new Error('Live update channel probe returned an unexpected release.');
   await liveContext.close();
-  await page.route('https://raw.githubusercontent.com/Thehandymanjob/accountancy/**', async route => {
+  // Use context-level routing so both Chromium and WebKit see mocked channel requests.
+  // The live probe is isolated in a different context, so it cannot consume these routes.
+  await context.route('https://raw.githubusercontent.com/Thehandymanjob/accountancy/**', async route => {
     const u = new URL(route.request().url());
     const parts = u.pathname.split('/');
     const branchName = parts[3];
