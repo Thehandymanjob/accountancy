@@ -71,20 +71,6 @@ try {
     buildId: 'THA-225-INSTALL-OFFLINE-TEST',
     manifestSha256: hash(Buffer.from(JSON.stringify(nextManifest)))
   }));
-  await page.route('https://raw.githubusercontent.com/Thehandymanjob/accountancy/**', async route => {
-    const u = new URL(route.request().url());
-    const parts = u.pathname.split('/');
-    const branchName = parts[3];
-    const name = parts.slice(4).join('/');
-    if (branchName === 'update-channel-test' && name === 'update-channel.json') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: channelBytes });
-    }
-    if (branchName !== 'release-v224-20261101') return route.fulfill({ status: 404, body: 'Unknown test commit' });
-    if (name === 'version.json') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nextManifest) });
-    if (name === 'index.html') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: newIndex });
-    if (files[name]) return route.fulfill({ status: 200, contentType: name.endsWith('.js') ? 'text/javascript' : 'application/octet-stream', body: files[name] });
-    return route.fulfill({ status: 404, body: 'Unknown release asset' });
-  });
   page.on('console', msg => { if (msg.type() === 'error') console.error('Browser console:', msg.text()); });
   const liveProbe = await context.newPage();
   await liveProbe.goto('http://127.0.0.1:4175/', { waitUntil: 'domcontentloaded' });
@@ -117,6 +103,20 @@ try {
   });
   if (liveChannel.version !== '224' || liveChannel.assets !== 4) throw new Error('Live update channel probe returned an unexpected release.');
   await liveProbe.close();
+  await context.route('https://raw.githubusercontent.com/Thehandymanjob/accountancy/**', async route => {
+    const u = new URL(route.request().url());
+    const parts = u.pathname.split('/');
+    const branchName = parts[3];
+    const name = parts.slice(4).join('/');
+    if (branchName === 'update-channel-test' && name === 'update-channel.json') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: channelBytes });
+    }
+    if (branchName !== 'release-v224-20261101') return route.fulfill({ status: 404, body: 'Unknown test commit' });
+    if (name === 'version.json') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nextManifest) });
+    if (name === 'index.html') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: newIndex });
+    if (files[name]) return route.fulfill({ status: 200, contentType: name.endsWith('.js') ? 'text/javascript' : 'application/octet-stream', body: files[name] });
+    return route.fulfill({ status: 404, body: 'Unknown release asset' });
+  });
   await page.goto('http://127.0.0.1:4175/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(async () => {
     if (!('serviceWorker' in navigator) || !('caches' in window)) return false;
