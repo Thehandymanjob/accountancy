@@ -1,0 +1,19 @@
+name: Verify published file hashes
+on:
+  push:
+    branches:
+      - fix/version-212-index-integrity
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify SHA-256 values against exact repository bytes
+        run: |
+          set -euo pipefail
+          for file in index.html storage-foundation.js version-manager.js; do
+            expected="$(jq -r --arg f "$file" '.files[$f].sha256' version.json)"
+            actual="$(sha256sum "$file" | awk '{print $1}')"
+            echo "$file expected=$expected actual=$actual"
+            test "$expected" = "$actual"
+          done
