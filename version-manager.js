@@ -42,7 +42,7 @@ async function confirmPendingActivation(){
   try{
    const c=await caches.open(POINTER),r=await c.match(rollbackUrl);if(!r)return;
    const p=await r.json(),expected=cacheName(LOCAL_VERSION,LOCAL_BUILD);
-   if(p.nextCache!==expected){await rollbackPendingActivation('Loaded build does not match the staged build.');return;}
+   if(p.nextCache!==expected)return;
    const healthy=typeof window.openAccountancy==='function'&&typeof window.show==='function'&&!!el('softwareUpdate')&&!!el('appReloadUpdate')&&!!document.body;
    if(!healthy){await rollbackPendingActivation('Required app startup components are missing.');return;}
    await c.delete(rollbackUrl);
