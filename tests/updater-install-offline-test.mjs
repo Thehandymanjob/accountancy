@@ -232,6 +232,7 @@ try {
       active: active ? await active.json() : null,
       pending: pending ? await pending.json() : null,
       expectedCache: 'tha-app-v225-THA-225-INSTALL-OFFLINE-TEST',
+      startupDiagnostics: window.__thaPendingActivationDiagnostics || null,
       status: document.getElementById('appUpdateStatus')?.textContent
     };
   }));
