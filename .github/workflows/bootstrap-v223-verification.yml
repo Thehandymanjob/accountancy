@@ -21,11 +21,11 @@ jobs:
           const fs = require('fs');
           const vm = require('vm');
           const html = fs.readFileSync('index.html','utf8');
-          const scripts = [...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+          const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
           let checked = 0;
           for (const [whole, attrs, source] of scripts) {
-            if (/\\bsrc\\s*=/.test(attrs) || !source.trim()) continue;
-            if (/\\btype\\s*=\\s*["'](?:application\\/(?:json|ld\\+json)|importmap)["']/i.test(attrs)) continue;
+            if (/\bsrc\s*=/.test(attrs) || !source.trim()) continue;
+            if (/\btype\s*=\s*["'](?:application\/(?:json|ld\+json)|importmap)["']/i.test(attrs)) continue;
             new vm.Script(source, { filename: 'index.html:inline-script-' + (++checked) });
           }
           if (!checked) throw new Error('No inline JavaScript blocks found');
