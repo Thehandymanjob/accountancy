@@ -8,7 +8,7 @@ async function activeCacheName(){
  try{
   const pointer=await caches.open(POINTER_CACHE);
   const response=await pointer.match(POINTER_URL);
-  if(response){const data=await response.json();if(data&&/^tha-app-v[\\w.-]+$/.test(data.cacheName))return data.cacheName;}
+  if(response){const data=await response.json();if(data&&typeof data.cacheName==='string'&&data.cacheName.startsWith('tha-app-v')&&data.cacheName.length<80)return data.cacheName;}
  }catch(error){}
  return 'tha-app-v223-bootstrap';
 }
