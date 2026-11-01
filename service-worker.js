@@ -15,17 +15,21 @@ async function activeName(){try{const c=await caches.open(POINTER_CACHE),r=await
 function keyFor(req){const u=new URL(req.url);if(req.mode==='navigate'&&u.pathname===SCOPE.pathname)return new URL('index.html',SCOPE).toString();return u.toString();}
 async function cacheForNavigation(){
  const pointer=await caches.open(POINTER_CACHE),pendingResponse=await pointer.match(ROLLBACK_URL);
+ const before=await pointer.match(POINTER_URL);let beforeValue=null;try{beforeValue=before?await before.clone().json():null;}catch(e){}
+ console.info('[THA-SW] navigation decision start',{before:beforeValue,pending:!!pendingResponse});
  if(pendingResponse){
   const pending=await pendingResponse.json();
   if(Number(pending.attempts||0)>=1&&pending.previousCache&&await caches.has(pending.previousCache)){
+   console.warn('[THA-SW] rollback triggered by navigation',{attempts:pending.attempts,previousCache:pending.previousCache,nextCache:pending.nextCache});
    await pointer.put(POINTER_URL,new Response(JSON.stringify({cacheName:pending.previousCache})));
    await pointer.delete(ROLLBACK_URL);
    return pending.previousCache;
   }
   pending.attempts=Number(pending.attempts||0)+1;
   await pointer.put(ROLLBACK_URL,new Response(JSON.stringify(pending)));
+  console.info('[THA-SW] pending attempt recorded',{attempts:pending.attempts,active:await activeName(),nextCache:pending.nextCache});
  }
- return activeName();
+ const selected=await activeName();console.info('[THA-SW] navigation cache selected',{selected});return selected;
 }
 self.addEventListener('fetch',e=>{
  const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);if(u.origin!==SCOPE.origin||!u.pathname.startsWith(SCOPE.pathname))return;
