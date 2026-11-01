@@ -27,7 +27,7 @@ jobs:
             if (actual !== spec.sha256) throw new Error(name + ' SHA-256 mismatch: ' + actual);
             console.log(name + ' SHA-256 OK');
           }
-          const scripts = [...html.matchAll(/<script(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)<\\/script>/gi)].map(m => m[1]).filter(s => s.trim());
+          const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]).filter(s => s.trim());
           for (let i = 0; i < scripts.length; i++) new vm.Script(scripts[i], { filename: 'inline-script-' + i + '.js' });
           console.log('Inline JavaScript syntax OK (' + scripts.length + ' scripts)');
           const restore = html.slice(html.indexOf('function restore(e)'));
