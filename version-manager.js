@@ -31,12 +31,12 @@ window.checkForAppUpdate=async function(){
  latest=m;notes(m);const newer=compare(m.version,LOCAL_VERSION)>0||m.buildId!==LOCAL_BUILD;
  if(!newer){status('This installation is up to date.');return;}
  status('Version '+m.version+' found. Downloading and verifying files; installation will wait for your confirmation.');
- const names=[...new Set(['index.html','version.json',...Object.keys(m.files)])],c=await caches.open(cacheName(m.version));let done=0,loaded=0,total=0;
+ const names=[...new Set(['index.html','version.json',...Object.keys(m.files)])],c=await caches.open(cacheName(m.version));let done=0;
  for(const n of names){const expected=n==='version.json'?null:m.files[n]?.sha256;if(n!=='version.json'&&!/^[a-f0-9]{64}$/i.test(String(expected||'')))throw Error('Missing SHA-256 for '+n);
- const url=new URL(n,base);url.searchParams.set('_stage',Date.now());let known=0;
- const b=await bytes(url,(delta,len)=>{loaded+=delta;if(len&&!known){known=len;total+=len;}progress(total?Math.min(94,loaded/total*94):Math.min(94,(done+.5)/names.length*94),'Downloading '+n);});
+ const url=new URL(n,base);url.searchParams.set('_stage',Date.now());let fileLoaded=0;
+ const b=await bytes(url,(delta,len)=>{fileLoaded+=delta;const within=len?Math.min(.99,fileLoaded/len):.5;progress(Math.min(94,(done+within)/names.length*94),'Downloading '+n);});
  if(expected&&(await hash(b)).toLowerCase()!==String(expected).toLowerCase())throw Error('Integrity check failed: '+n);
- await c.put(new URL(n,base),new Response(b,{headers:{'Content-Type':n.endsWith('.json')?'application/json':n.endsWith('.js')?'text/javascript':'text/html'}}));done++;if(!total)progress(done/names.length*94,'Verified '+done+' of '+names.length+' files');
+ await c.put(new URL(n,base),new Response(b,{headers:{'Content-Type':n.endsWith('.json')?'application/json':n.endsWith('.js')?'text/javascript':'text/html'}}));done++;progress(done/names.length*94,'Verified '+done+' of '+names.length+' files');
  }
  if(!await c.match(new URL('index.html',base))||!await c.match(new URL('version-manager.js',base))||!await c.match(new URL('service-worker.js',base)))throw Error('Staged app package is incomplete.');
  staged=cacheName(m.version);progress(100,'Download and verification complete');status('Version '+m.version+' is downloaded and verified. Press Update Now when you are ready to install it.');button(true,'Update Now');
