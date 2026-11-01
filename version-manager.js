@@ -37,18 +37,21 @@ async function rollbackPendingActivation(reason){
  const u=new URL(location.href);u.searchParams.delete('tha-installed-version');u.searchParams.delete('tha-installed-build');u.searchParams.set('tha-rollback','1');location.replace(u.toString());return true;
 }
 async function confirmPendingActivation(){
- if(!('caches'in window))return;
+ window.__thaPendingActivationDiagnostics={called:true,readyState:document.readyState,localVersion:LOCAL_VERSION,localBuild:LOCAL_BUILD};
+ if(!('caches'in window)){window.__thaPendingActivationDiagnostics.noCacheApi=true;return;}
  const run=async()=>{
   try{
-   const c=await caches.open(POINTER),r=await c.match(rollbackUrl);if(!r)return;
+   const c=await caches.open(POINTER),r=await c.match(rollbackUrl);
+   if(!r){window.__thaPendingActivationDiagnostics.result='no-pending-marker';return;}
    const p=await r.json(),expected=cacheName(LOCAL_VERSION,LOCAL_BUILD);
-   if(p.nextCache!==expected)return;
+   window.__thaPendingActivationDiagnostics.pending=p;window.__thaPendingActivationDiagnostics.expected=expected;
+   if(p.nextCache!==expected){window.__thaPendingActivationDiagnostics.result='cache-name-mismatch';return;}
    const health={openAccountancy:typeof window.openAccountancy==='function',show:typeof window.show==='function',softwareUpdate:!!el('softwareUpdate'),reloadButton:!!el('appReloadUpdate'),body:!!document.body};
    const healthy=Object.values(health).every(Boolean);
-   console.info('Pending update startup health check', {expected, nextCache:p.nextCache, health});
+   window.__thaPendingActivationDiagnostics.health=health;console.info('Pending update startup health check', {expected, nextCache:p.nextCache, health});
    if(!healthy){await rollbackPendingActivation('Required app startup components are missing: '+JSON.stringify(health));return;}
    await c.delete(rollbackUrl);
-   console.info('App startup verified; rollback protection cleared for',LOCAL_VERSION,LOCAL_BUILD);
+   window.__thaPendingActivationDiagnostics.result='confirmed';console.info('App startup verified; rollback protection cleared for',LOCAL_VERSION,LOCAL_BUILD);
   }catch(e){console.error('Could not confirm app startup health.',e);}
  };
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(run,1000),{once:true});else setTimeout(run,1000);
