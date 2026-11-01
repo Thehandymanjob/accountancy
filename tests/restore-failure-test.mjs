@@ -48,7 +48,7 @@ try {
     assert(after[3]===null,'Recovery snapshot was not cleared after verified rollback');
     await page.close();
   }
-  // Failure while saving the recovery snapshot must not touch the original records.
+  // Failure while writing replacement accounting data must not touch the original records.
   {
     const page = await browser.newPage();
     page.on('dialog', d => d.accept());
@@ -57,17 +57,17 @@ try {
     await page.evaluate(() => {
       const original = Storage.prototype.setItem;
       Storage.prototype.setItem = function(key,value) {
-        if (key==='tha_v206_restore_recovery_v1') throw new DOMException('Quota exceeded','QuotaExceededError');
+        if (key==='tha_v206_accounting_v1' && value.includes('new-entry')) throw new DOMException('Quota exceeded','QuotaExceededError');
         return original.call(this,key,value);
       };
     });
     await page.locator('#restoreFile').setInputFiles({name:'valid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
     const after = await readKeys(page);
-    assert(after[0]===before[0] && after[1]===before[1] && after[2]===before[2],'Recovery snapshot quota failure changed existing data');
-    assert(after[3]===null,'Recovery key unexpectedly exists after snapshot quota failure');
+    assert(after[0]===before[0] && after[1]===before[1] && after[2]===before[2],'Replacement write quota failure changed existing data');
+    assert(after[3]===null,'Recovery key unexpectedly exists after replacement write quota failure');
     await page.close();
   }
-  console.log('Restore failure tests passed: malformed JSON is non-destructive; UI refresh failure rolls back and verifies all three LocalStorage records; recovery-snapshot quota failure leaves existing data untouched.');
+  console.log('Restore failure tests passed: malformed JSON is non-destructive; UI refresh failure rolls back and verifies all three LocalStorage records; replacement-write quota failure leaves existing data untouched.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));
