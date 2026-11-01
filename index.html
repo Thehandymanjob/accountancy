@@ -2719,6 +2719,26 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   try{
    const registration=await navigator.serviceWorker.register(new URL('service-worker.js',base),{scope:base.pathname});
    await navigator.serviceWorker.ready;
+   if(!navigator.serviceWorker.controller){
+    await new Promise((resolve,reject)=>{
+     let settled=false;
+     const finish=(error)=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timer);
+      navigator.serviceWorker.removeEventListener('controllerchange',onControllerChange);
+      if(error)reject(error);else resolve();
+     };
+     const onControllerChange=()=>{if(navigator.serviceWorker.controller)finish();};
+     const timer=setTimeout(()=>finish(new Error('Service Worker did not take control of this page')),10000);
+     navigator.serviceWorker.addEventListener('controllerchange',onControllerChange);
+     onControllerChange();
+    });
+   }
+   const controller=navigator.serviceWorker.controller;
+   if(!controller)throw new Error('Page is not controlled by the registered Service Worker');
+   const controllerUrl=new URL(controller.scriptURL);
+   if(controllerUrl.origin!==base.origin||!controllerUrl.pathname.endsWith('/service-worker.js'))throw new Error('Unexpected Service Worker controller');
    const cache=await caches.open(cacheName);
    for(const file of files){
     const url=new URL(file,base);
