@@ -202,7 +202,36 @@ try {
     title: document.title
   }));
   if (offline.version !== '225' || !preservesRecords(offline.saved)) throw new Error('Offline reload failed or saved records were not preserved.');
-  console.log('Updater browser test passed: v225 was staged and hash-verified, installed only after confirmation, returned to Software Update, preserved accounting data, and reopened offline from the active cache.');
+
+  // Simulate a new build that fails before it can confirm startup. On the next
+  // navigation, the Service Worker must restore the previous known-good cache.
+  await context.setOffline(false);
+  await page.evaluate(async () => {
+    const oldName = 'tha-app-v224-rollback-test';
+    const failedName = 'tha-app-v999-rollback-test';
+    const oldCache = await caches.open(oldName);
+    const failedCache = await caches.open(failedName);
+    const shellUrl = new URL('index.html', location.href);
+    await oldCache.put(shellUrl, new Response('<!doctype html><html><head><meta name="app-version" content="224"><meta name="app-build-id" content="THA-224-ROLLBACK-TEST"></head><body>Previous stable app</body></html>', { headers: { 'content-type': 'text/html' } }));
+    await failedCache.put(shellUrl, new Response('<!doctype html><html><head><meta name="app-version" content="999"><meta name="app-build-id" content="THA-999-FAILED-TEST"></head><body>Failed new app</body></html>', { headers: { 'content-type': 'text/html' } }));
+    const pointer = await caches.open('tha-active-pointer-v1');
+    await pointer.put(new URL('__tha_active_cache__', location.href), new Response(JSON.stringify({ cacheName: failedName })));
+    await pointer.put(new URL('__tha_pending_activation__', location.href), new Response(JSON.stringify({
+      previousCache: oldName, nextCache: failedName, version: '999', buildId: 'THA-999-FAILED-TEST', attempts: 1
+    })));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === '224', null, { timeout: 10000 });
+  const rolledBack = await page.evaluate(async () => {
+    const pointer = await caches.open('tha-active-pointer-v1');
+    const active = await pointer.match(new URL('__tha_active_cache__', location.href));
+    const pending = await pointer.match(new URL('__tha_pending_activation__', location.href));
+    return { version: document.querySelector('meta[name="app-version"]')?.content, active: (await active.json()).cacheName, pending: !!pending, body: document.body.textContent };
+  });
+  if (rolledBack.version !== '224' || rolledBack.active !== 'tha-app-v224-rollback-test' || rolledBack.pending || !rolledBack.body.includes('Previous stable app')) {
+    throw new Error('Automatic rollback did not restore the previous cached app after a failed startup.');
+  }
+  console.log('Updater browser test passed: v225 was staged and hash-verified, installed only after confirmation, preserved accounting data, reopened offline, and restored the previous app cache after a simulated failed startup.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));
