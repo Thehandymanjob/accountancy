@@ -72,7 +72,8 @@ try {
     manifestSha256: hash(Buffer.from(JSON.stringify(nextManifest)))
   }));
   page.on('console', msg => { if (msg.type() === 'error') console.error('Browser console:', msg.text()); });
-  const liveProbe = await context.newPage();
+  const liveContext = await browser.newContext({ serviceWorkers: 'block' });
+  const liveProbe = await liveContext.newPage();
   await liveProbe.goto('http://127.0.0.1:4175/', { waitUntil: 'domcontentloaded' });
   const liveChannel = await liveProbe.evaluate(async () => {
     const channelUrl = 'https://raw.githubusercontent.com/Thehandymanjob/accountancy/update-channel-test/update-channel.json';
@@ -102,7 +103,7 @@ try {
     return { branch: channel.sourceBranch, version: channel.version, assets: Object.keys(manifest.files).length };
   });
   if (liveChannel.version !== '224' || liveChannel.assets !== 4) throw new Error('Live update channel probe returned an unexpected release.');
-  await liveProbe.close();
+  await liveContext.close();
   await page.route('https://raw.githubusercontent.com/Thehandymanjob/accountancy/**', async route => {
     const u = new URL(route.request().url());
     const parts = u.pathname.split('/');
