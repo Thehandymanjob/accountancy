@@ -1,0 +1,48 @@
+name: Package version 226 ZIP
+
+on:
+  push:
+    branches:
+      - release-v226-cache-retention-test-20261101
+    paths:
+      - .github/workflows/package-version-zip.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@v4
+        with:
+          ref: release-v226-cache-retention-test-20261101
+          fetch-depth: 1
+
+      - name: Build requested folder structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          mkdir -p "$workdir/Files" "$workdir/Install Files"
+          rsync -a --exclude='.git' ./ "$workdir/Files/"
+          for file in index.html version.json version-manager.js service-worker.js storage-foundation.js apple-touch-icon.png favicon.png icon-192.png icon-512.png; do
+            test -f "$file"
+            cp "$file" "$workdir/Install Files"/
+          done
+          printf '%s\n' 'Version: 226' 'Source branch: release-v226-cache-retention-test-20261101' 'Source commit: $GITHUB_SHA' > "$workdir/README.txt"
+          (cd "$workdir" && zip -qr "$GITHUB_WORKSPACE/226.zip" Files "Install Files" README.txt)
+          unzip -t 226.zip
+          test "$(unzip -Z1 226.zip | grep -c '^Files/')" -gt 0
+          test "$(unzip -Z1 226.zip | grep -c '^Install Files/')" -gt 0
+          sha256sum 226.zip
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 226-zip
+          path: 226.zip
+          if-no-files-found: error
+          retention-days: 30
