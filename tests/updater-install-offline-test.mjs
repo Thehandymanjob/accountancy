@@ -103,11 +103,12 @@ try {
   });
   if (liveChannel.version !== '224' || liveChannel.assets !== 4) throw new Error('Live update channel probe returned an unexpected release.');
   await liveProbe.close();
-  await context.route('https://raw.githubusercontent.com/Thehandymanjob/accountancy/**', async route => {
+  await page.route('https://raw.githubusercontent.com/Thehandymanjob/accountancy/**', async route => {
     const u = new URL(route.request().url());
     const parts = u.pathname.split('/');
     const branchName = parts[3];
     const name = parts.slice(4).join('/');
+    console.log('Mock release request:', branchName, name);
     if (branchName === 'update-channel-test' && name === 'update-channel.json') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: channelBytes });
     }
