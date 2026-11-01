@@ -1,133 +1,54 @@
-/* The Handyman Accountancy - single authoritative updater. */
-(function () {
-  'use strict';
-  const meta = (name) => document.querySelector('meta[name="' + name + '"]')?.content || '';
-  const LOCAL_VERSION = meta('app-version');
-  const LOCAL_BUILD = meta('app-build-id');
-  let latest = null;
-  const byId = (id) => document.getElementById(id);
-
-  function compareVersion(a, b) {
-    const aa = String(a || '').split(/[.+-]/).map(x => /^\d+$/.test(x) ? Number(x) : x);
-    const bb = String(b || '').split(/[.+-]/).map(x => /^\d+$/.test(x) ? Number(x) : x);
-    for (let i = 0; i < Math.max(aa.length, bb.length); i++) {
-      const x = aa[i] ?? 0, y = bb[i] ?? 0;
-      if (x === y) continue;
-      if (typeof x === 'number' && typeof y === 'number') return x > y ? 1 : -1;
-      return String(x) > String(y) ? 1 : -1;
-    }
-    return 0;
-  }
-  function setStatus(message) {
-    const el = byId('appUpdateStatus');
-    if (el) el.textContent = message;
-  }
-  function setUpdateButton(enabled, label) {
-    const button = byId('appReloadUpdate');
-    if (!button) return;
-    button.disabled = !enabled;
-    button.setAttribute('aria-disabled', String(!enabled));
-    button.style.opacity = enabled ? '1' : '.55';
-    button.style.cursor = enabled ? 'pointer' : 'not-allowed';
-    button.style.filter = enabled ? 'none' : 'grayscale(.25)';
-    button.textContent = label || 'Update Now';
-  }
-  async function sha256(url) {
-    const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
-    if (!response.ok) throw new Error('Cannot verify ' + url + ' (HTTP ' + response.status + ')');
-    const bytes = await response.arrayBuffer();
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
-    return Array.from(new Uint8Array(digest), x => x.toString(16).padStart(2, '0')).join('');
-  }
-
-  window.checkForAppUpdate = async function () {
-    const checkButton = document.querySelector('button[onclick="checkForAppUpdate(true)"]');
-    const installed = byId('appInstalledVersion');
-    if (installed) installed.textContent = 'Installed version: ' + LOCAL_VERSION + ' · ' + LOCAL_BUILD;
-    latest = null;
-    setUpdateButton(false, 'Update Now');
-    setStatus('Checking the published version and verifying its files…');
-    if (checkButton) { checkButton.disabled = true; checkButton.textContent = 'Checking…'; }
-    try {
-      const manifestUrl = new URL('version.json', document.baseURI);
-      manifestUrl.searchParams.set('_check', String(Date.now()));
-      const response = await fetch(manifestUrl, { cache: 'no-store', credentials: 'same-origin' });
-      if (!response.ok) throw new Error('version.json HTTP ' + response.status);
-      const manifest = await response.json();
-      if (manifest.app !== 'The Handyman Accountancy' || !manifest.version || !manifest.buildId || !manifest.files || typeof manifest.files !== 'object') {
-        throw new Error('The published version manifest is invalid.');
-      }
-      const names = Object.keys(manifest.files);
-      if (!names.length) throw new Error('The manifest contains no files to verify.');
-      for (const name of names) {
-        const expected = manifest.files[name]?.sha256;
-        if (!/^[a-f0-9]{64}$/i.test(String(expected || ''))) throw new Error('Missing or invalid SHA-256 for ' + name);
-        const fileUrl = new URL(name, document.baseURI);
-        fileUrl.searchParams.set('_verify', String(Date.now()));
-        const actual = await sha256(fileUrl);
-        if (actual.toLowerCase() !== String(expected).toLowerCase()) throw new Error('Integrity check failed: ' + name);
-      }
-      latest = manifest;
-      const newer = compareVersion(manifest.version, LOCAL_VERSION) > 0 || manifest.buildId !== LOCAL_BUILD;
-      setStatus('Installed: ' + LOCAL_VERSION + ' (' + LOCAL_BUILD + '). Published: ' + manifest.version + ' (' + manifest.buildId + '). All ' + names.length + ' file hashes verified. ' + (newer ? 'A newer build is ready. Select Update Now to load it.' : 'This build is current.'));
-      setUpdateButton(newer, 'Update Now');
-      if (!newer && checkButton) { /* leave the successful check visible */ }
-    } catch (error) {
-      latest = null;
-      setUpdateButton(false, 'Update Now');
-      setStatus('Update check failed: ' + (error?.message || 'Unknown error') + '. No saved data was changed.');
-    } finally {
-      if (checkButton) { checkButton.disabled = false; checkButton.textContent = '🔄 Check for Updates'; }
-    }
-  };
-
-  window.reloadLatestApp = function () {
-    if (!latest) {
-      setStatus('Please check for updates and verify the published files before updating.');
-      setUpdateButton(false, 'Update Now');
-      return;
-    }
-    if (compareVersion(latest.version, LOCAL_VERSION) <= 0 && latest.buildId === LOCAL_BUILD) {
-      setStatus('This installation is already on the published build.');
-      setUpdateButton(false, 'Update Now');
-      return;
-    }
-    const button = byId('appReloadUpdate');
-    if (button) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); button.textContent = 'Loading…'; }
-    setStatus('Loading published version ' + latest.version + '. Your saved records remain in this browser.');
-    const target = new URL(location.href);
-    ['app-refresh', 'app-update-confirm', 'app-cache-bust', 'app-launch-refresh', 'app-published-version'].forEach(k => target.searchParams.delete(k));
-    target.searchParams.set('tha-update', latest.buildId);
-    target.searchParams.set('tha-cache-bust', String(Date.now()));
-    target.hash = '';
-    location.replace(target.toString());
-  };
-
-  const installed = byId('appInstalledVersion');
-  if (installed) installed.textContent = 'Installed version: ' + LOCAL_VERSION + ' · ' + LOCAL_BUILD;
-  setUpdateButton(false, 'Update Now');
-
-  // After a successful reload, return to the Software Update panel and confirm
-  // only when the newly loaded build matches the requested published build.
-  try {
-    const params = new URL(location.href).searchParams;
-    const requestedBuild = params.get('tha-update');
-    if (requestedBuild && requestedBuild === LOCAL_BUILD) {
-      if (typeof window.show === 'function') window.show('softwareUpdate');
-      if (installed) installed.textContent = 'Installed version: ' + LOCAL_VERSION + ' · ' + LOCAL_BUILD;
-      setStatus('Update successful. Installed version: ' + LOCAL_VERSION + ' (' + LOCAL_BUILD + ').');
-      const cleanUrl = new URL(location.href);
-      cleanUrl.searchParams.delete('tha-update');
-      cleanUrl.searchParams.delete('tha-cache-bust');
-      history.replaceState(null, '', cleanUrl.toString());
-    } else if (requestedBuild) {
-      setStatus('Update could not be confirmed. Loaded build: ' + LOCAL_BUILD + '. Requested build: ' + requestedBuild + '.');
-      const cleanUrl = new URL(location.href);
-      cleanUrl.searchParams.delete('tha-update');
-      cleanUrl.searchParams.delete('tha-cache-bust');
-      history.replaceState(null, '', cleanUrl.toString());
-    }
-  } catch (error) {
-    setStatus('The app loaded, but the update confirmation could not be displayed. ' + (error?.message || ''));
-  }
+/* The Handyman Accountancy - manual staged updater v224. */
+(function(){
+'use strict';
+const meta=n=>document.querySelector('meta[name="'+n+'"]')?.content||'';
+const LOCAL_VERSION=meta('app-version'),LOCAL_BUILD=meta('app-build-id');
+const base=new URL('.',document.baseURI),POINTER='tha-active-pointer-v1',pointerUrl=new URL('__tha_active_cache__',base).toString();
+let latest=null,staged=null,busy=false;
+const el=id=>document.getElementById(id);
+function compare(a,b){const x=String(a||'').split(/[.+-]/).map(v=>/^\d+$/.test(v)?+v:v),y=String(b||'').split(/[.+-]/).map(v=>/^\d+$/.test(v)?+v:v);for(let i=0;i<Math.max(x.length,y.length);i++){let p=x[i]??0,q=y[i]??0;if(p===q)continue;return p>q?1:-1;}return 0;}
+function status(t){if(el('appUpdateStatus'))el('appUpdateStatus').textContent=t;}
+function button(on,t){const b=el('appReloadUpdate');if(!b)return;b.disabled=!on;b.textContent=t||'Update Now';b.style.opacity=on?'1':'.55';}
+function progress(n,t,show=true){if(el('appUpdateProgressWrap'))el('appUpdateProgressWrap').style.display=show?'block':'none';if(el('appUpdateProgress'))el('appUpdateProgress').value=n;if(el('appUpdateProgressPercent'))el('appUpdateProgressPercent').textContent=Math.round(n)+'%';if(el('appUpdateProgressLabel'))el('appUpdateProgressLabel').textContent=t||'';}
+async function hash(buf){const d=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('');}
+async function bytes(url,cb){const r=await fetch(url,{cache:'no-store',credentials:'same-origin'});if(!r.ok)throw Error('HTTP '+r.status+' downloading '+new URL(url).pathname);const total=+(r.headers.get('content-length')||0);if(!r.body){const b=await r.arrayBuffer();cb(b.byteLength,total);return b;}const rd=r.body.getReader(),parts=[];let size=0;while(true){const q=await rd.read();if(q.done)break;parts.push(q.value);size+=q.value.byteLength;cb(q.value.byteLength,total);}const out=new Uint8Array(size);let off=0;for(const p of parts){out.set(p,off);off+=p.byteLength;}return out.buffer;}
+function cacheName(v){return 'tha-app-v'+String(v).replace(/[^\w.-]/g,'_');}
+async function activateCache(name){const c=await caches.open(POINTER);await c.put(pointerUrl,new Response(JSON.stringify({cacheName:name})));const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)r.active?.postMessage({type:'ACTIVATE_CACHE',cacheName:name});}
+async function bootstrap(){
+ if(!('serviceWorker'in navigator)||!('caches'in window))return;
+ try{const reg=await navigator.serviceWorker.register(new URL('service-worker.js',base),{scope:base.pathname});await navigator.serviceWorker.ready;
+ const pc=await caches.open(POINTER);if(!await pc.match(pointerUrl)){const mr=await fetch(new URL('version.json',base),{cache:'no-store'});if(mr.ok){const m=await mr.json(),files=['index.html','version.json',...Object.keys(m.files||{})],c=await caches.open(cacheName(LOCAL_VERSION));for(const n of [...new Set(files)]){const u=new URL(n,base),r=await fetch(u,{cache:'no-store'});if(r.ok)await c.put(u,new Response(await r.arrayBuffer(),{headers:r.headers}));}await activateCache(cacheName(LOCAL_VERSION));}}
+ if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
+ }catch(e){console.warn('Offline cache setup unavailable',e);}
+}
+function notes(m){const box=el('appReleaseNotes');if(!box)return;box.textContent='';box.style.display='block';const h=document.createElement('strong');h.textContent='Published version '+m.version+' — What this update includes';box.appendChild(h);const list=Array.isArray(m.releaseNotes)?m.releaseNotes:[];if(list.length){const ul=document.createElement('ul');ul.style.paddingLeft='20px';list.forEach(v=>{const li=document.createElement('li');li.textContent=String(v);ul.appendChild(li);});box.appendChild(ul);}else{const p=document.createElement('p');p.textContent='No release notes supplied.';box.appendChild(p);}}
+window.checkForAppUpdate=async function(){
+ if(busy)return;busy=true;latest=null;staged=null;button(false);progress(0,'',false);
+ const check=document.querySelector('button[onclick="checkForAppUpdate(true)"]');if(check){check.disabled=true;check.textContent='Checking…';}
+ try{
+ status('Checking the published version…');const u=new URL('version.json',base);u.searchParams.set('_check',Date.now());const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw Error('version.json HTTP '+r.status);const m=await r.json();
+ if(m.app!=='The Handyman Accountancy'||!m.version||!m.buildId||!m.files)throw Error('Invalid update manifest.');
+ latest=m;notes(m);const newer=compare(m.version,LOCAL_VERSION)>0||m.buildId!==LOCAL_BUILD;
+ if(!newer){status('This installation is up to date.');return;}
+ status('Version '+m.version+' found. Downloading and verifying files; installation will wait for your confirmation.');
+ const names=[...new Set(['index.html','version.json',...Object.keys(m.files)])],c=await caches.open(cacheName(m.version));let done=0,loaded=0,total=0;
+ for(const n of names){const expected=n==='version.json'?null:m.files[n]?.sha256;if(n!=='version.json'&&!/^[a-f0-9]{64}$/i.test(String(expected||'')))throw Error('Missing SHA-256 for '+n);
+ const url=new URL(n,base);url.searchParams.set('_stage',Date.now());let known=0;
+ const b=await bytes(url,(delta,len)=>{loaded+=delta;if(len&&!known){known=len;total+=len;}progress(total?Math.min(94,loaded/total*94):Math.min(94,(done+.5)/names.length*94),'Downloading '+n);});
+ if(expected&&(await hash(b)).toLowerCase()!==String(expected).toLowerCase())throw Error('Integrity check failed: '+n);
+ await c.put(new URL(n,base),new Response(b,{headers:{'Content-Type':n.endsWith('.json')?'application/json':n.endsWith('.js')?'text/javascript':'text/html'}}));done++;if(!total)progress(done/names.length*94,'Verified '+done+' of '+names.length+' files');
+ }
+ if(!await c.match(new URL('index.html',base))||!await c.match(new URL('version-manager.js',base))||!await c.match(new URL('service-worker.js',base)))throw Error('Staged app package is incomplete.');
+ staged=cacheName(m.version);progress(100,'Download and verification complete');status('Version '+m.version+' is downloaded and verified. Press Update Now when you are ready to install it.');button(true,'Update Now');
+ }catch(e){latest=null;staged=null;progress(0,'',false);status('Update failed: '+(e.message||e)+'. The current installation and saved records were not changed.');}
+ finally{busy=false;if(check){check.disabled=false;check.textContent='🔄 Check for Updates';}}
+};
+window.reloadLatestApp=async function(){
+ if(!latest||!staged){status('Check for updates and finish the download first.');return;}if(busy)return;busy=true;button(false,'Installing…');progress(100,'Activating verified update…');
+ try{await activateCache(staged);const u=new URL(location.href);u.searchParams.set('tha-installed-version',String(latest.version));u.searchParams.set('tha-installed-build',latest.buildId);u.hash='';status('Installing version '+latest.version+'…');location.replace(u.toString());}
+ catch(e){busy=false;button(true,'Update Now');status('Could not activate update: '+(e.message||e)+'. Previous cache remains available.');}
+};
+const installed=el('appInstalledVersion');if(installed)installed.textContent='Installed version: '+LOCAL_VERSION+' · '+LOCAL_BUILD;button(false);
+bootstrap();
+try{const p=new URL(location.href).searchParams,v=p.get('tha-installed-version'),b=p.get('tha-installed-build');if(v){if(v===LOCAL_VERSION&&b===LOCAL_BUILD){if(typeof window.show==='function')window.show('softwareUpdate');status('Update successful. Version '+LOCAL_VERSION+' is installed. You are still on Software Update.');}else status('Update confirmation failed: loaded '+LOCAL_VERSION+' ('+LOCAL_BUILD+'), expected '+v+' ('+b+').');const u=new URL(location.href);u.searchParams.delete('tha-installed-version');u.searchParams.delete('tha-installed-build');history.replaceState(null,'',u.toString());}}catch(e){status('Update loaded, but confirmation display failed: '+e.message);}
 })();
