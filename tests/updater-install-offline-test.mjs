@@ -256,7 +256,7 @@ try {
     return active ? await active.json() : null;
   });
   if (confirmedActive?.cacheName !== 'tha-app-v' + installedVersion + '-' + installedBuildId) {
-    console.error('Confirmed cache pointer mismatch:', await page.evaluate(async (expectedConfirmedActive) => {
+    console.error('Confirmed cache pointer mismatch:', await page.evaluate(async ({ expectedConfirmedActive, installedVersion, installedBuildId }) => {
       const pointer = await caches.open('tha-active-pointer-v1');
       const active = await pointer.match(new URL('__tha_active_cache__', location.href));
       const pending = await pointer.match(new URL('__tha_pending_activation__', location.href));
@@ -271,11 +271,11 @@ try {
         }
       }
       return { expectedConfirmedActive: expectedConfirmedActive, current: active ? await active.json() : null, pending: pending ? await pending.json() : null, entries, startupDiagnostics: window.__thaPendingActivationDiagnostics };
-    }, confirmedActive));
+    }, { expectedConfirmedActive: confirmedActive, installedVersion, installedBuildId }));
     throw new Error('Startup was confirmed but the active cache pointer does not identify the installed build.');
   }
 
-  console.log('Pre-offline activation diagnostic:', await page.evaluate(async () => {
+  console.log('Pre-offline activation diagnostic:', await page.evaluate(async ({ installedVersion, installedBuildId }) => {
     const pointer = await caches.open('tha-active-pointer-v1');
     const active = await pointer.match(new URL('__tha_active_cache__', location.href));
     const pending = await pointer.match(new URL('__tha_pending_activation__', location.href));
@@ -288,7 +288,7 @@ try {
       startupDiagnostics: window.__thaPendingActivationDiagnostics || null,
       status: document.getElementById('appUpdateStatus')?.textContent
     };
-  }));
+  }, { installedVersion, installedBuildId }));
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
   try {
