@@ -222,6 +222,19 @@ try {
     return !(await pointer.match(new URL('__tha_pending_activation__', location.href)));
   }, null, { timeout: 7000 });
 
+  console.log('Pre-offline activation diagnostic:', await page.evaluate(async () => {
+    const pointer = await caches.open('tha-active-pointer-v1');
+    const active = await pointer.match(new URL('__tha_active_cache__', location.href));
+    const pending = await pointer.match(new URL('__tha_pending_activation__', location.href));
+    return {
+      version: document.querySelector('meta[name="app-version"]')?.content,
+      build: document.querySelector('meta[name="app-build-id"]')?.content,
+      active: active ? await active.json() : null,
+      pending: pending ? await pending.json() : null,
+      expectedCache: 'tha-app-v225-THA-225-INSTALL-OFFLINE-TEST',
+      status: document.getElementById('appUpdateStatus')?.textContent
+    };
+  }));
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
   try {
