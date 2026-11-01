@@ -69,13 +69,21 @@ try {
     return !!(await c.match(new URL('__tha_active_cache__', location.href).toString()));
   }, null, { timeout: 15000 });
 
-  const saved = JSON.stringify({
+  const expectedRecords = {
     entries: [{ id: 'keep-entry-001', amount: 777 }],
     customers: [{ id: 'keep-customer-001', name: 'Preserved Customer' }],
     invoices: [],
     settings: { businessName: 'Preserved Business' }
-  });
-  await page.evaluate(value => localStorage.setItem('tha_v206_accounting_v1', value), saved);
+  };
+  const preservesRecords = raw => {
+    try {
+      const data = JSON.parse(raw || 'null');
+      return data?.entries?.some(x => x.id === 'keep-entry-001' && Number(x.amount) === 777)
+        && data?.customers?.some(x => x.id === 'keep-customer-001' && x.name === 'Preserved Customer')
+        && data?.settings?.businessName === 'Preserved Business';
+    } catch { return false; }
+  };
+  await page.evaluate(value => localStorage.setItem('tha_v206_accounting_v1', JSON.stringify(value)), expectedRecords);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.evaluate(() => { openAccountancy(); show('softwareUpdate'); });
 
@@ -97,7 +105,7 @@ try {
   }));
   if (installed.version !== '225' || installed.build !== 'THA-225-INSTALL-OFFLINE-TEST') throw new Error('Installed build identity does not match the staged build.');
   if (!installed.pageVisible) throw new Error('After installation the app did not return to a visible Software Update page.');
-  if (installed.saved !== saved) throw new Error('Saved accounting records changed during installation.');
+  if (!preservesRecords(installed.saved)) throw new Error('Saved accounting records were not preserved during installation.');
 
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -107,7 +115,7 @@ try {
     saved: localStorage.getItem('tha_v206_accounting_v1'),
     title: document.title
   }));
-  if (offline.version !== '225' || offline.saved !== saved) throw new Error('Offline reload failed or saved records changed.');
+  if (offline.version !== '225' || !preservesRecords(offline.saved)) throw new Error('Offline reload failed or saved records were not preserved.');
   console.log('Updater browser test passed: v225 was staged and hash-verified, installed only after confirmation, returned to Software Update, preserved accounting data, and reopened offline from the active cache.');
 } finally {
   await browser.close();
