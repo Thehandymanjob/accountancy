@@ -15,7 +15,7 @@ function progress(n,t,show=true){if(el('appUpdateProgressWrap'))el('appUpdatePro
 async function hash(buf){const d=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('');}
 async function bytes(url,cb){const r=await fetch(url,{cache:'no-store',credentials:'omit',mode:'cors'});if(!r.ok)throw Error('HTTP '+r.status+' downloading '+new URL(url).pathname);const total=+(r.headers.get('content-length')||0);if(!r.body){const b=await r.arrayBuffer();cb(b.byteLength,total);return b;}const rd=r.body.getReader(),parts=[];let size=0;while(true){const q=await rd.read();if(q.done)break;parts.push(q.value);size+=q.value.byteLength;cb(q.value.byteLength,total);}const out=new Uint8Array(size);let off=0;for(const p of parts){out.set(p,off);off+=p.byteLength;}return out.buffer;}
 function cacheName(v,b=''){return 'tha-app-v'+String(v).replace(/[^\w.-]/g,'_')+(b?'-'+String(b).replace(/[^\w.-]/g,'_'):'');}
-function releaseRoot(commit){if(typeof commit!=='string'||! /^[a-f0-9]{40}$/i.test(commit))throw Error('Update channel contains an invalid release commit.');return RAW_ROOT+commit+'/';}
+function releaseRoot(branch){if(typeof branch!=='string'||!branch||branch.includes('..')||! /^[A-Za-z0-9._/-]+$/.test(branch))throw Error('Update channel contains an invalid release branch.');return RAW_ROOT+branch.split('/').map(encodeURIComponent).join('/')+'/';}
 async function activateCache(name){const c=await caches.open(POINTER);await c.put(pointerUrl,new Response(JSON.stringify({cacheName:name})));const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)r.active?.postMessage({type:'ACTIVATE_CACHE',cacheName:name});}
 async function bootstrap(){
  if(!('serviceWorker'in navigator)||!('caches'in window))return;
@@ -58,7 +58,7 @@ window.checkForAppUpdate=async function(){
   const cr=await fetch(CHANNEL_URL+'?_check='+Date.now(),{cache:'no-store',credentials:'omit',mode:'cors'});if(!cr.ok)throw Error('Update channel HTTP '+cr.status);
   const channel=await cr.json();
   if(channel.app!=='The Handyman Accountancy'||channel.channel!=='test'||!channel.sourceBranch||!/^[a-f0-9]{40}$/i.test(String(channel.sourceCommit||''))||!/^[a-f0-9]{64}$/i.test(String(channel.manifestSha256||'')))throw Error('Invalid update channel manifest.');
-  const root=releaseRoot(channel.sourceCommit);
+  const root=releaseRoot(channel.sourceBranch);
   const mr=await fetch(root+'version.json?_check='+Date.now(),{cache:'no-store',credentials:'omit',mode:'cors'});if(!mr.ok)throw Error('Release manifest HTTP '+mr.status);
   const manifestBytes=await mr.arrayBuffer();if((await hash(manifestBytes)).toLowerCase()!==String(channel.manifestSha256).toLowerCase())throw Error('Release manifest integrity check failed.');
   const m=JSON.parse(new TextDecoder().decode(manifestBytes));
