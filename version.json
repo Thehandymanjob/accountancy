@@ -1,7 +1,7 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "219",
-  "buildId": "THA-219-SAFARI-CONTRACT-PREVIEW-20261101",
+  "version": "220",
+  "buildId": "THA-220-RESTORE-TESTED-CONTRACT-PDF-20261101",
   "releaseDate": "2026-11-01",
   "releaseStatus": "main-branch-testing",
   "databaseSchema": 1,
@@ -10,7 +10,7 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "755f26b7d6a0e3274e230f92a0353e03335e2790d45b25291b734fcb341f0618"
+      "sha256": "c04a99b0d15de68a4dbaffe9cca08c423067235978bcf5c53ad2640764a36369"
     },
     "storage-foundation.js": {
       "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
