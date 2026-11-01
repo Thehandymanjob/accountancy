@@ -29,6 +29,8 @@ try {
     const page = await browser.newPage();
     page.on('dialog', d => d.accept());
     await seed(page);
+    const agreedPrice = await page.evaluate(() => prSubprojectAgreedPrice({price:100,income:[{receiptType:'extra-work',amount:300},{receiptType:'contract',amount:50}]}));
+    assert(agreedPrice===100,'Extra-work receipt incorrectly increased the agreed contract price');
     const before = await readKeys(page);
     await page.locator('#restoreFile').setInputFiles({name:'broken.json',mimeType:'application/json',buffer:Buffer.from('{not-json')});
     const after = await readKeys(page);
@@ -48,7 +50,7 @@ try {
     assert(after[3]===null,'Recovery snapshot was not cleared after verified rollback');
     await page.close();
   }
-  // Failure while saving the recovery snapshot must not touch the original records.
+  // A quota failure during the first replacement write must roll back all original records.
   {
     const page = await browser.newPage();
     page.on('dialog', d => d.accept());
@@ -56,8 +58,12 @@ try {
     const before = await readKeys(page);
     await page.evaluate(() => {
       const original = Storage.prototype.setItem;
+      let injectedFailure = false;
       Storage.prototype.setItem = function(key,value) {
-        if (key==='tha_v206_restore_recovery_v1') throw new DOMException('Quota exceeded','QuotaExceededError');
+        if (key==='tha_v206_accounting_v1' && !injectedFailure) {
+          injectedFailure = true;
+          throw new DOMException('Quota exceeded','QuotaExceededError');
+        }
         return original.call(this,key,value);
       };
     });
