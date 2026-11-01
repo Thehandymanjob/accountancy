@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -56,7 +56,8 @@ const server = createServer((req, res) => {
   res.end(body);
 });
 await new Promise(resolve => server.listen(4175, '127.0.0.1', resolve));
-const browser = await chromium.launch({ headless: true });
+const browserType = process.env.PW_BROWSER === 'webkit' ? webkit : chromium;
+const browser = await browserType.launch({ headless: true });
 try {
   const context = await browser.newContext({ serviceWorkers: 'allow' });
   const page = await context.newPage();
