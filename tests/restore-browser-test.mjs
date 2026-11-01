@@ -100,6 +100,7 @@ try {
   assert(Array.isArray(result.accounting.thirdPartyTransactions), 'Third-party transaction data was not preserved');
   assert(result.contracts[0].id === 'ct-1792309475242-xnqzq', 'Backup contract was not restored');
   assert(result.contracts[0].customer === 'Monir' && result.contracts[0].body.includes('John Smith') && result.contracts[0].body.includes('TEST-001'), 'Inconsistent sample contract content was not preserved verbatim');
+  assert(result.contracts[0].restoreReviewRequired === true && result.contracts[0].restoreReviewReason.includes('Verify customer name'), 'Sample contract was not flagged for review');
   assert(project?.price === 11700, 'Project agreed price should be £11,700; got ' + project?.price);
   assert(project.price !== 12000, 'Extra-work receipt was incorrectly included in agreed project price');
   assert(project.customer === 'Monir' && !Object.prototype.hasOwnProperty.call(project, 'customerId'), 'Project customer name was altered or an unsupported customer link was invented');
@@ -119,7 +120,7 @@ try {
   assert(byId(result.projects.companyJobs, 'device-job'), 'Device-only company job was lost');
   assert(byId(result.projects.companyJobs, 'backup-job'), 'Backup company job was not imported');
   assert(result.recovery === null, 'Temporary recovery snapshot should be cleared after successful restore');
-  console.log('Browser restore test passed: backup customer, unresolved project-customer name preserved without invented link, blank receipt dates retained, sample contract preserved verbatim, registries, company merge, logo/photo payloads, and £11,700 project total.');
+  console.log('Browser restore test passed: backup customer, unresolved project-customer name preserved without invented link, blank receipt dates retained, sample contract preserved verbatim and flagged for review, registries, company merge, logo/photo payloads, and £11,700 project total.');
 
 } finally {
   await browser.close();
