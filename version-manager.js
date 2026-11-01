@@ -44,6 +44,21 @@ async function rollbackPendingActivation(reason){
  console.error('New app failed its startup check; restored previous cached app.',reason||'');
  const u=new URL(location.href);u.searchParams.delete('tha-installed-version');u.searchParams.delete('tha-installed-build');u.searchParams.set('tha-rollback','1');location.replace(u.toString());return true;
 }
+async function cleanupOldAppCaches(activeCache,previousCache){
+ // Only delete caches owned by this app. Never touch the pointer cache or
+ // unrelated origin caches. Keep the confirmed build and one known-good rollback build.
+ const keep=new Set([activeCache,previousCache].filter(Boolean));
+ const names=await caches.keys();
+ const candidates=names.filter(name=>name.startsWith('tha-app-v')&&!keep.has(name));
+ const removed=[];
+ for(const name of candidates){
+  // Recheck the allow-list immediately before deletion.
+  if(name.startsWith('tha-app-v')&&!keep.has(name)){
+   if(await caches.delete(name))removed.push(name);
+  }
+ }
+ return {kept:[...keep],removed};
+}
 async function confirmPendingActivation(){
  window.__thaPendingActivationDiagnostics={called:true,readyState:document.readyState,localVersion:LOCAL_VERSION,localBuild:LOCAL_BUILD};
  if(!('caches'in window)){window.__thaPendingActivationDiagnostics.noCacheApi=true;return;}
@@ -61,7 +76,18 @@ async function confirmPendingActivation(){
    window.__thaPendingActivationDiagnostics.health=health;console.info('Pending update startup health check', {expected, nextCache:p.nextCache, health});
    if(!healthy){await rollbackPendingActivation('Required app startup components are missing: '+JSON.stringify(health));return;}
    await c.delete(rollbackUrl);
-   window.__thaPendingActivationDiagnostics.result='confirmed';console.info('App startup verified; rollback protection cleared for',LOCAL_VERSION,LOCAL_BUILD);
+   window.__thaPendingActivationDiagnostics.result='confirmed';
+   // Cache cleanup runs only after the new build passed startup health checks.
+   // Keep the active build and the exact previous cache for one-step rollback.
+   try{
+    const cleanup=await cleanupOldAppCaches(expected,p.previousCache);
+    window.__thaPendingActivationDiagnostics.cacheCleanup=cleanup;
+    console.info('App startup verified; old app caches pruned',cleanup);
+   }catch(cleanupError){
+    window.__thaPendingActivationDiagnostics.cacheCleanupError=String(cleanupError&&cleanupError.message||cleanupError);
+    console.warn('App is healthy; cache cleanup was skipped safely.',cleanupError);
+   }
+   console.info('App startup verified; rollback protection cleared for',LOCAL_VERSION,LOCAL_BUILD);
   }catch(e){window.__thaPendingActivationDiagnostics.error=String(e&&e.stack||e);console.error('Could not confirm app startup health.',e);}
  };
  window.__thaPendingActivationDiagnostics.scheduled=true;
