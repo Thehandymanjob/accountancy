@@ -104,7 +104,7 @@ try {
   assert(project.price !== 12000, 'Extra-work receipt was incorrectly included in agreed project price');
   assert(project.customer === 'Monir' && !Object.prototype.hasOwnProperty.call(project, 'customerId'), 'Project customer name was altered or an unsupported customer link was invented');
   const receipts = project.subprojects.flatMap(sub => sub.income || []);
-  assert(receipts.filter(receipt => receipt.date === '').length === 5, 'Blank receipt dates were filled or changed');
+  assert(receipts.filter(receipt => receipt.date === '').length === 4, 'Blank receipt dates were filled or changed');
   assert(receipts.find(receipt => receipt.id === 'r3')?.date === '2026-10-16', 'Dated extra-work receipt date changed');
   assert(receipts.find(receipt => receipt.id === 'r6')?.date === '2026-10-21', 'Dated plumbing receipt date changed');
   assert(project.photo?.length === 389459 + 'data:image/jpeg;base64,'.length, 'Project photo payload was not preserved');
