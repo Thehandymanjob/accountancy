@@ -96,7 +96,15 @@ async function bootstrap(){
     }
     await c.put(new URL('version.json',base),new Response(JSON.stringify(manifest),{headers:{'Content-Type':'application/json'}}));
     for(const name of required)if(!await c.match(new URL(name,base)))throw Error('Bootstrap cache is incomplete: '+name+'.');
-    await activateCache(target);
+    // Another page may have installed a newer build while this bootstrap was
+    // downloading the first-install shell. Never let this stale bootstrap
+    // overwrite a pointer that appeared after its initial absence check.
+    const pointerAtCommit = await pc.match(pointerUrl);
+    if (!pointerAtCommit) {
+     await activateCache(target);
+    } else {
+     console.info('[THA-PTR] bootstrap skipped stale initialization; pointer appeared during setup', {target});
+    }
    }catch(err){if(c)await caches.delete(target);throw err;}
   }
   if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
