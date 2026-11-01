@@ -96,7 +96,7 @@ try {
     const decode = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     window.fetch = async (input, init) => {
       await seedPreviousBuild;
-      const requestUrl = typeof input === 'string' ? input : input.url;
+      const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input && typeof input.url === 'string' ? input.url : '';
       if (requestUrl.startsWith('https://raw.githubusercontent.com/Thehandymanjob/accountancy/')) {
         const u = new URL(requestUrl);
         const parts = u.pathname.split('/');
