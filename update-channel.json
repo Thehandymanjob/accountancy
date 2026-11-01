@@ -4,7 +4,8 @@
   "sourceBranch": "updater-v224-service-worker-test",
   "version": "224",
   "buildId": "THA-224-MANUAL-CACHED-UPDATER-20261101",
-  "manifestSha256": "335976a024a82476496793075c6a8dff9c4b44df3ef6a7e96240417207fffa0a",
-  "updatedAt": "2026-11-01T14:20:00Z",
-  "note": "Experimental channel pointer only; not a production release."
+  "manifestSha256": "c70a8254e5d8f5fd0d11c53dbe6996513745ec8a6b8d3d35fa52fe73459cc3e1",
+  "updatedAt": "2026-11-01T14:22:00Z",
+  "note": "Experimental channel pointer only; not a production release.",
+  "sourceCommit": "cc90ae0908fe770773030190b4450ba5729a752e"
 }
