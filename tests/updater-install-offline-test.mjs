@@ -215,7 +215,26 @@ try {
 
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === '225', null, { timeout: 10000 });
+  try {
+    await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === '225', null, { timeout: 10000 });
+  } catch (error) {
+    console.error('Offline reload diagnostic:', await page.evaluate(async () => {
+      const pointer = await caches.open('tha-active-pointer-v1');
+      const active = await pointer.match(new URL('__tha_active_cache__', location.href));
+      const pending = await pointer.match(new URL('__tha_pending_activation__', location.href));
+      return {
+        url: location.href,
+        version: document.querySelector('meta[name="app-version"]')?.content,
+        controller: !!navigator.serviceWorker.controller,
+        controllerScript: navigator.serviceWorker.controller?.scriptURL || null,
+        active: active ? await active.json() : null,
+        pending: pending ? await pending.json() : null,
+        cacheNames: await caches.keys(),
+        status: document.getElementById('appUpdateStatus')?.textContent
+      };
+    }));
+    throw error;
+  }
   const offline = await page.evaluate(() => ({
     version: document.querySelector('meta[name="app-version"]')?.content,
     saved: localStorage.getItem('tha_v206_accounting_v1'),
