@@ -63,7 +63,7 @@ window.checkForAppUpdate=async function(){
   const manifestBytes=await mr.arrayBuffer();if((await hash(manifestBytes)).toLowerCase()!==String(channel.manifestSha256).toLowerCase())throw Error('Release manifest integrity check failed.');
   const m=JSON.parse(new TextDecoder().decode(manifestBytes));
   if(m.app!=='The Handyman Accountancy'||String(m.version)!==String(channel.version)||m.buildId!==channel.buildId||m.releaseBranch!==channel.sourceBranch||!m.files||typeof m.files!=='object')throw Error('Release manifest does not match the update channel.');
-  latest=m;notes(m);const newer=compare(m.version,LOCAL_VERSION)>0||m.buildId!==LOCAL_BUILD;
+  if(compare(m.version,LOCAL_VERSION)<0)throw Error('The update channel points to an older app version. Downgrades are blocked.');latest=m;notes(m);const newer=compare(m.version,LOCAL_VERSION)>0||m.buildId!==LOCAL_BUILD;
   if(!newer){status('This installation is up to date.');return;}
   status('Version '+m.version+' found. Downloading and verifying files; installation will wait for your confirmation.');
   const names=[...new Set(['index.html','version.json',...Object.keys(m.files)])],c=await caches.open(cacheName(m.version,m.buildId));let done=0;
