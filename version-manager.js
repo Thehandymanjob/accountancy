@@ -106,4 +106,28 @@
   const installed = byId('appInstalledVersion');
   if (installed) installed.textContent = 'Installed version: ' + LOCAL_VERSION + ' · ' + LOCAL_BUILD;
   setUpdateButton(false, 'Update Now');
+
+  // After a successful reload, return to the Software Update panel and confirm
+  // only when the newly loaded build matches the requested published build.
+  try {
+    const params = new URL(location.href).searchParams;
+    const requestedBuild = params.get('tha-update');
+    if (requestedBuild && requestedBuild === LOCAL_BUILD) {
+      if (typeof window.show === 'function') window.show('softwareUpdate');
+      if (installed) installed.textContent = 'Installed version: ' + LOCAL_VERSION + ' · ' + LOCAL_BUILD;
+      setStatus('Update successful. Installed version: ' + LOCAL_VERSION + ' (' + LOCAL_BUILD + ').');
+      const cleanUrl = new URL(location.href);
+      cleanUrl.searchParams.delete('tha-update');
+      cleanUrl.searchParams.delete('tha-cache-bust');
+      history.replaceState(null, '', cleanUrl.toString());
+    } else if (requestedBuild) {
+      setStatus('Update could not be confirmed. Loaded build: ' + LOCAL_BUILD + '. Requested build: ' + requestedBuild + '.');
+      const cleanUrl = new URL(location.href);
+      cleanUrl.searchParams.delete('tha-update');
+      cleanUrl.searchParams.delete('tha-cache-bust');
+      history.replaceState(null, '', cleanUrl.toString());
+    }
+  } catch (error) {
+    setStatus('The app loaded, but the update confirmation could not be displayed. ' + (error?.message || ''));
+  }
 })();
