@@ -1,22 +1,32 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "223",
-  "buildId": "THA-223-CONTRACT-PDF-CLEAN-PRINT-UI-20261101",
+  "version": "224",
+  "buildId": "THA-224-MANUAL-CACHED-UPDATER-20261101",
   "releaseDate": "2026-11-01",
-  "releaseStatus": "main-branch-testing",
+  "releaseStatus": "experimental-branch",
   "databaseSchema": 1,
   "minimumAppVersion": "206",
   "storageNamespace": "tha_v206_",
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "97d3b70e6cded236f8118d442b2d064fd7e629043f64d52c16cfdf152ac0c899"
+      "sha256": "02b3f298c92fe6d59c189e34ad6f815b5a817296f4a2b19fe89665ce389373cb"
+    },
+    "version-manager.js": {
+      "sha256": "89afa01684ca169d7939515659e444160bfc7262ab16f10d4bf3f9ae9007744d"
+    },
+    "service-worker.js": {
+      "sha256": "097dd1ef79d0b27ff09db218e4006afa6bddb81a92ea966ed58a52b6e3a035fe"
     },
     "storage-foundation.js": {
       "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
-    },
-    "version-manager.js": {
-      "sha256": "255cfcd137889e1e7fb5a6229f7be15c067d9f5613fc88eaafc7737872dcbc3b"
     }
-  }
+  },
+  "releaseNotes": [
+    "Manual checks only: publishing a new build does not automatically activate it in the installed app.",
+    "The update page displays the published version and release notes before installation.",
+    "Files are downloaded and SHA-256 verified into a separate cache; installation starts only after Update Now is pressed.",
+    "After installation, the app returns to Software Update and confirms the installed version.",
+    "The updater does not clear or migrate accounting records stored in this browser."
+  ]
 }
