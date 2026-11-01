@@ -1,0 +1,48 @@
+name: Restore test validation
+on:
+  push:
+    branches:
+      - fix/backup-restore-v212-safe-merge
+  pull_request:
+    branches:
+      - main
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install browser test dependencies
+        run: |
+          npm install --no-save playwright
+          npx playwright install chromium
+      - name: Run isolated browser restore test
+        run: |
+          node tests/restore-browser-test.mjs
+          node tests/restore-failure-test.mjs
+      - name: Verify manifest hashes and inline JavaScript syntax
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          import vm from 'node:vm';
+          const html = fs.readFileSync('index.html', 'utf8');
+          const manifest = JSON.parse(fs.readFileSync('version.json', 'utf8'));
+          for (const [name, spec] of Object.entries(manifest.files)) {
+            const actual = crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex');
+            if (actual !== spec.sha256) throw new Error(name + ' SHA-256 mismatch: ' + actual);
+            console.log(name + ' SHA-256 OK');
+          }
+          const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]).filter(s => s.trim());
+          for (let i = 0; i < scripts.length; i++) new vm.Script(scripts[i], { filename: 'inline-script-' + i + '.js' });
+          console.log('Inline JavaScript syntax OK (' + scripts.length + ' scripts)');
+          const restore = html.slice(html.indexOf('function restore(e)'));
+          if (!restore.includes('normalizedProjects.companies=mergeById')) throw new Error('Backup companies are not merged');
+          if (!restore.includes('normalizedProjects.companyJobs=mergeById')) throw new Error('Company jobs are not merged');
+          if (!restore.includes('for(const item of [...(Array.isArray(existingItems)?existingItems:[]),...(Array.isArray(backupItems)?backupItems:[])])')) throw new Error('Existing company records are not prioritized');
+          if (!restore.includes('reduce((total,sub)=>total+Math.max(0,Number(sub&&sub.price)||0),0)')) throw new Error('Project total does not use subproject contract prices only');
+          if (!restore.includes('price:(Array.isArray(project.subprojects)?project.subprojects:[]).reduce((total,sub)=>total+Math.max(0,Number(sub&&sub.price)||0),0)')) throw new Error('Project agreed price is not assigned solely from subproject prices');
+          console.log('Restore logic assertions OK');
+          NODE
