@@ -21,6 +21,7 @@ jobs:
       - name: Run isolated browser restore test
         run: |
           node tests/restore-browser-test.mjs
+          node tests/restore-failure-test.mjs
       - name: Verify manifest hashes and inline JavaScript syntax
         run: |
           node --input-type=module <<'NODE'
