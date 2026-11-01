@@ -10,7 +10,7 @@ async function activeCacheName(){
   const response=await pointer.match(POINTER_URL);
   if(response){const data=await response.json();if(data&&/^tha-app-v[\\w.-]+$/.test(data.cacheName))return data.cacheName;}
  }catch(error){}
- return 'tha-app-bootstrap-v223';
+ return 'tha-app-v223-bootstrap';
 }
 function cacheKey(request){
  const url=new URL(request.url);
