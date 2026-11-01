@@ -1,0 +1,37 @@
+name: Updater v224 verification
+on:
+  push:
+    branches:
+      - updater-v224-service-worker-test
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: JavaScript syntax checks
+        run: |
+          node --check version-manager.js
+          node --check service-worker.js
+      - name: Manifest and SHA-256 verification
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const m = JSON.parse(fs.readFileSync('version.json','utf8'));
+          if (m.version !== '224' || m.buildId !== 'THA-224-MANUAL-CACHED-UPDATER-20261101') throw new Error('Unexpected build identity');
+          for (const [name, item] of Object.entries(m.files)) {
+            const actual = crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex');
+            if (actual !== item.sha256) throw new Error('SHA-256 mismatch: ' + name);
+          }
+          for (const name of ['index.html','version-manager.js','service-worker.js','storage-foundation.js']) {
+            if (!m.files[name]) throw new Error('Missing manifest entry: ' + name);
+          }
+          const html = fs.readFileSync('index.html','utf8');
+          if (!html.includes('app-version" content="224"')) throw new Error('index version mismatch');
+          if (!html.includes('id="appReleaseNotes"') || !html.includes('id="appUpdateProgress"')) throw new Error('Updater UI missing');
+          console.log('Manifest, build identity, and all asset hashes verified.');
+          NODE
