@@ -35,6 +35,6 @@ jobs:
           if (!restore.includes('normalizedProjects.companyJobs=mergeById')) throw new Error('Company jobs are not merged');
           if (!restore.includes('for(const item of [...(Array.isArray(existingItems)?existingItems:[]),...(Array.isArray(backupItems)?backupItems:[])])')) throw new Error('Existing company records are not prioritized');
           if (!restore.includes('reduce((total,sub)=>total+Math.max(0,Number(sub&&sub.price)||0),0)')) throw new Error('Project total does not use subproject contract prices only');
-          if (restore.includes("r.receiptType==='extra-work'?")) throw new Error('Extra-work receipts still affect agreed project price');
+          if (!restore.includes('price:(Array.isArray(project.subprojects)?project.subprojects:[]).reduce((total,sub)=>total+Math.max(0,Number(sub&&sub.price)||0),0)')) throw new Error('Project agreed price is not assigned solely from subproject prices');
           console.log('Restore logic assertions OK');
           NODE
