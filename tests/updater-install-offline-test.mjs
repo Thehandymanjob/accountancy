@@ -238,7 +238,7 @@ try {
     return active ? await active.json() : null;
   });
   if (confirmedActive?.cacheName !== 'tha-app-v225-THA-225-INSTALL-OFFLINE-TEST') {
-    console.error('Confirmed cache pointer mismatch:', await page.evaluate(async () => {
+    console.error('Confirmed cache pointer mismatch:', await page.evaluate(async (expectedConfirmedActive) => {
       const pointer = await caches.open('tha-active-pointer-v1');
       const active = await pointer.match(new URL('__tha_active_cache__', location.href));
       const pending = await pointer.match(new URL('__tha_pending_activation__', location.href));
@@ -252,8 +252,8 @@ try {
           entries[name] = html.match(/meta name="app-version" content="([^"]+)/)?.[1] || 'unknown';
         }
       }
-      return { confirmedActive, current: active ? await active.json() : null, pending: pending ? await pending.json() : null, entries, startupDiagnostics: window.__thaPendingActivationDiagnostics };
-    }));
+      return { expectedConfirmedActive: expectedConfirmedActive, current: active ? await active.json() : null, pending: pending ? await pending.json() : null, entries, startupDiagnostics: window.__thaPendingActivationDiagnostics };
+    }, confirmedActive));
     throw new Error('Startup was confirmed but the active cache pointer does not identify the installed build.');
   }
 
