@@ -13,10 +13,10 @@
       "sha256": "fda16b561da9cc1585c40782e90fe24488122ef532d04bea54e8239233926384"
     },
     "version-manager.js": {
-      "sha256": "7f0fecc65cf0b1a04dbcdda5b6e9e9e033a839f5173b1af40bb4f09f1c6a770d"
+      "sha256": "7854688d984e0c7e84fd172983f32a5d955cf1b1eaa72abae3316e318ffec6b0"
     },
     "service-worker.js": {
-      "sha256": "9e7b5c5f3d76b47f2d5022f0ae8113ba92761779aeef1b7f424cceea449e678e"
+      "sha256": "27d657c2081d29ca39d059644ecc85bd70d696932fb1513adc6bb93274864acf"
     },
     "storage-foundation.js": {
       "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
