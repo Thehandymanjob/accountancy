@@ -66,7 +66,7 @@ try {
     app: 'The Handyman Accountancy',
     channel: 'test',
     sourceBranch: 'updater-v224-service-worker-test',
-    sourceCommit: '6eb56b521eb80f8761590907eef783074078030b',
+    sourceCommit: 'cc90ae0908fe770773030190b4450ba5729a752e',
     version: '225',
     buildId: 'THA-225-INSTALL-OFFLINE-TEST',
     manifestSha256: hash(Buffer.from(JSON.stringify(nextManifest)))
@@ -79,7 +79,7 @@ try {
     if (branchName === 'update-channel-test' && name === 'update-channel.json') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: channelBytes });
     }
-    if (branchName !== '6eb56b521eb80f8761590907eef783074078030b') return route.fulfill({ status: 404, body: 'Unknown test commit' });
+    if (branchName !== 'cc90ae0908fe770773030190b4450ba5729a752e') return route.fulfill({ status: 404, body: 'Unknown test commit' });
     if (name === 'version.json') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nextManifest) });
     if (name === 'index.html') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: newIndex });
     if (files[name]) return route.fulfill({ status: 200, contentType: name.endsWith('.js') ? 'text/javascript' : 'application/octet-stream', body: files[name] });
