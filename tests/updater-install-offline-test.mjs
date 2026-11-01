@@ -104,22 +104,36 @@ try {
   });
   if (liveChannel.version !== '224' || liveChannel.assets !== 4) throw new Error('Live update channel probe returned an unexpected release.');
   await liveContext.close();
-  // Use context-level routing so both Chromium and WebKit see mocked channel requests.
-  // The live probe is isolated in a different context, so it cannot consume these routes.
-  await context.route('https://raw.githubusercontent.com/Thehandymanjob/accountancy/**', async route => {
-    const u = new URL(route.request().url());
-    const parts = u.pathname.split('/');
-    const branchName = parts[3];
-    const name = parts.slice(4).join('/');
-    console.log('Mock release request:', branchName, name);
-    if (branchName === 'update-channel-test' && name === 'update-channel.json') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: channelBytes });
-    }
-    if (branchName !== 'release-v224-20261101') return route.fulfill({ status: 404, body: 'Unknown test commit' });
-    if (name === 'version.json') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nextManifest) });
-    if (name === 'index.html') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: newIndex });
-    if (files[name]) return route.fulfill({ status: 200, contentType: name.endsWith('.js') ? 'text/javascript' : 'application/octet-stream', body: files[name] });
-    return route.fulfill({ status: 404, body: 'Unknown release asset' });
+  // Mock remote update-channel/release fetches inside the page realm. WebKit may
+  // route page fetches through an active Service Worker before Playwright network
+  // interception sees them, so use a deterministic fetch shim for this isolated test.
+  const mockFiles = Object.fromEntries(Object.entries(files).map(([name, data]) => [name, Buffer.from(data).toString('base64')]));
+  await page.addInitScript(({ channelText, manifestText, indexBase64, mockFiles }) => {
+    const originalFetch = window.fetch.bind(window);
+    const decode = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    window.fetch = async (input, init) => {
+      const requestUrl = typeof input === 'string' ? input : input.url;
+      if (requestUrl.startsWith('https://raw.githubusercontent.com/Thehandymanjob/accountancy/')) {
+        const u = new URL(requestUrl);
+        const parts = u.pathname.split('/');
+        const branchName = parts[3];
+        const name = parts.slice(4).join('/');
+        if (branchName === 'update-channel-test' && name === 'update-channel.json') {
+          return new Response(channelText, { status: 200, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+        }
+        if (branchName !== 'release-v224-20261101') return new Response('Unknown test release', { status: 404 });
+        if (name === 'version.json') return new Response(manifestText, { status: 200, headers: { 'content-type': 'application/json' } });
+        if (name === 'index.html') return new Response(decode(indexBase64), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+        if (mockFiles[name]) return new Response(decode(mockFiles[name]), { status: 200, headers: { 'content-type': name.endsWith('.js') ? 'text/javascript' : 'application/octet-stream' } });
+        return new Response('Unknown release asset', { status: 404 });
+      }
+      return originalFetch(input, init);
+    };
+  }, {
+    channelText: channelBytes.toString('utf8'),
+    manifestText: JSON.stringify(nextManifest),
+    indexBase64: newIndex.toString('base64'),
+    mockFiles
   });
   await page.goto('http://127.0.0.1:4175/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(async () => {
