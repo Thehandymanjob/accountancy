@@ -1,7 +1,7 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "225",
-  "buildId": "THA-225-UPDATER-INSTALL-TEST-20261101",
+  "version": "226",
+  "buildId": "THA-226-CACHE-RETENTION-TEST-20261101",
   "releaseDate": "2026-11-01",
   "releaseStatus": "experimental-branch",
   "databaseSchema": 1,
@@ -10,10 +10,10 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "14030cb46b657845025662bfd7ba2f1c121ef3b320853a17fd9fbe95c6bee961"
+      "sha256": "7942c79e9a9f21ef419c5b2ce6c3ac0b4f8965c4b87dd691043308ecd9c076c3"
     },
     "version-manager.js": {
-      "sha256": "9f44b6df0c9059834ec15556f0dacb2dff75e3c43146c92cd6138bfba0eee8f0"
+      "sha256": "76eeaea6fd60283fe81af7bdc9758279e7015736390d305bffe15847a6c40846"
     },
     "service-worker.js": {
       "sha256": "3ca6f4a187831e539d9df305a0b00b9d62552e714c4e01c188a6644eaaa87a6d"
@@ -23,11 +23,11 @@
     }
   },
   "releaseNotes": [
-    "Updater installation test only: no accounting, project, invoice, contract, or PDF functionality has been changed.",
-    "The app version and build identifier are advanced to 225 to test the complete manual update flow from version 224.",
-    "Files are downloaded into a separate cache and SHA-256 verified before installation.",
-    "Installation starts only after Update Now is pressed; the previous cached build is retained for startup rollback protection.",
-    "No accounting records are cleared, migrated, or overwritten by this test build."
+    "Cache retention test only; no accounting, project, invoice, contract, or PDF features changed.",
+    "After the new build passes its startup health check, the updater keeps the active app cache and the exact previous cache for rollback.",
+    "Other caches with the app-owned tha-app-v prefix are removed only after successful startup confirmation.",
+    "If startup health checks fail, rollback runs and cache cleanup is not performed.",
+    "Accounting records and unrelated browser caches are not modified."
   ],
-  "releaseBranch": "release-v225-updater-test-20261101"
+  "releaseBranch": "release-v226-cache-retention-test-20261101"
 }
