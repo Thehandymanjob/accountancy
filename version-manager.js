@@ -4,7 +4,7 @@
 const meta=n=>document.querySelector('meta[name="'+n+'"]')?.content||'';
 const LOCAL_VERSION=meta('app-version'),LOCAL_BUILD=meta('app-build-id');
 const base=new URL('.',document.baseURI),POINTER='tha-active-pointer-v1',pointerUrl=new URL('__tha_active_cache__',base).toString();
-const CHANNEL_URL='https://raw.githubusercontent.com/Thehandymanjob/accountancy/update-channel/update-channel.json';
+const CHANNEL_URL='https://raw.githubusercontent.com/Thehandymanjob/accountancy/update-channel-test/update-channel.json';
 const RAW_ROOT='https://raw.githubusercontent.com/Thehandymanjob/accountancy/';
 let latest=null,staged=null,busy=false;
 const el=id=>document.getElementById(id);
@@ -57,7 +57,7 @@ window.checkForAppUpdate=async function(){
   status('Checking the update channel…');
   const cr=await fetch(CHANNEL_URL+'?_check='+Date.now(),{cache:'no-store',credentials:'omit',mode:'cors'});if(!cr.ok)throw Error('Update channel HTTP '+cr.status);
   const channel=await cr.json();
-  if(channel.app!=='The Handyman Accountancy'||channel.channel!=='stable'||!channel.sourceBranch||!/^[a-f0-9]{64}$/i.test(String(channel.manifestSha256||'')))throw Error('Invalid update channel manifest.');
+  if(channel.app!=='The Handyman Accountancy'||channel.channel!=='test'||!channel.sourceBranch||!/^[a-f0-9]{64}$/i.test(String(channel.manifestSha256||'')))throw Error('Invalid update channel manifest.');
   const root=branchRoot(channel.sourceBranch);
   const mr=await fetch(root+'version.json?_check='+Date.now(),{cache:'no-store',credentials:'omit',mode:'cors'});if(!mr.ok)throw Error('Release manifest HTTP '+mr.status);
   const manifestBytes=await mr.arrayBuffer();if((await hash(manifestBytes)).toLowerCase()!==String(channel.manifestSha256).toLowerCase())throw Error('Release manifest integrity check failed.');
