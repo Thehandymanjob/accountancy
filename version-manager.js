@@ -18,20 +18,25 @@ function cacheName(v,b=''){return 'tha-app-v'+String(v).replace(/[^\w.-]/g,'_')+
 function releaseRoot(branch){if(typeof branch!=='string'||!branch||branch.includes('..')||! /^[A-Za-z0-9._/-]+$/.test(branch))throw Error('Update channel contains an invalid release branch.');return RAW_ROOT+branch.split('/').map(encodeURIComponent).join('/')+'/';}
 async function activateCache(name,pending=false){
  const c=await caches.open(POINTER);
+ const prior=await c.match(pointerUrl);let priorValue=null;try{priorValue=prior?await prior.clone().json():null;}catch(e){}
+ console.info('[THA-PTR] activateCache start',{name,pending,prior:priorValue,stack:(new Error()).stack});
  if(pending){
   const old=await c.match(pointerUrl),previous=old?(await old.json()).cacheName:null;
   if(!previous||previous===name||!await caches.has(previous))throw Error('A verified previous app cache is not available; installation was stopped safely.');
   await c.put(rollbackUrl,new Response(JSON.stringify({previousCache:previous,nextCache:name,version:String(latest?.version||''),buildId:String(latest?.buildId||''),attempts:0,startedAt:Date.now()})));
  }
  await c.put(pointerUrl,new Response(JSON.stringify({cacheName:name})));
+ const written=await c.match(pointerUrl);let writtenValue=null;try{writtenValue=written?await written.json():null;}catch(e){}
+ console.info('[THA-PTR] activateCache complete',{name,pending,written:writtenValue});
  // The page writes the shared CacheStorage pointer directly. Do not send a
  // second asynchronous pointer write to the worker: a delayed message from an
  // older bootstrap can otherwise overwrite this newly selected cache.
 }
 async function rollbackPendingActivation(reason){
- const c=await caches.open(POINTER),r=await c.match(rollbackUrl);if(!r)return false;
+ const c=await caches.open(POINTER),r=await c.match(rollbackUrl);if(!r){console.info('[THA-PTR] rollback skipped: no marker',{reason});return false;}
  const p=await r.json();
  if(!p.previousCache||!await caches.has(p.previousCache)){await c.delete(rollbackUrl);throw Error('Previous app cache is unavailable; automatic rollback could not complete. '+(reason||''));}
+ console.warn('[THA-PTR] rollback write',{previousCache:p.previousCache,nextCache:p.nextCache,reason,stack:(new Error()).stack});
  await c.put(pointerUrl,new Response(JSON.stringify({cacheName:p.previousCache})));
  await c.delete(rollbackUrl);
  // CacheStorage is shared with the Service Worker; the pointer write above
@@ -69,7 +74,10 @@ async function bootstrap(){
   const reg=await navigator.serviceWorker.register(new URL('service-worker.js',base),{scope:base.pathname});
   await navigator.serviceWorker.ready;
   const pc=await caches.open(POINTER);
-  if(!await pc.match(pointerUrl)){
+  const bootstrapPointer=await pc.match(pointerUrl);let bootstrapPointerValue=null;try{bootstrapPointerValue=bootstrapPointer?await bootstrapPointer.clone().json():null;}catch(e){}
+  console.info('[THA-PTR] bootstrap pointer check',{localVersion:LOCAL_VERSION,localBuild:LOCAL_BUILD,target,pointer:bootstrapPointerValue,hasPointer:!!bootstrapPointer});
+  if(!bootstrapPointer){
+   console.warn('[THA-PTR] bootstrap is initializing cache because pointer is absent',{target,stack:(new Error()).stack});
    let c=null;
    try{
     const mr=await fetch(new URL('version.json',base),{cache:'no-store',credentials:'same-origin'});
