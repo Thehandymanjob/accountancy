@@ -62,6 +62,11 @@ const browser = await browserType.launch({ headless: true });
 try {
   const context = await browser.newContext({ serviceWorkers: 'allow' });
   const page = await context.newPage();
+  context.on('serviceworker', worker => {
+    console.log('Service worker attached:', worker.url());
+    worker.on('console', msg => console.log('Service worker console ['+msg.type()+']:', msg.text()));
+    worker.on('pageerror', error => console.error('Service worker page error:', error));
+  });
   const channelBytes = Buffer.from(JSON.stringify({
     app: 'The Handyman Accountancy',
     channel: 'test',
