@@ -3,7 +3,7 @@
 'use strict';
 const meta=n=>document.querySelector('meta[name="'+n+'"]')?.content||'';
 const LOCAL_VERSION=meta('app-version'),LOCAL_BUILD=meta('app-build-id');
-const base=new URL('.',document.baseURI),POINTER='tha-active-pointer-v1',pointerUrl=new URL('__tha_active_cache__',base).toString();
+const base=new URL('.',document.baseURI),POINTER='tha-active-pointer-v1',pointerUrl=new URL('__tha_active_cache__',base).toString(),rollbackUrl=new URL('__tha_pending_activation__',base).toString();
 const CHANNEL_URL='https://raw.githubusercontent.com/Thehandymanjob/accountancy/update-channel-test/update-channel.json';
 const RAW_ROOT='https://raw.githubusercontent.com/Thehandymanjob/accountancy/';
 let latest=null,staged=null,busy=false;
@@ -16,7 +16,41 @@ async function hash(buf){const d=await crypto.subtle.digest('SHA-256',buf);retur
 async function bytes(url,cb){const r=await fetch(url,{cache:'no-store',credentials:'omit',mode:'cors'});if(!r.ok)throw Error('HTTP '+r.status+' downloading '+new URL(url).pathname);const total=+(r.headers.get('content-length')||0);if(!r.body){const b=await r.arrayBuffer();cb(b.byteLength,total);return b;}const rd=r.body.getReader(),parts=[];let size=0;while(true){const q=await rd.read();if(q.done)break;parts.push(q.value);size+=q.value.byteLength;cb(q.value.byteLength,total);}const out=new Uint8Array(size);let off=0;for(const p of parts){out.set(p,off);off+=p.byteLength;}return out.buffer;}
 function cacheName(v,b=''){return 'tha-app-v'+String(v).replace(/[^\w.-]/g,'_')+(b?'-'+String(b).replace(/[^\w.-]/g,'_'):'');}
 function releaseRoot(branch){if(typeof branch!=='string'||!branch||branch.includes('..')||! /^[A-Za-z0-9._/-]+$/.test(branch))throw Error('Update channel contains an invalid release branch.');return RAW_ROOT+branch.split('/').map(encodeURIComponent).join('/')+'/';}
-async function activateCache(name){const c=await caches.open(POINTER);await c.put(pointerUrl,new Response(JSON.stringify({cacheName:name})));const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)r.active?.postMessage({type:'ACTIVATE_CACHE',cacheName:name});}
+async function activateCache(name,pending=false){
+ const c=await caches.open(POINTER);
+ if(pending){
+  const old=await c.match(pointerUrl),previous=old?(await old.json()).cacheName:null;
+  if(!previous||previous===name||!await caches.has(previous))throw Error('A verified previous app cache is not available; installation was stopped safely.');
+  await c.put(rollbackUrl,new Response(JSON.stringify({previousCache:previous,nextCache:name,version:String(latest?.version||''),buildId:String(latest?.buildId||''),attempts:0,startedAt:Date.now()})));
+ }
+ await c.put(pointerUrl,new Response(JSON.stringify({cacheName:name})));
+ const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)r.active?.postMessage({type:'ACTIVATE_CACHE',cacheName:name});
+}
+async function rollbackPendingActivation(reason){
+ const c=await caches.open(POINTER),r=await c.match(rollbackUrl);if(!r)return false;
+ const p=await r.json();
+ if(!p.previousCache||!await caches.has(p.previousCache)){await c.delete(rollbackUrl);throw Error('Previous app cache is unavailable; automatic rollback could not complete. '+(reason||''));}
+ await c.put(pointerUrl,new Response(JSON.stringify({cacheName:p.previousCache})));
+ await c.delete(rollbackUrl);
+ const regs=await navigator.serviceWorker.getRegistrations();for(const reg of regs)reg.active?.postMessage({type:'ACTIVATE_CACHE',cacheName:p.previousCache});
+ console.error('New app failed its startup check; restored previous cached app.',reason||'');
+ const u=new URL(location.href);u.searchParams.delete('tha-installed-version');u.searchParams.delete('tha-installed-build');u.searchParams.set('tha-rollback','1');location.replace(u.toString());return true;
+}
+async function confirmPendingActivation(){
+ if(!('caches'in window))return;
+ const run=async()=>{
+  try{
+   const c=await caches.open(POINTER),r=await c.match(rollbackUrl);if(!r)return;
+   const p=await r.json(),expected=cacheName(LOCAL_VERSION,LOCAL_BUILD);
+   if(p.nextCache!==expected){await rollbackPendingActivation('Loaded build does not match the staged build.');return;}
+   const healthy=typeof window.openAccountancy==='function'&&typeof window.show==='function'&&!!el('softwareUpdate')&&!!el('appReloadUpdate')&&!!document.body;
+   if(!healthy){await rollbackPendingActivation('Required app startup components are missing.');return;}
+   await c.delete(rollbackUrl);
+   console.info('App startup verified; rollback protection cleared for',LOCAL_VERSION,LOCAL_BUILD);
+  }catch(e){console.error('Could not confirm app startup health.',e);}
+ };
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(run,1000),{once:true});else setTimeout(run,1000);
+}
 async function bootstrap(){
  if(!('serviceWorker'in navigator)||!('caches'in window))return;
  const target=cacheName(LOCAL_VERSION);
@@ -80,10 +114,10 @@ window.checkForAppUpdate=async function(){
 };
 window.reloadLatestApp=async function(){
  if(!latest||!staged){status('Check for updates and finish the download first.');return;}if(busy)return;busy=true;button(false,'Installing…');progress(100,'Activating verified update…');
- try{await activateCache(staged);const u=new URL(location.href);u.searchParams.set('tha-installed-version',String(latest.version));u.searchParams.set('tha-installed-build',latest.buildId);u.hash='';status('Installing version '+latest.version+'…');location.replace(u.toString());}
+ try{await activateCache(staged,true);const u=new URL(location.href);u.searchParams.set('tha-installed-version',String(latest.version));u.searchParams.set('tha-installed-build',latest.buildId);u.hash='';status('Installing version '+latest.version+'…');location.replace(u.toString());}
  catch(e){busy=false;button(true,'Update Now');status('Could not activate update: '+(e.message||e)+'. Previous cache remains available.');}
 };
 const installed=el('appInstalledVersion');if(installed)installed.textContent='Installed version: '+LOCAL_VERSION+' · '+LOCAL_BUILD;button(false);
-bootstrap();
+bootstrap().then(()=>confirmPendingActivation());
 try{const p=new URL(location.href).searchParams,v=p.get('tha-installed-version'),b=p.get('tha-installed-build');if(v){if(v===LOCAL_VERSION&&b===LOCAL_BUILD){if(typeof window.openAccountancy==='function')window.openAccountancy();if(typeof window.show==='function')window.show('softwareUpdate');status('Update successful. Version '+LOCAL_VERSION+' is installed. You are still on Software Update.');}else status('Update confirmation failed: loaded '+LOCAL_VERSION+' ('+LOCAL_BUILD+'), expected '+v+' ('+b+').');const u=new URL(location.href);u.searchParams.delete('tha-installed-version');u.searchParams.delete('tha-installed-build');history.replaceState(null,'',u.toString());}}catch(e){status('Update loaded, but confirmation display failed: '+e.message);}
 })();
