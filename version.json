@@ -9,10 +9,18 @@
   "storageNamespace": "tha_v206_",
   "legacyDataImport": "manual-only",
   "files": {
-    "index.html": { "sha256": "02b3f298c92fe6d59c189e34ad6f815b5a817296f4a2b19fe89665ce389373cb" },
-    "version-manager.js": { "sha256": "9b68e73fe40471de05d6a6e188552675aab05ef8214c45f25673794110ae5bc5" },
-    "service-worker.js": { "sha256": "097dd1ef79d0b27ff09db218e4006afa6bddb81a92ea966ed58a52b6e3a035fe" },
-    "storage-foundation.js": { "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164" }
+    "index.html": {
+      "sha256": "02b3f298c92fe6d59c189e34ad6f815b5a817296f4a2b19fe89665ce389373cb"
+    },
+    "version-manager.js": {
+      "sha256": "9726d1a6839e525014ae598a86531f98cee0434a49525b24bdd30ff6e5c73021"
+    },
+    "service-worker.js": {
+      "sha256": "9e7b5c5f3d76b47f2d5022f0ae8113ba92761779aeef1b7f424cceea449e678e"
+    },
+    "storage-foundation.js": {
+      "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
+    }
   },
   "releaseNotes": [
     "Manual checks only: publishing a new build does not automatically activate it in the installed app.",
