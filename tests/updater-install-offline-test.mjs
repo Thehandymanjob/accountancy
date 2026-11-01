@@ -77,9 +77,25 @@ try {
   // interception sees them, so use a deterministic fetch shim for this isolated test.
   const mockFiles = Object.fromEntries(Object.entries(files).map(([name, data]) => [name, Buffer.from(data).toString('base64')]));
   await page.addInitScript(({ channelText, manifestText, indexBase64, mockFiles }) => {
+    // Model an already-installed v224 app: its verified shell and active pointer
+    // must exist before the user checks for v225. The fallback cache created by
+    // the Service Worker is not itself proof of a known-good previous build.
+    const seedPreviousBuild = (async () => {
+      const base = new URL('.', document.baseURI);
+      const previous = await caches.open('tha-app-v224');
+      const decode = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      for (const [name, encoded] of Object.entries(mockFiles)) {
+        await previous.put(new URL(name, base), new Response(decode(encoded)));
+      }
+      await previous.put(new URL('index.html', base), new Response(decode(indexBase64), { headers: { 'content-type': 'text/html; charset=utf-8' } }));
+      await previous.put(new URL('version.json', base), new Response(manifestText, { headers: { 'content-type': 'application/json' } }));
+      const pointer = await caches.open('tha-active-pointer-v1');
+      await pointer.put(new URL('__tha_active_cache__', base), new Response(JSON.stringify({ cacheName: 'tha-app-v224' })));
+    })();
     const originalFetch = window.fetch.bind(window);
     const decode = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     window.fetch = async (input, init) => {
+      await seedPreviousBuild;
       const requestUrl = typeof input === 'string' ? input : input.url;
       if (requestUrl.startsWith('https://raw.githubusercontent.com/Thehandymanjob/accountancy/')) {
         const u = new URL(requestUrl);
