@@ -8,13 +8,13 @@ const CHANNEL_URL='https://raw.githubusercontent.com/Thehandymanjob/accountancy/
 const RAW_ROOT='https://raw.githubusercontent.com/Thehandymanjob/accountancy/';
 let latest=null,staged=null,busy=false;
 const el=id=>document.getElementById(id);
-function compare(a,b){const x=String(a||'').split(/[.+-]/).map(v=>/^\\d+$/.test(v)?+v:v),y=String(b||'').split(/[.+-]/).map(v=>/^\\d+$/.test(v)?+v:v);for(let i=0;i<Math.max(x.length,y.length);i++){let p=x[i]??0,q=y[i]??0;if(p===q)continue;return p>q?1:-1;}return 0;}
+function compare(a,b){const x=String(a||'').split(/[.+-]/).map(v=>/^\d+$/.test(v)?+v:v),y=String(b||'').split(/[.+-]/).map(v=>/^\d+$/.test(v)?+v:v);for(let i=0;i<Math.max(x.length,y.length);i++){let p=x[i]??0,q=y[i]??0;if(p===q)continue;return p>q?1:-1;}return 0;}
 function status(t){if(el('appUpdateStatus'))el('appUpdateStatus').textContent=t;}
 function button(on,t){const b=el('appReloadUpdate');if(!b)return;b.disabled=!on;b.setAttribute('aria-disabled',String(!on));b.textContent=t||'Update Now';b.style.opacity=on?'1':'.55';}
 function progress(n,t,show=true){if(el('appUpdateProgressWrap'))el('appUpdateProgressWrap').style.display=show?'block':'none';if(el('appUpdateProgress'))el('appUpdateProgress').value=n;if(el('appUpdateProgressPercent'))el('appUpdateProgressPercent').textContent=Math.round(n)+'%';if(el('appUpdateProgressLabel'))el('appUpdateProgressLabel').textContent=t||'';}
 async function hash(buf){const d=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('');}
 async function bytes(url,cb){const r=await fetch(url,{cache:'no-store',credentials:'omit',mode:'cors'});if(!r.ok)throw Error('HTTP '+r.status+' downloading '+new URL(url).pathname);const total=+(r.headers.get('content-length')||0);if(!r.body){const b=await r.arrayBuffer();cb(b.byteLength,total);return b;}const rd=r.body.getReader(),parts=[];let size=0;while(true){const q=await rd.read();if(q.done)break;parts.push(q.value);size+=q.value.byteLength;cb(q.value.byteLength,total);}const out=new Uint8Array(size);let off=0;for(const p of parts){out.set(p,off);off+=p.byteLength;}return out.buffer;}
-function cacheName(v,b=''){return 'tha-app-v'+String(v).replace(/[^\\w.-]/g,'_')+(b?'-'+String(b).replace(/[^\\w.-]/g,'_'):'');}
+function cacheName(v,b=''){return 'tha-app-v'+String(v).replace(/[^\w.-]/g,'_')+(b?'-'+String(b).replace(/[^\w.-]/g,'_'):'');}
 function branchRoot(branch){if(typeof branch!=='string'||!branch||branch.includes('..')||! /^[A-Za-z0-9._/-]+$/.test(branch))throw Error('Update channel contains an invalid release branch.');return RAW_ROOT+branch.split('/').map(encodeURIComponent).join('/')+'/';}
 async function activateCache(name){const c=await caches.open(POINTER);await c.put(pointerUrl,new Response(JSON.stringify({cacheName:name})));const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)r.active?.postMessage({type:'ACTIVATE_CACHE',cacheName:name});}
 async function bootstrap(){
