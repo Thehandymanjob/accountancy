@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - release-v226-cache-retention-test-20261101
+      - main
   pull_request:
     branches:
       - release-v226-cache-retention-test-20261101
