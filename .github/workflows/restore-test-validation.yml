@@ -20,6 +20,7 @@ jobs:
           npx playwright install chromium
       - name: Run isolated browser restore test
         run: |
+          node tests/updater-install-offline-test.mjs
           node tests/restore-browser-test.mjs
           node tests/restore-failure-test.mjs
       - name: Verify manifest hashes and inline JavaScript syntax
