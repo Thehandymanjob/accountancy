@@ -14,6 +14,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install browser test dependencies
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Run isolated browser restore test
+        run: |
+          node tests/restore-browser-test.mjs
       - name: Verify manifest hashes and inline JavaScript syntax
         run: |
           node --input-type=module <<'NODE'
