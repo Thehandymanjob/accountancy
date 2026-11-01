@@ -72,38 +72,6 @@ try {
     manifestSha256: hash(Buffer.from(JSON.stringify(nextManifest)))
   }));
   page.on('console', msg => { if (msg.type() === 'error') console.error('Browser console:', msg.text()); });
-  const liveContext = await browser.newContext({ serviceWorkers: 'block' });
-  const liveProbe = await liveContext.newPage();
-  await liveProbe.goto('http://127.0.0.1:4175/', { waitUntil: 'domcontentloaded' });
-  const liveChannel = await liveProbe.evaluate(async () => {
-    const channelUrl = 'https://raw.githubusercontent.com/Thehandymanjob/accountancy/update-channel-test/update-channel.json';
-    const response = await fetch(channelUrl + '?_=' + Date.now(), { cache: 'no-store' });
-    if (!response.ok) throw new Error('Live update channel fetch failed: HTTP ' + response.status);
-    const channel = await response.json();
-    if (!/^[a-f0-9]{40}$/i.test(channel.sourceCommit || '')) throw new Error('Channel does not contain an immutable release commit.');
-    const apiRoot = 'https://api.github.com/repos/Thehandymanjob/accountancy/contents/';
-    const getFile = async name => {
-      const r = await fetch(apiRoot + encodeURIComponent(name).replaceAll('%2F', '/') + '?ref=' + channel.sourceCommit, {
-        cache: 'no-store', headers: { 'Accept': 'application/vnd.github+json' }
-      });
-      if (!r.ok) throw new Error('GitHub release asset API failed for ' + name + ': HTTP ' + r.status);
-      const item = await r.json();
-      if (item.type !== 'file' || !item.content) throw new Error('GitHub did not return file content for ' + name);
-      const binary = atob(item.content.replace(/\\s/g, ''));
-      return Uint8Array.from(binary, ch => ch.charCodeAt(0));
-    };
-    const digest = async bytes => [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(x => x.toString(16).padStart(2, '0')).join('');
-    const manifestBytes = await getFile('version.json');
-    if (await digest(manifestBytes) !== channel.manifestSha256) throw new Error('Live release manifest hash mismatch.');
-    const manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
-    if (manifest.releaseBranch !== channel.sourceBranch || String(manifest.version) !== String(channel.version) || manifest.buildId !== channel.buildId) throw new Error('Live channel and release identity do not match.');
-    for (const [name, spec] of Object.entries(manifest.files)) {
-      if (await digest(await getFile(name)) !== spec.sha256) throw new Error('Live release asset hash mismatch: ' + name);
-    }
-    return { branch: channel.sourceBranch, version: channel.version, assets: Object.keys(manifest.files).length };
-  });
-  if (liveChannel.version !== '224' || liveChannel.assets !== 4) throw new Error('Live update channel probe returned an unexpected release.');
-  await liveContext.close();
   // Mock remote update-channel/release fetches inside the page realm. WebKit may
   // route page fetches through an active Service Worker before Playwright network
   // interception sees them, so use a deterministic fetch shim for this isolated test.
@@ -181,7 +149,26 @@ try {
   const beforeInstall = await page.locator('#appUpdateStatus').textContent();
   if (!beforeInstall.includes('downloaded and verified')) throw new Error('Update package was not verified before installation.');
   await page.locator('#appReloadUpdate').click();
-  await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === '225', null, { timeout: 15000 });
+  try {
+    await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === '225', null, { timeout: 15000 });
+  } catch (error) {
+    console.error('Install diagnostic:', await page.evaluate(async () => {
+      const p = await caches.open('tha-active-pointer-v1');
+      const a = await p.match(new URL('__tha_active_cache__', location.href));
+      const r = await p.match(new URL('__tha_pending_activation__', location.href));
+      return {
+        url: location.href,
+        version: document.querySelector('meta[name="app-version"]')?.content,
+        build: document.querySelector('meta[name="app-build-id"]')?.content,
+        status: document.getElementById('appUpdateStatus')?.textContent,
+        controller: !!navigator.serviceWorker.controller,
+        active: a ? await a.json() : null,
+        pending: r ? await r.json() : null,
+        cacheNames: await caches.keys()
+      };
+    }));
+    throw error;
+  }
   await page.waitForFunction(() => document.getElementById('appUpdateStatus')?.textContent.includes('Update successful'), null, { timeout: 10000 });
   const installed = await page.evaluate(() => ({
     version: document.querySelector('meta[name="app-version"]')?.content,
