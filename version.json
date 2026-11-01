@@ -1,7 +1,7 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "224",
-  "buildId": "THA-224-MANUAL-CACHED-UPDATER-20261101",
+  "version": "225",
+  "buildId": "THA-225-UPDATER-INSTALL-TEST-20261101",
   "releaseDate": "2026-11-01",
   "releaseStatus": "experimental-branch",
   "databaseSchema": 1,
@@ -10,7 +10,7 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "fda16b561da9cc1585c40782e90fe24488122ef532d04bea54e8239233926384"
+      "sha256": "14030cb46b657845025662bfd7ba2f1c121ef3b320853a17fd9fbe95c6bee961"
     },
     "version-manager.js": {
       "sha256": "9f44b6df0c9059834ec15556f0dacb2dff75e3c43146c92cd6138bfba0eee8f0"
@@ -23,11 +23,11 @@
     }
   },
   "releaseNotes": [
-    "Manual checks only: publishing a new build does not automatically activate it in the installed app.",
-    "The update page displays the published version and release notes before installation.",
-    "Files are downloaded and SHA-256 verified into a separate cache. Installation starts only after Update Now is pressed.",
-    "After installation, the app returns to Software Update and confirms the installed version.",
-    "The updater does not clear or migrate accounting records stored in this browser."
+    "Updater installation test only: no accounting, project, invoice, contract, or PDF functionality has been changed.",
+    "The app version and build identifier are advanced to 225 to test the complete manual update flow from version 224.",
+    "Files are downloaded into a separate cache and SHA-256 verified before installation.",
+    "Installation starts only after Update Now is pressed; the previous cached build is retained for startup rollback protection.",
+    "No accounting records are cleared, migrated, or overwritten by this test build."
   ],
-  "releaseBranch": "release-v224-20261101"
+  "releaseBranch": "release-v225-updater-test-20261101"
 }
