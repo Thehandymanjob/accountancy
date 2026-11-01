@@ -17,10 +17,11 @@ jobs:
       - name: Install browser test dependencies
         run: |
           npm install --no-save playwright
-          npx playwright install chromium
+          npx playwright install chromium webkit
       - name: Run isolated browser restore test
         run: |
           node tests/updater-install-offline-test.mjs
+          PW_BROWSER=webkit node tests/updater-install-offline-test.mjs
           node tests/restore-browser-test.mjs
           node tests/restore-failure-test.mjs
       - name: Verify manifest hashes and inline JavaScript syntax
