@@ -40,8 +40,10 @@ async function confirmPendingActivation(){
  window.__thaPendingActivationDiagnostics={called:true,readyState:document.readyState,localVersion:LOCAL_VERSION,localBuild:LOCAL_BUILD};
  if(!('caches'in window)){window.__thaPendingActivationDiagnostics.noCacheApi=true;return;}
  const run=async()=>{
+  window.__thaPendingActivationDiagnostics.runStarted=true;
   try{
-   const c=await caches.open(POINTER),r=await c.match(rollbackUrl);
+   const c=await caches.open(POINTER);window.__thaPendingActivationDiagnostics.pointerOpened=true;
+   const r=await c.match(rollbackUrl);window.__thaPendingActivationDiagnostics.markerRead=!!r;
    if(!r){window.__thaPendingActivationDiagnostics.result='no-pending-marker';return;}
    const p=await r.json(),expected=cacheName(LOCAL_VERSION,LOCAL_BUILD);
    window.__thaPendingActivationDiagnostics.pending=p;window.__thaPendingActivationDiagnostics.expected=expected;
@@ -52,8 +54,9 @@ async function confirmPendingActivation(){
    if(!healthy){await rollbackPendingActivation('Required app startup components are missing: '+JSON.stringify(health));return;}
    await c.delete(rollbackUrl);
    window.__thaPendingActivationDiagnostics.result='confirmed';console.info('App startup verified; rollback protection cleared for',LOCAL_VERSION,LOCAL_BUILD);
-  }catch(e){console.error('Could not confirm app startup health.',e);}
+  }catch(e){window.__thaPendingActivationDiagnostics.error=String(e&&e.stack||e);console.error('Could not confirm app startup health.',e);}
  };
+ window.__thaPendingActivationDiagnostics.scheduled=true;
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(run,1000),{once:true});else setTimeout(run,1000);
 }
 async function bootstrap(){
