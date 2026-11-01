@@ -10,10 +10,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify SHA-256 values against exact repository bytes
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          failed=0
           for file in index.html storage-foundation.js version-manager.js; do
             expected="$(jq -r --arg f "$file" '.files[$f].sha256' version.json)"
             actual="$(sha256sum "$file" | awk '{print $1}')"
             echo "$file expected=$expected actual=$actual"
-            test "$expected" = "$actual"
+            if [ "$expected" != "$actual" ]; then failed=1; fi
           done
+          exit "$failed"
