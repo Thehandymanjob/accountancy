@@ -1,0 +1,44 @@
+name: Build v223 delivery package
+
+on:
+  push:
+    branches:
+      - package-v223-delivery
+    paths:
+      - .github/workflows/package-v223.yml
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact v223 source
+        uses: actions/checkout@v4
+      - name: Build two-folder delivery ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(python3 -c "import json; print(json.load(open('version.json'))['version'])")" = "223"
+          required=(index.html version.json storage-foundation.js version-manager.js favicon.png apple-touch-icon.png icon-192.png icon-512.png)
+          for file in "${required[@]}"; do
+            test -s "$file"
+          done
+          rm -rf package-root install-root
+          mkdir -p "package-root/Required Files" "package-root/Install Ready ZIP" install-root
+          for file in "${required[@]}"; do
+            cp "$file" "package-root/Required Files/$file"
+            cp "$file" install-root/
+          done
+          (cd install-root && zip -9 -q -r ../package-root/"Install Ready ZIP"/223.zip .)
+          (cd package-root && zip -9 -q -r ../223-Package.zip "Required Files" "Install Ready ZIP")
+          unzip -t 223-Package.zip
+          unzip -l 223-Package.zip
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 223-Package
+          path: 223-Package.zip
+          if-no-files-found: error
+          retention-days: 14
