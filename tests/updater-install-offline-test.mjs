@@ -187,7 +187,22 @@ try {
     }));
     throw error;
   }
-  await page.waitForFunction(() => document.getElementById('appUpdateStatus')?.textContent.includes('Update successful'), null, { timeout: 10000 });
+  try {
+    await page.waitForFunction(() => document.getElementById('appUpdateStatus')?.textContent.includes('Update successful'), null, { timeout: 10000 });
+  } catch (error) {
+    console.error('Post-install confirmation diagnostic:', await page.evaluate(() => ({
+      url: location.href,
+      version: document.querySelector('meta[name="app-version"]')?.content,
+      build: document.querySelector('meta[name="app-build-id"]')?.content,
+      status: document.getElementById('appUpdateStatus')?.textContent,
+      softwareUpdateExists: !!document.getElementById('softwareUpdate'),
+      softwareUpdateActive: document.getElementById('softwareUpdate')?.classList.contains('active'),
+      accountancyOpen: document.body.classList.contains('accountancy-open'),
+      openAccountancyType: typeof window.openAccountancy,
+      showType: typeof window.show
+    })));
+    throw error;
+  }
   const installed = await page.evaluate(() => ({
     version: document.querySelector('meta[name="app-version"]')?.content,
     build: document.querySelector('meta[name="app-build-id"]')?.content,
