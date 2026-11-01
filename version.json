@@ -10,7 +10,7 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "b1ad455ff5eec28566b0b336bf4e2a575dc5a648593f6f084428d5779a4421ba"
+      "sha256": "447f452aca197eedecdb792f009c42943d9d2f03350c8643de7387bf128fcba1"
     },
     "version-manager.js": {
       "sha256": "9726d1a6839e525014ae598a86531f98cee0434a49525b24bdd30ff6e5c73021"
