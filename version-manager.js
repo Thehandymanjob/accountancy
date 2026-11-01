@@ -24,7 +24,9 @@ async function activateCache(name,pending=false){
   await c.put(rollbackUrl,new Response(JSON.stringify({previousCache:previous,nextCache:name,version:String(latest?.version||''),buildId:String(latest?.buildId||''),attempts:0,startedAt:Date.now()})));
  }
  await c.put(pointerUrl,new Response(JSON.stringify({cacheName:name})));
- const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)r.active?.postMessage({type:'ACTIVATE_CACHE',cacheName:name});
+ // The page writes the shared CacheStorage pointer directly. Do not send a
+ // second asynchronous pointer write to the worker: a delayed message from an
+ // older bootstrap can otherwise overwrite this newly selected cache.
 }
 async function rollbackPendingActivation(reason){
  const c=await caches.open(POINTER),r=await c.match(rollbackUrl);if(!r)return false;
@@ -32,7 +34,8 @@ async function rollbackPendingActivation(reason){
  if(!p.previousCache||!await caches.has(p.previousCache)){await c.delete(rollbackUrl);throw Error('Previous app cache is unavailable; automatic rollback could not complete. '+(reason||''));}
  await c.put(pointerUrl,new Response(JSON.stringify({cacheName:p.previousCache})));
  await c.delete(rollbackUrl);
- const regs=await navigator.serviceWorker.getRegistrations();for(const reg of regs)reg.active?.postMessage({type:'ACTIVATE_CACHE',cacheName:p.previousCache});
+ // CacheStorage is shared with the Service Worker; the pointer write above
+ // is authoritative and avoids stale asynchronous worker messages.
  console.error('New app failed its startup check; restored previous cached app.',reason||'');
  const u=new URL(location.href);u.searchParams.delete('tha-installed-version');u.searchParams.delete('tha-installed-build');u.searchParams.set('tha-rollback','1');location.replace(u.toString());return true;
 }
