@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - fix/backup-restore-v212-safe-merge
+      - updater-v224-service-worker-test
   pull_request:
     branches:
       - main
