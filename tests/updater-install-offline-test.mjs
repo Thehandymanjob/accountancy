@@ -66,7 +66,7 @@ try {
     app: 'The Handyman Accountancy',
     channel: 'test',
     sourceBranch: 'release-v224-20261101',
-    sourceCommit: '0000000000000000000000000000000000000000',
+    sourceCommit: '1da46e18aae423f7488d6130a5e44542a2f4681d',
     version: '225',
     buildId: 'THA-225-INSTALL-OFFLINE-TEST',
     manifestSha256: hash(Buffer.from(JSON.stringify(nextManifest)))
