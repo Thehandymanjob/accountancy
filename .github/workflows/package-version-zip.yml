@@ -25,16 +25,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p package/Files package/"Install Files"
-          rsync -a --exclude='.git' ./ package/Files/
+          workdir="$(mktemp -d)"
+          mkdir -p "$workdir/Files" "$workdir/Install Files"
+          rsync -a --exclude='.git' ./ "$workdir/Files/"
           for file in index.html version.json version-manager.js service-worker.js storage-foundation.js apple-touch-icon.png favicon.png icon-192.png icon-512.png; do
             test -f "$file"
-            cp "$file" package/"Install Files"/
+            cp "$file" "$workdir/Install Files"/
           done
-          printf '%s\n' 'Version: 226' 'Source branch: release-v226-cache-retention-test-20261101' 'Source commit: $GITHUB_SHA' > package/README.txt
-          cd package
-          zip -qr ../226.zip Files "Install Files" README.txt
-          cd ..
+          printf '%s\n' 'Version: 226' 'Source branch: release-v226-cache-retention-test-20261101' 'Source commit: $GITHUB_SHA' > "$workdir/README.txt"
+          (cd "$workdir" && zip -qr "$GITHUB_WORKSPACE/226.zip" Files "Install Files" README.txt)
           unzip -t 226.zip
           test "$(unzip -Z1 226.zip | grep -c '^Files/')" -gt 0
           test "$(unzip -Z1 226.zip | grep -c '^Install Files/')" -gt 0
