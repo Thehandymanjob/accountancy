@@ -238,6 +238,22 @@ try {
     return active ? await active.json() : null;
   });
   if (confirmedActive?.cacheName !== 'tha-app-v225-THA-225-INSTALL-OFFLINE-TEST') {
+    console.error('Confirmed cache pointer mismatch:', await page.evaluate(async () => {
+      const pointer = await caches.open('tha-active-pointer-v1');
+      const active = await pointer.match(new URL('__tha_active_cache__', location.href));
+      const pending = await pointer.match(new URL('__tha_pending_activation__', location.href));
+      const keys = await caches.keys();
+      const entries = {};
+      for (const name of keys) {
+        const cache = await caches.open(name);
+        const response = await cache.match(new URL('index.html', location.href));
+        if (response) {
+          const html = await response.text();
+          entries[name] = html.match(/meta name="app-version" content="([^"]+)/)?.[1] || 'unknown';
+        }
+      }
+      return { confirmedActive, current: active ? await active.json() : null, pending: pending ? await pending.json() : null, entries, startupDiagnostics: window.__thaPendingActivationDiagnostics };
+    }));
     throw new Error('Startup was confirmed but the active cache pointer does not identify the installed build.');
   }
 
