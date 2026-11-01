@@ -3,20 +3,23 @@
   "version": "223",
   "buildId": "THA-223-CONTRACT-PDF-CLEAN-PRINT-UI-20261101",
   "releaseDate": "2026-11-01",
-  "releaseStatus": "main-branch-testing",
+  "releaseStatus": "bootstrap-test",
   "databaseSchema": 1,
   "minimumAppVersion": "206",
   "storageNamespace": "tha_v206_",
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "97d3b70e6cded236f8118d442b2d064fd7e629043f64d52c16cfdf152ac0c899"
-    },
-    "storage-foundation.js": {
-      "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
+      "sha256": "4d8a713bbd7ff92f5510a3146989deafcbc94984eb7058631a8f836d24bd1975"
     },
     "version-manager.js": {
-      "sha256": "255cfcd137889e1e7fb5a6229f7be15c067d9f5613fc88eaafc7737872dcbc3b"
+      "sha256": "ab438dd7c685960d7bf9b41fa2b6b4dd7b61d392db4f3b59d9998dfd0a9c4440"
+    },
+    "service-worker.js": {
+      "sha256": "70f7402879b0e81c8976475e6525105f4bd33007d3e00e5e635107a45c7f5741"
+    },
+    "storage-foundation.js": {
+      "sha256": "a6096f3067bab4110342ba45e0979afc7de675c37e8214f244751a1c666175f1"
     }
   }
 }
