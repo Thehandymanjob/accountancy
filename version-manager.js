@@ -16,10 +16,38 @@ function cacheName(v){return 'tha-app-v'+String(v).replace(/[^\w.-]/g,'_');}
 async function activateCache(name){const c=await caches.open(POINTER);await c.put(pointerUrl,new Response(JSON.stringify({cacheName:name})));const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)r.active?.postMessage({type:'ACTIVATE_CACHE',cacheName:name});}
 async function bootstrap(){
  if(!('serviceWorker'in navigator)||!('caches'in window))return;
- try{const reg=await navigator.serviceWorker.register(new URL('service-worker.js',base),{scope:base.pathname});await navigator.serviceWorker.ready;
- const pc=await caches.open(POINTER);if(!await pc.match(pointerUrl)){const mr=await fetch(new URL('version.json',base),{cache:'no-store'});if(mr.ok){const m=await mr.json(),files=['index.html','version.json',...Object.keys(m.files||{})],c=await caches.open(cacheName(LOCAL_VERSION));for(const n of [...new Set(files)]){const u=new URL(n,base),r=await fetch(u,{cache:'no-store'});if(r.ok)await c.put(u,new Response(await r.arrayBuffer(),{headers:r.headers}));}await activateCache(cacheName(LOCAL_VERSION));}}
- if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
- }catch(e){console.warn('Offline cache setup unavailable',e);}
+ const target=cacheName(LOCAL_VERSION);
+ try{
+  const reg=await navigator.serviceWorker.register(new URL('service-worker.js',base),{scope:base.pathname});
+  await navigator.serviceWorker.ready;
+  const pc=await caches.open(POINTER);
+  if(!await pc.match(pointerUrl)){
+   let c=null;
+   try{
+    const mr=await fetch(new URL('version.json',base),{cache:'no-store',credentials:'same-origin'});
+    if(!mr.ok)throw Error('Bootstrap manifest HTTP '+mr.status);
+    const manifest=await mr.json();
+    if(manifest.app!=='The Handyman Accountancy'||String(manifest.version)!==String(LOCAL_VERSION)||manifest.buildId!==LOCAL_BUILD||!manifest.files||typeof manifest.files!=='object')throw Error('Bootstrap manifest does not match this installed build.');
+    const required=['index.html','version-manager.js','service-worker.js','storage-foundation.js'];
+    for(const name of required)if(!/^[a-f0-9]{64}$/i.test(String(manifest.files[name]?.sha256||'')))throw Error('Bootstrap manifest is missing a valid SHA-256 for '+name+'.');
+    c=await caches.open(target);
+    for(const name of required){
+     const url=new URL(name,base),response=await fetch(url,{cache:'no-store',credentials:'same-origin'});
+     if(!response.ok)throw Error('Bootstrap download failed for '+name+' (HTTP '+response.status+').');
+     const data=await response.arrayBuffer(),actual=await hash(data),expected=String(manifest.files[name].sha256).toLowerCase();
+     if(actual!==expected)throw Error('Bootstrap integrity check failed for '+name+'.');
+     await c.put(url,new Response(data,{headers:response.headers}));
+    }
+    await c.put(new URL('version.json',base),new Response(JSON.stringify(manifest),{headers:{'Content-Type':'application/json'}}));
+    for(const name of required)if(!await c.match(new URL(name,base)))throw Error('Bootstrap cache is incomplete: '+name+'.');
+    await activateCache(target);
+   }catch(err){
+    if(c)await caches.delete(target);
+    throw err;
+   }
+  }
+  if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
+ }catch(e){console.warn('Offline cache setup unavailable; existing app data was not changed.',e);}
 }
 function notes(m){const box=el('appReleaseNotes');if(!box)return;box.textContent='';box.style.display='block';const h=document.createElement('strong');h.textContent='Published version '+m.version+' — What this update includes';box.appendChild(h);const list=Array.isArray(m.releaseNotes)?m.releaseNotes:[];if(list.length){const ul=document.createElement('ul');ul.style.paddingLeft='20px';list.forEach(v=>{const li=document.createElement('li');li.textContent=String(v);ul.appendChild(li);});box.appendChild(ul);}else{const p=document.createElement('p');p.textContent='No release notes supplied.';box.appendChild(p);}}
 window.checkForAppUpdate=async function(){
