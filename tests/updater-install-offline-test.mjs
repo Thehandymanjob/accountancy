@@ -87,7 +87,7 @@ try {
   // route page fetches through an active Service Worker before Playwright network
   // interception sees them, so use a deterministic fetch shim for this isolated test.
   const mockFiles = Object.fromEntries(Object.entries(files).map(([name, data]) => [name, Buffer.from(data).toString('base64')]));
-  await page.addInitScript(({ channelText, manifestText, previousManifestText, previousIndexBase64, nextIndexBase64, mockFiles }) => {
+  await page.addInitScript(({ channelText, manifestText, previousManifestText, previousIndexBase64, nextIndexBase64, mockFiles, releaseBranch, previousCacheName }) => {
     // Model an already-installed v224 app: its verified shell and active pointer
     // must exist before the user checks for v225. The fallback cache created by
     // the Service Worker is not itself proof of a known-good previous build.
@@ -98,7 +98,7 @@ try {
       if (sessionStorage.getItem('__tha_test_previous_build_seeded') === '1') return;
       sessionStorage.setItem('__tha_test_previous_build_seeded', '1');
       const base = new URL('.', document.baseURI);
-      const previous = await caches.open('tha-app-v224');
+      const previous = await caches.open(previousCacheName);
       const decode = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
       for (const [name, encoded] of Object.entries(mockFiles)) {
         await previous.put(new URL(name, base), new Response(decode(encoded)));
@@ -106,7 +106,7 @@ try {
       await previous.put(new URL('index.html', base), new Response(decode(previousIndexBase64), { headers: { 'content-type': 'text/html; charset=utf-8' } }));
       await previous.put(new URL('version.json', base), new Response(previousManifestText, { headers: { 'content-type': 'application/json' } }));
       const pointer = await caches.open('tha-active-pointer-v1');
-      await pointer.put(new URL('__tha_active_cache__', base), new Response(JSON.stringify({ cacheName: 'tha-app-v224' })));
+      await pointer.put(new URL('__tha_active_cache__', base), new Response(JSON.stringify({ cacheName: previousCacheName })));
     })();
     const originalFetch = window.fetch.bind(window);
     const decode = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
@@ -121,7 +121,7 @@ try {
         if (branchName === 'update-channel-test' && name === 'update-channel.json') {
           return new Response(channelText, { status: 200, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
         }
-        if (branchName !== oldManifest.releaseBranch) return new Response('Unknown test release', { status: 404 });
+        if (branchName !== releaseBranch) return new Response('Unknown test release', { status: 404 });
         if (name === 'version.json') return new Response(manifestText, { status: 200, headers: { 'content-type': 'application/json' } });
         if (name === 'index.html') return new Response(decode(nextIndexBase64), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
         if (mockFiles[name]) return new Response(decode(mockFiles[name]), { status: 200, headers: { 'content-type': name.endsWith('.js') ? 'text/javascript' : 'application/octet-stream' } });
@@ -135,7 +135,9 @@ try {
     previousManifestText: JSON.stringify(currentManifest),
     previousIndexBase64: previousIndex.toString('base64'),
     nextIndexBase64: newIndex.toString('base64'),
-    mockFiles
+    mockFiles,
+    releaseBranch: oldManifest.releaseBranch,
+    previousCacheName: 'tha-app-v' + previousVersion
   });
   await page.goto('http://127.0.0.1:4175/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(async () => {
@@ -184,7 +186,7 @@ try {
   if (!beforeInstall.includes('downloaded and verified')) throw new Error('Update package was not verified before installation.');
   await page.locator('#appReloadUpdate').click();
   try {
-    await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === installedVersion, null, { timeout: 15000 });
+    await page.waitForFunction(expected => document.querySelector('meta[name="app-version"]')?.content === expected, installedVersion, { timeout: 15000 });
   } catch (error) {
     console.error('Install diagnostic:', await page.evaluate(async () => {
       const p = await caches.open('tha-active-pointer-v1');
@@ -290,7 +292,7 @@ try {
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
   try {
-    await page.waitForFunction(() => document.querySelector('meta[name="app-version"]')?.content === '225', null, { timeout: 10000 });
+    await page.waitForFunction(expected => document.querySelector('meta[name="app-version"]')?.content === expected, installedVersion, { timeout: 10000 });
   } catch (error) {
     console.error('Offline reload diagnostic:', await page.evaluate(async () => {
       const pointer = await caches.open('tha-active-pointer-v1');
