@@ -1,11 +1,11 @@
 {
   "app": "The Handyman Accountancy",
   "channel": "test",
-  "sourceBranch": "updater-v224-service-worker-test",
+  "sourceBranch": "release-v224-20261101",
   "version": "224",
   "buildId": "THA-224-MANUAL-CACHED-UPDATER-20261101",
-  "manifestSha256": "c70a8254e5d8f5fd0d11c53dbe6996513745ec8a6b8d3d35fa52fe73459cc3e1",
-  "updatedAt": "2026-11-01T14:22:00Z",
+  "manifestSha256": "adb4aba2216b12fd7956e967882de2e145b30e17cf4e9264b1ca261fd3c9ba7e",
+  "updatedAt": "2026-11-01T14:27:00Z",
   "note": "Experimental channel pointer only; not a production release.",
-  "sourceCommit": "cc90ae0908fe770773030190b4450ba5729a752e"
+  "sourceCommit": "1da46e18aae423f7488d6130a5e44542a2f4681d"
 }
