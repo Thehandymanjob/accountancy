@@ -25,7 +25,7 @@ jobs:
           if (m.version !== '224' || m.buildId !== 'THA-224-MANUAL-CACHED-UPDATER-20261101') throw new Error('Unexpected build identity');
           for (const [name, item] of Object.entries(m.files)) {
             const actual = crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex');
-            if (actual !== item.sha256) throw new Error('SHA-256 mismatch: ' + name);
+            if (actual !== item.sha256) { console.log(name + ' expected=' + item.sha256 + ' actual=' + actual); throw new Error('SHA-256 mismatch: ' + name); }
           }
           for (const name of ['index.html','version-manager.js','service-worker.js','storage-foundation.js']) {
             if (!m.files[name]) throw new Error('Missing manifest entry: ' + name);
