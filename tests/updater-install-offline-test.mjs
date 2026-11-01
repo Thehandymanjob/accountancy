@@ -144,10 +144,22 @@ try {
   await page.evaluate(() => { openAccountancy(); show('softwareUpdate'); });
 
   await page.evaluate(() => window.checkForAppUpdate(true));
-  await page.waitForFunction(() => {
-    const b = document.getElementById('appReloadUpdate');
-    return b && !b.disabled && b.textContent.includes('Update Now');
-  }, null, { timeout: 20000 });
+  try {
+    await page.waitForFunction(() => {
+      const b = document.getElementById('appReloadUpdate');
+      return b && !b.disabled && b.textContent.includes('Update Now');
+    }, null, { timeout: 20000 });
+  } catch (error) {
+    console.error('Updater diagnostic:', await page.evaluate(() => ({
+      status: document.getElementById('appUpdateStatus')?.textContent,
+      button: document.getElementById('appReloadUpdate')?.textContent,
+      disabled: document.getElementById('appReloadUpdate')?.disabled,
+      installed: document.querySelector('meta[name="app-version"]')?.content,
+      serviceWorker: 'serviceWorker' in navigator,
+      caches: 'caches' in window
+    })));
+    throw error;
+  }
   const beforeInstall = await page.locator('#appUpdateStatus').textContent();
   if (!beforeInstall.includes('downloaded and verified')) throw new Error('Update package was not verified before installation.');
   await page.locator('#appReloadUpdate').click();
