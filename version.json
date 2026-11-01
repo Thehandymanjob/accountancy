@@ -10,7 +10,7 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "0d657671fd66c377b2de388a75014e2fb75692dce7a03fe3465969c89b7af5b7"
+      "sha256": "d8f48d8fa0cc64a97a4a15bd2b049f656b338cd04888b1d4a758484fe8d9d448"
     },
     "storage-foundation.js": {
       "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
