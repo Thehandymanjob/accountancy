@@ -2707,5 +2707,52 @@ const oldShow=window.show; if(typeof oldShow==='function'){window.show=function(
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(window.report188Init,0));else setTimeout(window.report188Init,0);
 })();
 </script>
+<script>
+/* v223 bootstrap: pin the current shell before any later release is published. */
+(function(){
+ 'use strict';
+ if(!('serviceWorker' in navigator)||!('caches' in window))return;
+ const base=new URL('.',document.baseURI);
+ const cacheName='tha-app-v223-bootstrap';
+ const files=['index.html','version.json','storage-foundation.js','version-manager.js'];
+ async function installPinnedShell(){
+  try{
+   const registration=await navigator.serviceWorker.register(new URL('service-worker.js',base),{scope:base.pathname});
+   await navigator.serviceWorker.ready;
+   if(!navigator.serviceWorker.controller){
+    await new Promise((resolve,reject)=>{
+     let settled=false;
+     const finish=(error)=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timer);
+      navigator.serviceWorker.removeEventListener('controllerchange',onControllerChange);
+      if(error)reject(error);else resolve();
+     };
+     const onControllerChange=()=>{if(navigator.serviceWorker.controller)finish();};
+     const timer=setTimeout(()=>finish(new Error('Service Worker did not take control of this page')),10000);
+     navigator.serviceWorker.addEventListener('controllerchange',onControllerChange);
+     onControllerChange();
+    });
+   }
+   const controller=navigator.serviceWorker.controller;
+   if(!controller)throw new Error('Page is not controlled by the registered Service Worker');
+   const controllerUrl=new URL(controller.scriptURL);
+   if(controllerUrl.origin!==base.origin||!controllerUrl.pathname.endsWith('/service-worker.js'))throw new Error('Unexpected Service Worker controller');
+   const cache=await caches.open(cacheName);
+   for(const file of files){
+    const url=new URL(file,base);
+    const response=await fetch(url,{cache:'no-store',credentials:'same-origin'});
+    if(!response.ok)throw new Error('HTTP '+response.status+' for '+file);
+    await cache.put(url,new Response(await response.arrayBuffer(),{headers:response.headers}));
+   }
+   const pointer=await caches.open('tha-active-pointer-v1');
+   await pointer.put(new URL('__tha_active_cache__',base),new Response(JSON.stringify({cacheName} ),{headers:{'Content-Type':'application/json'}}));
+   document.documentElement.dataset.offlineShell='ready';
+  }catch(error){console.warn('App shell pinning was not completed; online app remains available.',error);}
+ }
+ installPinnedShell();
+})();
+</script>
 <script src="version-manager.js"></script>
 </body></html>

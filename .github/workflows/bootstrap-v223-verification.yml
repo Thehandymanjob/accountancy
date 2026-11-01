@@ -1,0 +1,53 @@
+name: Bootstrap v223 verification
+on:
+  push:
+    branches:
+      - bootstrap-v223-service-worker-test
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: JavaScript syntax checks
+        run: |
+          node --check version-manager.js
+          node --check service-worker.js
+          node --check storage-foundation.js
+          node - <<'NODE'
+          const fs = require('fs');
+          const vm = require('vm');
+          const html = fs.readFileSync('index.html','utf8');
+          const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
+          let checked = 0;
+          for (const [whole, attrs, source] of scripts) {
+            if (/\bsrc\s*=/.test(attrs) || !source.trim()) continue;
+            if (/\btype\s*=\s*["'](?:application\/(?:json|ld\+json)|importmap)["']/i.test(attrs)) continue;
+            new vm.Script(source, { filename: 'index.html:inline-script-' + (++checked) });
+          }
+          if (!checked) throw new Error('No inline JavaScript blocks found');
+          console.log('Parsed ' + checked + ' inline JavaScript blocks.');
+          NODE
+      - name: Verify manifest and shell hashes
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const m = JSON.parse(fs.readFileSync('version.json','utf8'));
+          if (m.version !== '223' || m.buildId !== 'THA-223-CONTRACT-PDF-CLEAN-PRINT-UI-20261101') throw new Error('Bootstrap must remain v223');
+          for (const name of ['index.html','version-manager.js','service-worker.js','storage-foundation.js']) {
+            const expected = m.files?.[name]?.sha256;
+            if (!expected) throw new Error('Missing manifest hash: ' + name);
+            const actual = crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex');
+            if (actual !== expected) throw new Error('SHA-256 mismatch: ' + name);
+          }
+          const html = fs.readFileSync('index.html','utf8');
+          for (const token of ['app-version" content="223"','app-build-id" content="THA-223-CONTRACT-PDF-CLEAN-PRINT-UI-20261101','service-worker.js','tha-app-v223-bootstrap']) {
+            if (!html.includes(token) && token !== 'service-worker.js') throw new Error('Missing bootstrap marker: ' + token);
+          }
+          if (!html.includes("register(new URL('service-worker.js'")) throw new Error('Service Worker registration missing');
+          console.log('v223 identity and all shell hashes verified.');
+          NODE
