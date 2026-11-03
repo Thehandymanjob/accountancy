@@ -1,7 +1,7 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "225",
-  "buildId": "THA-225-INVOICE-PAYMENT-PICKERS-20261103",
+  "version": "247",
+  "buildId": "THA-247-INVOICE-PAYMENT-DATE-METHOD-PICKERS-20261103",
   "releaseDate": "2026-11-03",
   "releaseStatus": "production",
   "databaseSchema": 1,
@@ -10,7 +10,7 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "e7d6da4aad1f5a89706d04fa6bcd0e49150801b4af68c12df51fd632b96de98d"
+      "sha256": "52d0f4b297144340afc82509218f5c093b9dcfe4e64a20403ccdad118f6f0740"
     },
     "version-manager.js": {
       "sha256": "7f0fecc65cf0b1a04dbcdda5b6e9e9e033a839f5173b1af40bb4f09f1c6a770d"
@@ -23,12 +23,13 @@
     }
   },
   "releaseNotes": [
-    "v225 replaces the browser text prompts used by Mark paid with an in-app payment dialog: choose the payment date from the native date picker and select Bank Transfer or Cash. Existing payment recording, duplicate-payment checks and Accounting links are retained. Production data namespace and stored records are unchanged.",
-    "Manual checks only: publishing a new build does not automatically activate it in the installed app.",
-    "The update page displays the published version and release notes before installation.",
-    "Files are downloaded and SHA-256 verified into a separate cache. Installation starts only after Update Now is pressed.",
-    "After installation, the app returns to Software Update and confirms the installed version.",
-    "The updater does not clear or migrate accounting records stored in this browser."
+    "v247: Production invoice workflow aligned with the tested v247 behavior. New invoices start as Draft; Issued invoices expose a separate Paid/Unpaid selector. Paid invoices record payment date (today by default, editable) and Bank Transfer or Cash.",
+    "Mark Paid opens an in-app dialog with editable payment date and payment method. Existing duplicate-payment checks and invoice-linked Accounting income behavior are retained.",
+    "Invoice numbering uses the highest saved invoice/income number and the production reservation key. Numbers are reserved after a successful save; existing numbers are not renumbered.",
+    "Legacy invoices missing a valid number are assigned a unique number after existing invoice and income numbers, with linked income references updated only for conclusive invoiceId or generated income IDs.",
+    "Records includes invoice rows and retains soft-deleted invoices as Deleted records. Invoice-linked income is managed through the invoice workflow.",
+    "The malformed payment-dialog markup was removed from the PDF preview document and placed in the application DOM. All six inline scripts pass JavaScript syntax compilation.",
+    "Production LocalStorage namespace remains tha_v206_; IndexedDB schema remains 1. No test namespace, test cleanup, automatic orphan-income deletion, or backup restore is included. Existing accounting and project records are not intentionally cleared or migrated."
   ],
   "releaseBranch": "release-v224-20261101"
 }
