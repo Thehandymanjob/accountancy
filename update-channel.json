@@ -1,11 +1,11 @@
 {
   "app": "The Handyman Accountancy",
   "channel": "production",
-  "sourceBranch": "release-v224-20261101",
+  "sourceBranch": "production-v247-integration",
   "version": "247",
   "buildId": "THA-247-INVOICE-PAYMENT-DATE-METHOD-PICKERS-20261103",
-  "manifestSha256": "e71e496d2a51589ca531cf697c367a469893bba06bdde5d35838f2a8daa7c591",
-  "updatedAt": "2026-11-03T22:44:00Z",
-  "note": "Production v247: invoice Draft/Issued and Paid/Unpaid workflows, editable payment date/method, invoice history in Records, corrected application script, and production updater channel support.",
-  "sourceCommit": "18afc74002b4c07b983b5dc75fcb6a32a6c493e6"
+  "manifestSha256": "b4fefc58c2faed0eddcbb40f7f663db6c8a2ccad9b7bde633d3b2d8476aa21a2",
+  "updatedAt": "2026-11-03T23:08:20.892Z",
+  "note": "Production v247 integrated with current main updater and service-worker protections; invoice payment date validation corrected.",
+  "sourceCommit": "e30a731eae075cae0ba613d97fb95bc9e32cf1af"
 }
