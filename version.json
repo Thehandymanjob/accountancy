@@ -10,16 +10,16 @@
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "52d0f4b297144340afc82509218f5c093b9dcfe4e64a20403ccdad118f6f0740"
+      "sha256": "d2b9b80db340b87eba593bdc272849bb8e862f0674709820009122cd17e609ea"
     },
     "version-manager.js": {
-      "sha256": "7f0fecc65cf0b1a04dbcdda5b6e9e9e033a839f5173b1af40bb4f09f1c6a770d"
+      "sha256": "5118e3301c56ca493e00d371f305e5444e327089d9ad9934186c33e086de12f4"
     },
     "service-worker.js": {
-      "sha256": "9e7b5c5f3d76b47f2d5022f0ae8113ba92761779aeef1b7f424cceea449e678e"
+      "sha256": "1db4431ca09abc62dfabc7b8fb959f1a993560b3a78557bf7708153c63ba3eca"
     },
     "storage-foundation.js": {
-      "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
+      "sha256": "2dd7ce5af190e1c90c5da0ac6e6622fb40a9233ee070a76bcb44a93cc67635b3"
     }
   },
   "releaseNotes": [
