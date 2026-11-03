@@ -2,10 +2,10 @@
   "app": "The Handyman Accountancy",
   "channel": "production",
   "sourceBranch": "release-v224-20261101",
-  "version": "225",
-  "buildId": "THA-225-INVOICE-PAYMENT-PICKERS-20261103",
-  "manifestSha256": "288086047d724aa76a9bc0e5b39e1367220a6dfd3f06420321da0314838d0b5a",
-  "updatedAt": "2026-11-03T22:55:00Z",
-  "note": "Production v225: Mark Paid now uses an in-app date picker and payment-method selector.",
-  "sourceCommit": "b3bb913d340209e1d70bd1b4ece8a2cba2871020"
+  "version": "247",
+  "buildId": "THA-247-INVOICE-PAYMENT-DATE-METHOD-PICKERS-20261103",
+  "manifestSha256": "99ee4d02f7124e72446b1d54059c048ab6a01678d83494ece6884cb6f54b0884",
+  "updatedAt": "2026-11-03T22:44:00Z",
+  "note": "Production v247: invoice Draft/Issued and Paid/Unpaid workflows, editable payment date/method, invoice history in Records, and corrected application script. Production storage namespace retained.",
+  "sourceCommit": "eb4df6b64d74927323ccb005dfc3932b0da0608b"
 }
