@@ -1,16 +1,16 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "224",
-  "buildId": "THA-224-MANUAL-CACHED-UPDATER-20261101",
-  "releaseDate": "2026-11-01",
-  "releaseStatus": "experimental-branch",
+  "version": "225",
+  "buildId": "THA-225-INVOICE-PAYMENT-PICKERS-20261103",
+  "releaseDate": "2026-11-03",
+  "releaseStatus": "production",
   "databaseSchema": 1,
   "minimumAppVersion": "206",
   "storageNamespace": "tha_v206_",
   "legacyDataImport": "manual-only",
   "files": {
     "index.html": {
-      "sha256": "fda16b561da9cc1585c40782e90fe24488122ef532d04bea54e8239233926384"
+      "sha256": "e7d6da4aad1f5a89706d04fa6bcd0e49150801b4af68c12df51fd632b96de98d"
     },
     "version-manager.js": {
       "sha256": "9f44b6df0c9059834ec15556f0dacb2dff75e3c43146c92cd6138bfba0eee8f0"
@@ -23,11 +23,12 @@
     }
   },
   "releaseNotes": [
+    "v225 replaces the browser text prompts used by Mark paid with an in-app payment dialog: choose the payment date from the native date picker and select Bank Transfer or Cash. Existing payment recording, duplicate-payment checks and Accounting links are retained. Production data namespace and stored records are unchanged.",
     "Manual checks only: publishing a new build does not automatically activate it in the installed app.",
     "The update page displays the published version and release notes before installation.",
     "Files are downloaded and SHA-256 verified into a separate cache. Installation starts only after Update Now is pressed.",
     "After installation, the app returns to Software Update and confirms the installed version.",
     "The updater does not clear or migrate accounting records stored in this browser."
   ],
-  "releaseBranch": "release-v224-20261101"
+  "releaseBranch": "main"
 }
