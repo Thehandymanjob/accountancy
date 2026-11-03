@@ -4,8 +4,8 @@
   "sourceBranch": "release-v224-20261101",
   "version": "225",
   "buildId": "THA-225-INVOICE-PAYMENT-PICKERS-20261103",
-  "manifestSha256": "44630f3601cdeb48bab2bd88a018ca96f12c1b54f31a385b7a8e99a118a5e6f3",
+  "manifestSha256": "288086047d724aa76a9bc0e5b39e1367220a6dfd3f06420321da0314838d0b5a",
   "updatedAt": "2026-11-03T22:55:00Z",
   "note": "Production v225: Mark Paid now uses an in-app date picker and payment-method selector.",
-  "sourceCommit": "009b5df445f8a0bd219c79cec35e623bc219851f"
+  "sourceCommit": "b3bb913d340209e1d70bd1b4ece8a2cba2871020"
 }
