@@ -1,11 +1,11 @@
 {
   "app": "The Handyman Accountancy",
-  "channel": "test",
-  "sourceBranch": "release-v226-cache-retention-test-20261101",
-  "version": "226",
-  "buildId": "THA-226-CACHE-RETENTION-TEST-20261101",
-  "manifestSha256": "ed29c653b352f16ff682a78158b1a27891ba010a751f223b6d1c7c4257ce748d",
-  "updatedAt": "2026-11-01T17:56:00Z",
-  "note": "Experimental v226 cache-retention test. No accounting or business functionality changed.",
-  "sourceCommit": "b9325d0320d19f21f346d2b532507a3f17798926"
+  "channel": "production",
+  "sourceBranch": "release-v224-20261101",
+  "version": "225",
+  "buildId": "THA-225-INVOICE-PAYMENT-PICKERS-20261103",
+  "manifestSha256": "44630f3601cdeb48bab2bd88a018ca96f12c1b54f31a385b7a8e99a118a5e6f3",
+  "updatedAt": "2026-11-03T22:55:00Z",
+  "note": "Production v225: Mark Paid now uses an in-app date picker and payment-method selector.",
+  "sourceCommit": "009b5df445f8a0bd219c79cec35e623bc219851f"
 }
