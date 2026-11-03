@@ -4,8 +4,8 @@
   "sourceBranch": "production-v247-integration",
   "version": "247",
   "buildId": "THA-247-INVOICE-PAYMENT-DATE-METHOD-PICKERS-20261103",
-  "manifestSha256": "b4fefc58c2faed0eddcbb40f7f663db6c8a2ccad9b7bde633d3b2d8476aa21a2",
-  "updatedAt": "2026-11-03T23:08:20.892Z",
+  "manifestSha256": "a0135e4427d8e22286b31a2b7fe8664272f1256a15d24b4e513ead852afd8c94",
+  "updatedAt": "2026-11-03T23:08:45.256Z",
   "note": "Production v247 integrated with current main updater and service-worker protections; invoice payment date validation corrected.",
-  "sourceCommit": "e30a731eae075cae0ba613d97fb95bc9e32cf1af"
+  "sourceCommit": "8a84f30a55dcceaed7f160a4fcad3630d8f624c8"
 }
