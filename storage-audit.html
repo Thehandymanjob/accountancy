@@ -42,7 +42,7 @@ copyButton.addEventListener('click',async()=>{if(!report)return;try{await naviga
 </script></body></html>,difference:'type',mainType:tx,restoreType:ty});return}
   if(tx==='object'){
    const keys=[...new Set([...Object.keys(x),...Object.keys(y)])].sort();
-   for(const k of keys){if(total>=max)break;const hasX=Object.prototype.hasOwnProperty.call(x,k),hasY=Object.prototype.hasOwnProperty.call(y,k);const p=path+'/'+k.replace(/~/g,'~0').replace(/\\//g,'~1');if(!hasX||!hasY){total++;if(out.length<max)out.push({path:p,difference:hasX?'missingInRestore':'missingInMain'});}else walk(x[k],y[k],p)}
+   for(const k of keys){if(total>=max)break;const hasX=Object.prototype.hasOwnProperty.call(x,k),hasY=Object.prototype.hasOwnProperty.call(y,k);const p=path+'/'+k.split('~').join('~0').split('/').join('~1');if(!hasX||!hasY){total++;if(out.length<max)out.push({path:p,difference:hasX?'missingInRestore':'missingInMain'});}else walk(x[k],y[k],p)}
   }else if(tx==='array'){
    if(x.length!==y.length){total++;if(out.length<max)out.push({path:path||'
 function summary(raw){
