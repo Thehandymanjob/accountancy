@@ -20,6 +20,7 @@ button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-h
 <div class="actions">
 <button id="run">Run Read-only Inventory</button>
 <button id="compare">Compare Main vs Restore</button>
+<button id="history">Inspect Recovery &amp; Monitor</button>
 <button id="copy" disabled>Copy Diagnostic Report</button>
 </div>
 <p id="status" aria-live="polite">No scan has been run.</p>
@@ -32,6 +33,7 @@ const status=document.getElementById('status');
 const output=document.getElementById('output');
 const runButton=document.getElementById('run');
 const compareButton=document.getElementById('compare');
+const historyButton=document.getElementById('history');
 const copyButton=document.getElementById('copy');
 let report=null;
 
@@ -127,6 +129,50 @@ async function scan(){
  catch(e){r.warnings.push('IndexedDB enumeration failed: '+String(e.message||e));}
  return r;
 }
+function inspectRecoveryAndMonitor(){
+ const recoveryKey='tha_v206_factory_reset_recovery_v1';
+ const rawRecovery=localStorage.getItem(recoveryKey);
+ let recovery=null;
+ if(rawRecovery!==null){
+  try{
+   const v=JSON.parse(rawRecovery);
+   recovery={present:true,approxBytes:new Blob([rawRecovery]).size,type:Array.isArray(v)?'array':v===null?'null':typeof v};
+   if(v&&typeof v==='object'&&!Array.isArray(v)){
+    recovery.topLevelKeys=Object.keys(v);
+    recovery.fields={};
+    for(const k of ['accounting','projects','contracts']){
+     const exists=Object.prototype.hasOwnProperty.call(v,k),value=v[k];
+     recovery.fields[k]={present:exists,isNull:exists&&value===null,type:exists?(Array.isArray(value)?'array':value===null?'null':typeof value):'missing'};
+     if(typeof value==='string'){
+      recovery.fields[k].storedBytes=new Blob([value]).size;
+      try{recovery.fields[k].contentSummary=summary(value)}catch(e){}
+     }
+    }
+   }
+  }catch(e){recovery={present:true,approxBytes:new Blob([rawRecovery]).size,parseable:false}}
+ }else recovery={present:false};
+ let logs=[];
+ try{const parsed=JSON.parse(localStorage.getItem('handyman_monitor_log_v1')||'[]');if(Array.isArray(parsed))logs=parsed}catch(e){}
+ const relevant=new Set(['local_storage_item_removed','local_storage_updated','accounting_data_persisted','backup_restore_started','app_started','ui_action']);
+ const events=logs.filter(x=>x&&relevant.has(String(x.event||''))).map(x=>{
+  const d=x.details&&typeof x.details==='object'?x.details:{};
+  const item={timestamp:x.timestamp||null,category:x.category||null,event:x.event||null,recordType:x.recordType||null,result:x.result||null,appVersion:x.context?.appVersion||null};
+  if(['tha_v206_accounting_v1','tha_v206_projects_v1','tha_v206_contracts_v1','tha_v206_factory_reset_recovery_v1','local-db'].includes(String(x.recordId||'')))item.target=x.recordId;
+  if(x.event==='ui_action'){
+   const label=String(d.label||'').trim();
+   const handler=String(d.handler||'').trim();
+   if(/restore|reset|backup|import|delete|clear/i.test(label+' '+handler)){item.actionLabel=label.slice(0,60);item.handler=handler.slice(0,60)}
+  }
+  for(const k of ['bytes','recordCount','projectsCount','workersCount','entriesCount','customersCount','invoicesCount','contractsCount','entriesBefore','entriesAfter','customersBefore','customersAfter','invoicesBefore','invoicesAfter','keyRemoved']){
+   if(Object.prototype.hasOwnProperty.call(d,k)&&(typeof d[k]==='number'||typeof d[k]==='boolean'))item[k]=d[k];
+  }
+  return item;
+ });
+ return {diagnostic:'Read-only recovery and monitor inspection',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,
+  recoverySnapshot:{key:recoveryKey,...recovery},
+  monitor:{key:'handyman_monitor_log_v1',totalEvents:logs.length,relevantEventCount:events.length,events},
+  privacyNote:'Only timestamps, event types, generic action labels, structural counts and storage-key status are included. Saved record values, names, IDs, contact details, contract text and images are not exported.'};
+}
 function show(value,message){
  report=value;output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent=message;
 }
@@ -136,11 +182,17 @@ runButton.addEventListener('click',async()=>{
  catch(e){status.textContent='Scan failed: '+String(e.message||e);}
  finally{runButton.disabled=false;compareButton.disabled=false;}
 });
+historyButton.addEventListener('click',()=>{
+ runButton.disabled=true;compareButton.disabled=true;historyButton.disabled=true;copyButton.disabled=true;status.textContent='Inspecting recovery metadata and monitor events…';
+ try{show(inspectRecoveryAndMonitor(),'Inspection complete. No storage was changed.');}
+ catch(e){status.textContent='Inspection failed: '+String(e.message||e);}
+ finally{runButton.disabled=false;compareButton.disabled=false;historyButton.disabled=false;}
+});
 compareButton.addEventListener('click',()=>{
- runButton.disabled=true;compareButton.disabled=true;copyButton.disabled=true;status.textContent='Comparing…';
+ runButton.disabled=true;compareButton.disabled=true;historyButton.disabled=true;copyButton.disabled=true;status.textContent='Comparing…';
  try{show(compare(),'Comparison complete. No storage was changed.');}
  catch(e){status.textContent='Comparison failed: '+String(e.message||e);}
- finally{runButton.disabled=false;compareButton.disabled=false;}
+ finally{runButton.disabled=false;compareButton.disabled=false;historyButton.disabled=false;}
 });
 copyButton.addEventListener('click',async()=>{
  if(!report)return;
