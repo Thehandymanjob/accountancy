@@ -13,6 +13,83 @@ const status=document.getElementById('status'),output=document.getElementById('o
 let report=null;
 function stable(v){if(Array.isArray(v))return '['+v.map(stable).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}';return JSON.stringify(v)}
 function normalized(raw){try{return stable(JSON.parse(raw))}catch(e){return 'RAW:'+raw}}
+function safeDiff(a,b){
+ const out=[];let total=0;const max=80;
+ function kind(v){return v===null?'null':Array.isArray(v)?'array':typeof v}
+ function walk(x,y,path){
+  if(total>=max)return;
+  const tx=kind(x),ty=kind(y);
+  if(tx!==ty){total++;if(out.length<max)out.push({path:path||'
+function summary(raw){
+ let v;try{v=JSON.parse(raw)}catch(e){return {jsonValid:false,type:'string',characters:raw.length}}
+ const o={jsonValid:true,type:Array.isArray(v)?'array':v===null?'null':typeof v};
+ if(Array.isArray(v)){o.count=v.length;o.itemTypes=[...new Set(v.slice(0,100).map(x=>Array.isArray(x)?'array':x===null?'null':typeof x))]}
+ else if(v&&typeof v==='object'){const keys=Object.keys(v);o.topLevelKeys=keys;o.arrayCounts={};o.objectKeys={};for(const k of keys){if(Array.isArray(v[k]))o.arrayCounts[k]=v[k].length;else if(v[k]&&typeof v[k]==='object')o.objectKeys[k]=Object.keys(v[k])}}
+ return o;
+}
+async function scan(){
+ const r={diagnostic:'The Handyman Accountancy read-only storage inventory',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,userAgent:navigator.userAgent,localStorage:{available:false,keyCount:0,totalApproxBytes:0,items:[]},indexedDB:{available:!!window.indexedDB,databaseEnumerationSupported:typeof indexedDB.databases==='function',databases:[]},storageEstimate:null,warnings:[]};
+ try{const ls=localStorage;r.localStorage.available=true;r.localStorage.keyCount=ls.length;for(let i=0;i<ls.length;i++){const k=ls.key(i);if(k===null)continue;const raw=ls.getItem(k);const bytes=raw===null?0:new Blob([k,raw]).size;r.localStorage.totalApproxBytes+=bytes;r.localStorage.items.push({key:k,approxBytes:bytes,valueSummary:summary(raw||'')})}r.localStorage.items.sort((a,b)=>a.key.localeCompare(b.key))}
+ catch(e){r.warnings.push('LocalStorage inventory failed: '+String(e.message||e))}
+ try{if(navigator.storage&&navigator.storage.estimate){const q=await navigator.storage.estimate();r.storageEstimate={usageBytes:q.usage??null,quotaBytes:q.quota??null}}}catch(e){r.warnings.push('Storage estimate unavailable: '+String(e.message||e))}
+ try{if(typeof indexedDB.databases==='function'){const dbs=await indexedDB.databases();r.indexedDB.databases=(dbs||[]).map(d=>({name:d.name||'',version:d.version??null}))}else r.warnings.push('This Safari version does not expose database-name enumeration. No database was opened or created.')}catch(e){r.warnings.push('IndexedDB enumeration failed: '+String(e.message||e))}
+ return r;
+}
+document.getElementById('compare').addEventListener('click',()=>{try{report=compare();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Comparison complete. No storage was changed.'}catch(e){status.textContent='Comparison failed: '+String(e.message||e)}});
+runButton.addEventListener('click',async()=>{runButton.disabled=true;copyButton.disabled=true;status.textContent='Scanning…';try{report=await scan();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Scan complete. No storage was changed.'}catch(e){status.textContent='Scan failed: '+String(e.message||e)}finally{runButton.disabled=false}});
+copyButton.addEventListener('click',async()=>{if(!report)return;try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));status.textContent='Report copied. Paste it into the ChatGPT conversation.'}catch(e){status.textContent='Clipboard blocked. Select and copy the report displayed below.'}});
+})();
+</script></body></html>,difference:'type',mainType:tx,restoreType:ty});return}
+  if(tx==='object'){
+   const keys=[...new Set([...Object.keys(x),...Object.keys(y)])].sort();
+   for(const k of keys){if(total>=max)break;const hasX=Object.prototype.hasOwnProperty.call(x,k),hasY=Object.prototype.hasOwnProperty.call(y,k);const p=path+'/'+k.replace(/~/g,'~0').replace(/\\//g,'~1');if(!hasX||!hasY){total++;if(out.length<max)out.push({path:p,difference:hasX?'missingInRestore':'missingInMain'});}else walk(x[k],y[k],p)}
+  }else if(tx==='array'){
+   if(x.length!==y.length){total++;if(out.length<max)out.push({path:path||'
+function summary(raw){
+ let v;try{v=JSON.parse(raw)}catch(e){return {jsonValid:false,type:'string',characters:raw.length}}
+ const o={jsonValid:true,type:Array.isArray(v)?'array':v===null?'null':typeof v};
+ if(Array.isArray(v)){o.count=v.length;o.itemTypes=[...new Set(v.slice(0,100).map(x=>Array.isArray(x)?'array':x===null?'null':typeof x))]}
+ else if(v&&typeof v==='object'){const keys=Object.keys(v);o.topLevelKeys=keys;o.arrayCounts={};o.objectKeys={};for(const k of keys){if(Array.isArray(v[k]))o.arrayCounts[k]=v[k].length;else if(v[k]&&typeof v[k]==='object')o.objectKeys[k]=Object.keys(v[k])}}
+ return o;
+}
+async function scan(){
+ const r={diagnostic:'The Handyman Accountancy read-only storage inventory',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,userAgent:navigator.userAgent,localStorage:{available:false,keyCount:0,totalApproxBytes:0,items:[]},indexedDB:{available:!!window.indexedDB,databaseEnumerationSupported:typeof indexedDB.databases==='function',databases:[]},storageEstimate:null,warnings:[]};
+ try{const ls=localStorage;r.localStorage.available=true;r.localStorage.keyCount=ls.length;for(let i=0;i<ls.length;i++){const k=ls.key(i);if(k===null)continue;const raw=ls.getItem(k);const bytes=raw===null?0:new Blob([k,raw]).size;r.localStorage.totalApproxBytes+=bytes;r.localStorage.items.push({key:k,approxBytes:bytes,valueSummary:summary(raw||'')})}r.localStorage.items.sort((a,b)=>a.key.localeCompare(b.key))}
+ catch(e){r.warnings.push('LocalStorage inventory failed: '+String(e.message||e))}
+ try{if(navigator.storage&&navigator.storage.estimate){const q=await navigator.storage.estimate();r.storageEstimate={usageBytes:q.usage??null,quotaBytes:q.quota??null}}}catch(e){r.warnings.push('Storage estimate unavailable: '+String(e.message||e))}
+ try{if(typeof indexedDB.databases==='function'){const dbs=await indexedDB.databases();r.indexedDB.databases=(dbs||[]).map(d=>({name:d.name||'',version:d.version??null}))}else r.warnings.push('This Safari version does not expose database-name enumeration. No database was opened or created.')}catch(e){r.warnings.push('IndexedDB enumeration failed: '+String(e.message||e))}
+ return r;
+}
+document.getElementById('compare').addEventListener('click',()=>{try{report=compare();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Comparison complete. No storage was changed.'}catch(e){status.textContent='Comparison failed: '+String(e.message||e)}});
+runButton.addEventListener('click',async()=>{runButton.disabled=true;copyButton.disabled=true;status.textContent='Scanning…';try{report=await scan();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Scan complete. No storage was changed.'}catch(e){status.textContent='Scan failed: '+String(e.message||e)}finally{runButton.disabled=false}});
+copyButton.addEventListener('click',async()=>{if(!report)return;try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));status.textContent='Report copied. Paste it into the ChatGPT conversation.'}catch(e){status.textContent='Clipboard blocked. Select and copy the report displayed below.'}});
+})();
+</script></body></html>,difference:'arrayLength',mainLength:x.length,restoreLength:y.length})}
+   const n=Math.min(x.length,y.length);for(let i=0;i<n&&total<max;i++)walk(x[i],y[i],path+'/'+i);
+  }else if(x!==y){total++;if(out.length<max)out.push({path:path||'
+function summary(raw){
+ let v;try{v=JSON.parse(raw)}catch(e){return {jsonValid:false,type:'string',characters:raw.length}}
+ const o={jsonValid:true,type:Array.isArray(v)?'array':v===null?'null':typeof v};
+ if(Array.isArray(v)){o.count=v.length;o.itemTypes=[...new Set(v.slice(0,100).map(x=>Array.isArray(x)?'array':x===null?'null':typeof x))]}
+ else if(v&&typeof v==='object'){const keys=Object.keys(v);o.topLevelKeys=keys;o.arrayCounts={};o.objectKeys={};for(const k of keys){if(Array.isArray(v[k]))o.arrayCounts[k]=v[k].length;else if(v[k]&&typeof v[k]==='object')o.objectKeys[k]=Object.keys(v[k])}}
+ return o;
+}
+async function scan(){
+ const r={diagnostic:'The Handyman Accountancy read-only storage inventory',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,userAgent:navigator.userAgent,localStorage:{available:false,keyCount:0,totalApproxBytes:0,items:[]},indexedDB:{available:!!window.indexedDB,databaseEnumerationSupported:typeof indexedDB.databases==='function',databases:[]},storageEstimate:null,warnings:[]};
+ try{const ls=localStorage;r.localStorage.available=true;r.localStorage.keyCount=ls.length;for(let i=0;i<ls.length;i++){const k=ls.key(i);if(k===null)continue;const raw=ls.getItem(k);const bytes=raw===null?0:new Blob([k,raw]).size;r.localStorage.totalApproxBytes+=bytes;r.localStorage.items.push({key:k,approxBytes:bytes,valueSummary:summary(raw||'')})}r.localStorage.items.sort((a,b)=>a.key.localeCompare(b.key))}
+ catch(e){r.warnings.push('LocalStorage inventory failed: '+String(e.message||e))}
+ try{if(navigator.storage&&navigator.storage.estimate){const q=await navigator.storage.estimate();r.storageEstimate={usageBytes:q.usage??null,quotaBytes:q.quota??null}}}catch(e){r.warnings.push('Storage estimate unavailable: '+String(e.message||e))}
+ try{if(typeof indexedDB.databases==='function'){const dbs=await indexedDB.databases();r.indexedDB.databases=(dbs||[]).map(d=>({name:d.name||'',version:d.version??null}))}else r.warnings.push('This Safari version does not expose database-name enumeration. No database was opened or created.')}catch(e){r.warnings.push('IndexedDB enumeration failed: '+String(e.message||e))}
+ return r;
+}
+document.getElementById('compare').addEventListener('click',()=>{try{report=compare();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Comparison complete. No storage was changed.'}catch(e){status.textContent='Comparison failed: '+String(e.message||e)}});
+runButton.addEventListener('click',async()=>{runButton.disabled=true;copyButton.disabled=true;status.textContent='Scanning…';try{report=await scan();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Scan complete. No storage was changed.'}catch(e){status.textContent='Scan failed: '+String(e.message||e)}finally{runButton.disabled=false}});
+copyButton.addEventListener('click',async()=>{if(!report)return;try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));status.textContent='Report copied. Paste it into the ChatGPT conversation.'}catch(e){status.textContent='Clipboard blocked. Select and copy the report displayed below.'}});
+})();
+</script></body></html>,difference:'value',mainType:tx,restoreType:ty,...(tx==='string'?{mainLength:x.length,restoreLength:y.length}:{})})}
+ }
+ walk(a,b,'');return {differenceCountAtLeast:total,detailsTruncated:total>max,differences:out};
+}
 function compare(){
  const pairs=[
   ['accounting','tha_v206_accounting_v1','tha_restore_test_v1_accounting_v1'],
@@ -21,8 +98,13 @@ function compare(){
   ['invoiceSequence','tha_v206_invoice_sequence_v1','tha_restore_test_v1_invoice_sequence_v1'],
   ['reportNotifications','tha_v206_report_notifications_v1','tha_restore_test_v1_report_notifications_v1']
  ];
- const results=pairs.map(([name,a,b])=>{const av=localStorage.getItem(a),bv=localStorage.getItem(b);return {dataset:name,mainKey:a,restoreKey:b,mainPresent:av!==null,restorePresent:bv!==null,mainBytes:av===null?null:new Blob([av]).size,restoreBytes:bv===null?null:new Blob([bv]).size,exactContentMatch:av!==null&&bv!==null&&normalized(av)===normalized(bv),mainSummary:av===null?null:summary(av),restoreSummary:bv===null?null:summary(bv)}});
- return {diagnostic:'Read-only comparison: active main data vs restore_test snapshot',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,comparisonMethod:'In-memory canonical JSON comparison (object key order ignored); raw strings compared exactly. No record values or hashes are included.',results,allPresent:results.every(x=>x.mainPresent&&x.restorePresent),allExactMatches:results.every(x=>x.exactContentMatch)};
+ const results=pairs.map(([name,a,b])=>{
+  const av=localStorage.getItem(a),bv=localStorage.getItem(b);
+  const base={dataset:name,mainKey:a,restoreKey:b,mainPresent:av!==null,restorePresent:bv!==null,mainBytes:av===null?null:new Blob([av]).size,restoreBytes:bv===null?null:new Blob([bv]).size,exactContentMatch:av!==null&&bv!==null&&normalized(av)===normalized(bv),mainSummary:av===null?null:summary(av),restoreSummary:bv===null?null:summary(bv)};
+  if(av!==null&&bv!==null){try{base.safeDifference= safeDiff(JSON.parse(av),JSON.parse(bv))}catch(e){base.safeDifference={error:'Could not parse one or both records'}}}
+  return base;
+ });
+ return {diagnostic:'Read-only comparison with sanitized structural differences',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,comparisonMethod:'Canonical JSON comparison; differences report paths, types and string lengths only. No saved values, names, emails, phone numbers, IDs or image data are output.',results,allPresent:results.every(x=>x.mainPresent&&x.restorePresent),allExactMatches:results.every(x=>x.exactContentMatch)};
 }
 function summary(raw){
  let v;try{v=JSON.parse(raw)}catch(e){return {jsonValid:false,type:'string',characters:raw.length}}
