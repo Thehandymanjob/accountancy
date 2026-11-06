@@ -5,12 +5,25 @@
 </style></head><body><main><h1>Read-only Storage Inventory</h1>
 <p class="note"><strong>Safety:</strong> This page only reads storage belonging to this website. It does not write, delete, migrate, restore, or export saved record values. The report contains key names, approximate sizes and structural summaries, not personal record contents.</p>
 <p>Open this page from the same website as your main app. Then run the scan and copy the report back to the ChatGPT conversation.</p>
-<div class="actions"><button id="run">Run Read-only Inventory</button><button id="copy" disabled>Copy Diagnostic Report</button></div><p id="status" aria-live="polite">No scan has been run.</p><pre id="output" hidden></pre></main>
+<div class="actions"><button id="run">Run Read-only Inventory</button><button id="compare">Compare Main vs Restore</button><button id="copy" disabled>Copy Diagnostic Report</button></div><p id="status" aria-live="polite">No scan has been run.</p><pre id="output" hidden></pre></main>
 <script>
 (function(){
 'use strict';
 const status=document.getElementById('status'),output=document.getElementById('output'),runButton=document.getElementById('run'),copyButton=document.getElementById('copy');
 let report=null;
+function stable(v){if(Array.isArray(v))return '['+v.map(stable).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}';return JSON.stringify(v)}
+function normalized(raw){try{return stable(JSON.parse(raw))}catch(e){return 'RAW:'+raw}}
+function compare(){
+ const pairs=[
+  ['accounting','tha_v206_accounting_v1','tha_restore_test_v1_accounting_v1'],
+  ['projects','tha_v206_projects_v1','tha_restore_test_v1_projects_v1'],
+  ['contracts','tha_v206_contracts_v1','tha_restore_test_v1_contracts_v1'],
+  ['invoiceSequence','tha_v206_invoice_sequence_v1','tha_restore_test_v1_invoice_sequence_v1'],
+  ['reportNotifications','tha_v206_report_notifications_v1','tha_restore_test_v1_report_notifications_v1']
+ ];
+ const results=pairs.map(([name,a,b])=>{const av=localStorage.getItem(a),bv=localStorage.getItem(b);return {dataset:name,mainKey:a,restoreKey:b,mainPresent:av!==null,restorePresent:bv!==null,mainBytes:av===null?null:new Blob([av]).size,restoreBytes:bv===null?null:new Blob([bv]).size,exactContentMatch:av!==null&&bv!==null&&normalized(av)===normalized(bv),mainSummary:av===null?null:summary(av),restoreSummary:bv===null?null:summary(bv)}});
+ return {diagnostic:'Read-only comparison: active main data vs restore_test snapshot',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,comparisonMethod:'In-memory canonical JSON comparison (object key order ignored); raw strings compared exactly. No record values or hashes are included.',results,allPresent:results.every(x=>x.mainPresent&&x.restorePresent),allExactMatches:results.every(x=>x.exactContentMatch)};
+}
 function summary(raw){
  let v;try{v=JSON.parse(raw)}catch(e){return {jsonValid:false,type:'string',characters:raw.length}}
  const o={jsonValid:true,type:Array.isArray(v)?'array':v===null?'null':typeof v};
@@ -26,6 +39,7 @@ async function scan(){
  try{if(typeof indexedDB.databases==='function'){const dbs=await indexedDB.databases();r.indexedDB.databases=(dbs||[]).map(d=>({name:d.name||'',version:d.version??null}))}else r.warnings.push('This Safari version does not expose database-name enumeration. No database was opened or created.')}catch(e){r.warnings.push('IndexedDB enumeration failed: '+String(e.message||e))}
  return r;
 }
+document.getElementById('compare').addEventListener('click',()=>{try{report=compare();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Comparison complete. No storage was changed.'}catch(e){status.textContent='Comparison failed: '+String(e.message||e)}});
 runButton.addEventListener('click',async()=>{runButton.disabled=true;copyButton.disabled=true;status.textContent='Scanning…';try{report=await scan();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Scan complete. No storage was changed.'}catch(e){status.textContent='Scan failed: '+String(e.message||e)}finally{runButton.disabled=false}});
 copyButton.addEventListener('click',async()=>{if(!report)return;try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));status.textContent='Report copied. Paste it into the ChatGPT conversation.'}catch(e){status.textContent='Clipboard blocked. Select and copy the report displayed below.'}});
 })();
