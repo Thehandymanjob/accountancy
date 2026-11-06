@@ -1,94 +1,88 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#142b4a"><title>Read-only Storage Inventory</title>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#142b4a"><title>Read-only Storage Audit</title>
 <style>
-*{box-sizing:border-box}body{margin:0;padding:18px;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}main{max-width:760px;margin:0 auto;background:#fff;border:1px solid #dce2ea;border-radius:14px;padding:18px}h1{font-size:22px;color:#142b4a}p{line-height:1.5}.note{background:#fff8df;border:1px solid #f0d780;padding:12px;border-radius:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}button{font:inherit;padding:12px 15px;border:0;border-radius:9px;background:#142b4a;color:#fff;font-weight:700;min-height:46px}button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow:auto;background:#f2f5f9;padding:12px;border-radius:9px;font-size:11px}#status{font-size:14px;color:#42536b}
-</style></head><body><main><h1>Read-only Storage Inventory</h1>
-<p class="note"><strong>Safety:</strong> This page only reads storage belonging to this website. It does not write, delete, migrate, restore, or export saved record values. The report contains key names, approximate sizes and structural summaries, not personal record contents.</p>
-<p>Open this page from the same website as your main app. Then run the scan and copy the report back to the ChatGPT conversation.</p>
-<div class="actions"><button id="run">Run Read-only Inventory</button><button id="compare">Compare Main vs Restore</button><button id="copy" disabled>Copy Diagnostic Report</button></div><p id="status" aria-live="polite">No scan has been run.</p><pre id="output" hidden></pre></main>
+*{box-sizing:border-box}body{margin:0;padding:18px;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+main{max-width:760px;margin:0 auto;background:#fff;border:1px solid #dce2ea;border-radius:14px;padding:18px}
+h1{font-size:22px;color:#142b4a}p{line-height:1.5}.note{background:#fff8df;border:1px solid #f0d780;padding:12px;border-radius:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}button{font:inherit;padding:12px 15px;border:0;border-radius:9px;background:#142b4a;color:#fff;font-weight:700;min-height:46px}
+button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow:auto;background:#f2f5f9;padding:12px;border-radius:9px;font-size:11px}
+#status{font-size:14px;color:#42536b}
+</style>
+</head>
+<body>
+<main>
+<h1>Read-only Storage Audit</h1>
+<p class="note"><strong>Safety:</strong> This page only reads storage belonging to this website. It does not write, delete, migrate, restore, or export saved record values. Reports contain key names, structural summaries and sanitized difference paths only.</p>
+<p>Run an inventory to list storage, or compare the active main records with the restore_test snapshot.</p>
+<div class="actions">
+<button id="run">Run Read-only Inventory</button>
+<button id="compare">Compare Main vs Restore</button>
+<button id="copy" disabled>Copy Diagnostic Report</button>
+</div>
+<p id="status" aria-live="polite">No scan has been run.</p>
+<pre id="output" hidden></pre>
+</main>
 <script>
 (function(){
 'use strict';
-const status=document.getElementById('status'),output=document.getElementById('output'),runButton=document.getElementById('run'),copyButton=document.getElementById('copy');
+const status=document.getElementById('status');
+const output=document.getElementById('output');
+const runButton=document.getElementById('run');
+const compareButton=document.getElementById('compare');
+const copyButton=document.getElementById('copy');
 let report=null;
-function stable(v){if(Array.isArray(v))return '['+v.map(stable).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}';return JSON.stringify(v)}
-function normalized(raw){try{return stable(JSON.parse(raw))}catch(e){return 'RAW:'+raw}}
+
+function summary(raw){
+ let v;
+ try{v=JSON.parse(raw)}catch(e){return {jsonValid:false,type:'string',characters:raw.length}}
+ const o={jsonValid:true,type:Array.isArray(v)?'array':v===null?'null':typeof v};
+ if(Array.isArray(v)){
+  o.count=v.length;
+  o.itemTypes=[...new Set(v.slice(0,100).map(x=>Array.isArray(x)?'array':x===null?'null':typeof x))];
+ }else if(v&&typeof v==='object'){
+  const keys=Object.keys(v);o.topLevelKeys=keys;o.arrayCounts={};o.objectKeys={};
+  for(const k of keys){if(Array.isArray(v[k]))o.arrayCounts[k]=v[k].length;else if(v[k]&&typeof v[k]==='object')o.objectKeys[k]=Object.keys(v[k]);}
+ }
+ return o;
+}
+function stable(v){
+ if(Array.isArray(v))return '['+v.map(stable).join(',')+']';
+ if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}';
+ return JSON.stringify(v);
+}
 function safeDiff(a,b){
  const out=[];let total=0;const max=80;
- function kind(v){return v===null?'null':Array.isArray(v)?'array':typeof v}
+ function kind(v){return v===null?'null':Array.isArray(v)?'array':typeof v;}
+ function add(item){total++;if(out.length<max)out.push(item);}
  function walk(x,y,path){
   if(total>=max)return;
   const tx=kind(x),ty=kind(y);
-  if(tx!==ty){total++;if(out.length<max)out.push({path:path||'
-function summary(raw){
- let v;try{v=JSON.parse(raw)}catch(e){return {jsonValid:false,type:'string',characters:raw.length}}
- const o={jsonValid:true,type:Array.isArray(v)?'array':v===null?'null':typeof v};
- if(Array.isArray(v)){o.count=v.length;o.itemTypes=[...new Set(v.slice(0,100).map(x=>Array.isArray(x)?'array':x===null?'null':typeof x))]}
- else if(v&&typeof v==='object'){const keys=Object.keys(v);o.topLevelKeys=keys;o.arrayCounts={};o.objectKeys={};for(const k of keys){if(Array.isArray(v[k]))o.arrayCounts[k]=v[k].length;else if(v[k]&&typeof v[k]==='object')o.objectKeys[k]=Object.keys(v[k])}}
- return o;
-}
-async function scan(){
- const r={diagnostic:'The Handyman Accountancy read-only storage inventory',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,userAgent:navigator.userAgent,localStorage:{available:false,keyCount:0,totalApproxBytes:0,items:[]},indexedDB:{available:!!window.indexedDB,databaseEnumerationSupported:typeof indexedDB.databases==='function',databases:[]},storageEstimate:null,warnings:[]};
- try{const ls=localStorage;r.localStorage.available=true;r.localStorage.keyCount=ls.length;for(let i=0;i<ls.length;i++){const k=ls.key(i);if(k===null)continue;const raw=ls.getItem(k);const bytes=raw===null?0:new Blob([k,raw]).size;r.localStorage.totalApproxBytes+=bytes;r.localStorage.items.push({key:k,approxBytes:bytes,valueSummary:summary(raw||'')})}r.localStorage.items.sort((a,b)=>a.key.localeCompare(b.key))}
- catch(e){r.warnings.push('LocalStorage inventory failed: '+String(e.message||e))}
- try{if(navigator.storage&&navigator.storage.estimate){const q=await navigator.storage.estimate();r.storageEstimate={usageBytes:q.usage??null,quotaBytes:q.quota??null}}}catch(e){r.warnings.push('Storage estimate unavailable: '+String(e.message||e))}
- try{if(typeof indexedDB.databases==='function'){const dbs=await indexedDB.databases();r.indexedDB.databases=(dbs||[]).map(d=>({name:d.name||'',version:d.version??null}))}else r.warnings.push('This Safari version does not expose database-name enumeration. No database was opened or created.')}catch(e){r.warnings.push('IndexedDB enumeration failed: '+String(e.message||e))}
- return r;
-}
-document.getElementById('compare').addEventListener('click',()=>{try{report=compare();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Comparison complete. No storage was changed.'}catch(e){status.textContent='Comparison failed: '+String(e.message||e)}});
-runButton.addEventListener('click',async()=>{runButton.disabled=true;copyButton.disabled=true;status.textContent='Scanning…';try{report=await scan();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Scan complete. No storage was changed.'}catch(e){status.textContent='Scan failed: '+String(e.message||e)}finally{runButton.disabled=false}});
-copyButton.addEventListener('click',async()=>{if(!report)return;try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));status.textContent='Report copied. Paste it into the ChatGPT conversation.'}catch(e){status.textContent='Clipboard blocked. Select and copy the report displayed below.'}});
-})();
-</script></body></html>,difference:'type',mainType:tx,restoreType:ty});return}
+  if(tx!==ty){add({path:path||'$',difference:'type',mainType:tx,restoreType:ty});return;}
   if(tx==='object'){
    const keys=[...new Set([...Object.keys(x),...Object.keys(y)])].sort();
-   for(const k of keys){if(total>=max)break;const hasX=Object.prototype.hasOwnProperty.call(x,k),hasY=Object.prototype.hasOwnProperty.call(y,k);const p=path+'/'+k.split('~').join('~0').split('/').join('~1');if(!hasX||!hasY){total++;if(out.length<max)out.push({path:p,difference:hasX?'missingInRestore':'missingInMain'});}else walk(x[k],y[k],p)}
+   for(const k of keys){
+    if(total>=max)break;
+    const hx=Object.prototype.hasOwnProperty.call(x,k),hy=Object.prototype.hasOwnProperty.call(y,k);
+    const escaped=k.split('~').join('~0').split('/').join('~1');
+    const p=path+'/'+escaped;
+    if(!hx||!hy)add({path:p,difference:hx?'missingInRestore':'missingInMain'});
+    else walk(x[k],y[k],p);
+   }
   }else if(tx==='array'){
-   if(x.length!==y.length){total++;if(out.length<max)out.push({path:path||'
-function summary(raw){
- let v;try{v=JSON.parse(raw)}catch(e){return {jsonValid:false,type:'string',characters:raw.length}}
- const o={jsonValid:true,type:Array.isArray(v)?'array':v===null?'null':typeof v};
- if(Array.isArray(v)){o.count=v.length;o.itemTypes=[...new Set(v.slice(0,100).map(x=>Array.isArray(x)?'array':x===null?'null':typeof x))]}
- else if(v&&typeof v==='object'){const keys=Object.keys(v);o.topLevelKeys=keys;o.arrayCounts={};o.objectKeys={};for(const k of keys){if(Array.isArray(v[k]))o.arrayCounts[k]=v[k].length;else if(v[k]&&typeof v[k]==='object')o.objectKeys[k]=Object.keys(v[k])}}
- return o;
-}
-async function scan(){
- const r={diagnostic:'The Handyman Accountancy read-only storage inventory',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,userAgent:navigator.userAgent,localStorage:{available:false,keyCount:0,totalApproxBytes:0,items:[]},indexedDB:{available:!!window.indexedDB,databaseEnumerationSupported:typeof indexedDB.databases==='function',databases:[]},storageEstimate:null,warnings:[]};
- try{const ls=localStorage;r.localStorage.available=true;r.localStorage.keyCount=ls.length;for(let i=0;i<ls.length;i++){const k=ls.key(i);if(k===null)continue;const raw=ls.getItem(k);const bytes=raw===null?0:new Blob([k,raw]).size;r.localStorage.totalApproxBytes+=bytes;r.localStorage.items.push({key:k,approxBytes:bytes,valueSummary:summary(raw||'')})}r.localStorage.items.sort((a,b)=>a.key.localeCompare(b.key))}
- catch(e){r.warnings.push('LocalStorage inventory failed: '+String(e.message||e))}
- try{if(navigator.storage&&navigator.storage.estimate){const q=await navigator.storage.estimate();r.storageEstimate={usageBytes:q.usage??null,quotaBytes:q.quota??null}}}catch(e){r.warnings.push('Storage estimate unavailable: '+String(e.message||e))}
- try{if(typeof indexedDB.databases==='function'){const dbs=await indexedDB.databases();r.indexedDB.databases=(dbs||[]).map(d=>({name:d.name||'',version:d.version??null}))}else r.warnings.push('This Safari version does not expose database-name enumeration. No database was opened or created.')}catch(e){r.warnings.push('IndexedDB enumeration failed: '+String(e.message||e))}
- return r;
-}
-document.getElementById('compare').addEventListener('click',()=>{try{report=compare();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Comparison complete. No storage was changed.'}catch(e){status.textContent='Comparison failed: '+String(e.message||e)}});
-runButton.addEventListener('click',async()=>{runButton.disabled=true;copyButton.disabled=true;status.textContent='Scanning…';try{report=await scan();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Scan complete. No storage was changed.'}catch(e){status.textContent='Scan failed: '+String(e.message||e)}finally{runButton.disabled=false}});
-copyButton.addEventListener('click',async()=>{if(!report)return;try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));status.textContent='Report copied. Paste it into the ChatGPT conversation.'}catch(e){status.textContent='Clipboard blocked. Select and copy the report displayed below.'}});
-})();
-</script></body></html>,difference:'arrayLength',mainLength:x.length,restoreLength:y.length})}
-   const n=Math.min(x.length,y.length);for(let i=0;i<n&&total<max;i++)walk(x[i],y[i],path+'/'+i);
-  }else if(x!==y){total++;if(out.length<max)out.push({path:path||'
-function summary(raw){
- let v;try{v=JSON.parse(raw)}catch(e){return {jsonValid:false,type:'string',characters:raw.length}}
- const o={jsonValid:true,type:Array.isArray(v)?'array':v===null?'null':typeof v};
- if(Array.isArray(v)){o.count=v.length;o.itemTypes=[...new Set(v.slice(0,100).map(x=>Array.isArray(x)?'array':x===null?'null':typeof x))]}
- else if(v&&typeof v==='object'){const keys=Object.keys(v);o.topLevelKeys=keys;o.arrayCounts={};o.objectKeys={};for(const k of keys){if(Array.isArray(v[k]))o.arrayCounts[k]=v[k].length;else if(v[k]&&typeof v[k]==='object')o.objectKeys[k]=Object.keys(v[k])}}
- return o;
-}
-async function scan(){
- const r={diagnostic:'The Handyman Accountancy read-only storage inventory',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,userAgent:navigator.userAgent,localStorage:{available:false,keyCount:0,totalApproxBytes:0,items:[]},indexedDB:{available:!!window.indexedDB,databaseEnumerationSupported:typeof indexedDB.databases==='function',databases:[]},storageEstimate:null,warnings:[]};
- try{const ls=localStorage;r.localStorage.available=true;r.localStorage.keyCount=ls.length;for(let i=0;i<ls.length;i++){const k=ls.key(i);if(k===null)continue;const raw=ls.getItem(k);const bytes=raw===null?0:new Blob([k,raw]).size;r.localStorage.totalApproxBytes+=bytes;r.localStorage.items.push({key:k,approxBytes:bytes,valueSummary:summary(raw||'')})}r.localStorage.items.sort((a,b)=>a.key.localeCompare(b.key))}
- catch(e){r.warnings.push('LocalStorage inventory failed: '+String(e.message||e))}
- try{if(navigator.storage&&navigator.storage.estimate){const q=await navigator.storage.estimate();r.storageEstimate={usageBytes:q.usage??null,quotaBytes:q.quota??null}}}catch(e){r.warnings.push('Storage estimate unavailable: '+String(e.message||e))}
- try{if(typeof indexedDB.databases==='function'){const dbs=await indexedDB.databases();r.indexedDB.databases=(dbs||[]).map(d=>({name:d.name||'',version:d.version??null}))}else r.warnings.push('This Safari version does not expose database-name enumeration. No database was opened or created.')}catch(e){r.warnings.push('IndexedDB enumeration failed: '+String(e.message||e))}
- return r;
-}
-document.getElementById('compare').addEventListener('click',()=>{try{report=compare();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Comparison complete. No storage was changed.'}catch(e){status.textContent='Comparison failed: '+String(e.message||e)}});
-runButton.addEventListener('click',async()=>{runButton.disabled=true;copyButton.disabled=true;status.textContent='Scanning…';try{report=await scan();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Scan complete. No storage was changed.'}catch(e){status.textContent='Scan failed: '+String(e.message||e)}finally{runButton.disabled=false}});
-copyButton.addEventListener('click',async()=>{if(!report)return;try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));status.textContent='Report copied. Paste it into the ChatGPT conversation.'}catch(e){status.textContent='Clipboard blocked. Select and copy the report displayed below.'}});
-})();
-</script></body></html>,difference:'value',mainType:tx,restoreType:ty,...(tx==='string'?{mainLength:x.length,restoreLength:y.length}:{})})}
+   if(x.length!==y.length)add({path:path||'$',difference:'arrayLength',mainLength:x.length,restoreLength:y.length});
+   const n=Math.min(x.length,y.length);
+   for(let i=0;i<n&&total<max;i++)walk(x[i],y[i],path+'/'+i);
+  }else if(x!==y){
+   const item={path:path||'$',difference:'value',mainType:tx,restoreType:ty};
+   if(tx==='string'){item.mainLength=x.length;item.restoreLength=y.length;}
+   add(item);
+  }
  }
- walk(a,b,'');return {differenceCountAtLeast:total,detailsTruncated:total>max,differences:out};
+ walk(a,b,'');
+ return {differenceCountAtLeast:total,detailsTruncated:total>max,differences:out};
 }
 function compare(){
  const pairs=[
@@ -100,29 +94,60 @@ function compare(){
  ];
  const results=pairs.map(([name,a,b])=>{
   const av=localStorage.getItem(a),bv=localStorage.getItem(b);
-  const base={dataset:name,mainKey:a,restoreKey:b,mainPresent:av!==null,restorePresent:bv!==null,mainBytes:av===null?null:new Blob([av]).size,restoreBytes:bv===null?null:new Blob([bv]).size,exactContentMatch:av!==null&&bv!==null&&normalized(av)===normalized(bv),mainSummary:av===null?null:summary(av),restoreSummary:bv===null?null:summary(bv)};
-  if(av!==null&&bv!==null){try{base.safeDifference= safeDiff(JSON.parse(av),JSON.parse(bv))}catch(e){base.safeDifference={error:'Could not parse one or both records'}}}
-  return base;
+  const item={dataset:name,mainKey:a,restoreKey:b,mainPresent:av!==null,restorePresent:bv!==null,
+   mainBytes:av===null?null:new Blob([av]).size,restoreBytes:bv===null?null:new Blob([bv]).size,
+   exactContentMatch:false,mainSummary:av===null?null:summary(av),restoreSummary:bv===null?null:summary(bv)};
+  if(av!==null&&bv!==null){
+   try{const x=JSON.parse(av),y=JSON.parse(bv);item.exactContentMatch=stable(x)===stable(y);item.safeDifference=safeDiff(x,y);}
+   catch(e){item.safeDifference={error:'Could not parse one or both records'};}
+  }
+  return item;
  });
- return {diagnostic:'Read-only comparison with sanitized structural differences',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,comparisonMethod:'Canonical JSON comparison; differences report paths, types and string lengths only. No saved values, names, emails, phone numbers, IDs or image data are output.',results,allPresent:results.every(x=>x.mainPresent&&x.restorePresent),allExactMatches:results.every(x=>x.exactContentMatch)};
-}
-function summary(raw){
- let v;try{v=JSON.parse(raw)}catch(e){return {jsonValid:false,type:'string',characters:raw.length}}
- const o={jsonValid:true,type:Array.isArray(v)?'array':v===null?'null':typeof v};
- if(Array.isArray(v)){o.count=v.length;o.itemTypes=[...new Set(v.slice(0,100).map(x=>Array.isArray(x)?'array':x===null?'null':typeof x))]}
- else if(v&&typeof v==='object'){const keys=Object.keys(v);o.topLevelKeys=keys;o.arrayCounts={};o.objectKeys={};for(const k of keys){if(Array.isArray(v[k]))o.arrayCounts[k]=v[k].length;else if(v[k]&&typeof v[k]==='object')o.objectKeys[k]=Object.keys(v[k])}}
- return o;
+ return {diagnostic:'Read-only comparison with sanitized structural differences',generatedAt:new Date().toISOString(),
+  readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,
+  comparisonMethod:'Canonical JSON comparison; difference paths, types and string lengths only. No saved values, personal details, record IDs or image data are output.',
+  results,allPresent:results.every(x=>x.mainPresent&&x.restorePresent),allExactMatches:results.every(x=>x.exactContentMatch)};
 }
 async function scan(){
- const r={diagnostic:'The Handyman Accountancy read-only storage inventory',generatedAt:new Date().toISOString(),readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,userAgent:navigator.userAgent,localStorage:{available:false,keyCount:0,totalApproxBytes:0,items:[]},indexedDB:{available:!!window.indexedDB,databaseEnumerationSupported:typeof indexedDB.databases==='function',databases:[]},storageEstimate:null,warnings:[]};
- try{const ls=localStorage;r.localStorage.available=true;r.localStorage.keyCount=ls.length;for(let i=0;i<ls.length;i++){const k=ls.key(i);if(k===null)continue;const raw=ls.getItem(k);const bytes=raw===null?0:new Blob([k,raw]).size;r.localStorage.totalApproxBytes+=bytes;r.localStorage.items.push({key:k,approxBytes:bytes,valueSummary:summary(raw||'')})}r.localStorage.items.sort((a,b)=>a.key.localeCompare(b.key))}
- catch(e){r.warnings.push('LocalStorage inventory failed: '+String(e.message||e))}
- try{if(navigator.storage&&navigator.storage.estimate){const q=await navigator.storage.estimate();r.storageEstimate={usageBytes:q.usage??null,quotaBytes:q.quota??null}}}catch(e){r.warnings.push('Storage estimate unavailable: '+String(e.message||e))}
- try{if(typeof indexedDB.databases==='function'){const dbs=await indexedDB.databases();r.indexedDB.databases=(dbs||[]).map(d=>({name:d.name||'',version:d.version??null}))}else r.warnings.push('This Safari version does not expose database-name enumeration. No database was opened or created.')}catch(e){r.warnings.push('IndexedDB enumeration failed: '+String(e.message||e))}
+ const r={diagnostic:'The Handyman Accountancy read-only storage inventory',generatedAt:new Date().toISOString(),
+  readOnly:true,writesPerformed:false,valuesExported:false,origin:location.origin,userAgent:navigator.userAgent,
+  localStorage:{available:false,keyCount:0,totalApproxBytes:0,items:[]},
+  indexedDB:{available:!!window.indexedDB,databaseEnumerationSupported:typeof indexedDB.databases==='function',databases:[]},
+  storageEstimate:null,warnings:[]};
+ try{
+  const ls=localStorage;r.localStorage.available=true;r.localStorage.keyCount=ls.length;
+  for(let i=0;i<ls.length;i++){const k=ls.key(i);if(k===null)continue;const raw=ls.getItem(k);const bytes=raw===null?0:new Blob([k,raw]).size;
+   r.localStorage.totalApproxBytes+=bytes;r.localStorage.items.push({key:k,approxBytes:bytes,valueSummary:summary(raw||'')});}
+  r.localStorage.items.sort((a,b)=>a.key.localeCompare(b.key));
+ }catch(e){r.warnings.push('LocalStorage inventory failed: '+String(e.message||e));}
+ try{if(navigator.storage&&navigator.storage.estimate){const q=await navigator.storage.estimate();r.storageEstimate={usageBytes:q.usage??null,quotaBytes:q.quota??null};}}
+ catch(e){r.warnings.push('Storage estimate unavailable: '+String(e.message||e));}
+ try{if(typeof indexedDB.databases==='function'){const dbs=await indexedDB.databases();r.indexedDB.databases=(dbs||[]).map(d=>({name:d.name||'',version:d.version??null}));}
+ else r.warnings.push('This Safari version does not expose database-name enumeration. No database was opened or created.');}
+ catch(e){r.warnings.push('IndexedDB enumeration failed: '+String(e.message||e));}
  return r;
 }
-document.getElementById('compare').addEventListener('click',()=>{try{report=compare();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Comparison complete. No storage was changed.'}catch(e){status.textContent='Comparison failed: '+String(e.message||e)}});
-runButton.addEventListener('click',async()=>{runButton.disabled=true;copyButton.disabled=true;status.textContent='Scanning…';try{report=await scan();output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent='Scan complete. No storage was changed.'}catch(e){status.textContent='Scan failed: '+String(e.message||e)}finally{runButton.disabled=false}});
-copyButton.addEventListener('click',async()=>{if(!report)return;try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));status.textContent='Report copied. Paste it into the ChatGPT conversation.'}catch(e){status.textContent='Clipboard blocked. Select and copy the report displayed below.'}});
+function show(value,message){
+ report=value;output.textContent=JSON.stringify(report,null,2);output.hidden=false;copyButton.disabled=false;status.textContent=message;
+}
+runButton.addEventListener('click',async()=>{
+ runButton.disabled=true;compareButton.disabled=true;copyButton.disabled=true;status.textContent='Scanning…';
+ try{show(await scan(),'Scan complete. No storage was changed.');}
+ catch(e){status.textContent='Scan failed: '+String(e.message||e);}
+ finally{runButton.disabled=false;compareButton.disabled=false;}
+});
+compareButton.addEventListener('click',()=>{
+ runButton.disabled=true;compareButton.disabled=true;copyButton.disabled=true;status.textContent='Comparing…';
+ try{show(compare(),'Comparison complete. No storage was changed.');}
+ catch(e){status.textContent='Comparison failed: '+String(e.message||e);}
+ finally{runButton.disabled=false;compareButton.disabled=false;}
+});
+copyButton.addEventListener('click',async()=>{
+ if(!report)return;
+ try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));status.textContent='Report copied. Paste it into the ChatGPT conversation.';}
+ catch(e){status.textContent='Clipboard blocked. Select and copy the report displayed below.';}
+});
 })();
-</script></body></html>
+</script>
+</body>
+</html>
