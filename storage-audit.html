@@ -157,7 +157,9 @@ function inspectRecoveryAndMonitor(){
  const events=logs.filter(x=>x&&relevant.has(String(x.event||''))).map(x=>{
   const d=x.details&&typeof x.details==='object'?x.details:{};
   const item={timestamp:x.timestamp||null,category:x.category||null,event:x.event||null,recordType:x.recordType||null,result:x.result||null,appVersion:x.context?.appVersion||null};
-  if(['tha_v206_accounting_v1','tha_v206_projects_v1','tha_v206_contracts_v1','tha_v206_factory_reset_recovery_v1','local-db'].includes(String(x.recordId||'')))item.target=x.recordId;
+  const storageKey=String(x.recordId||'');
+  if(/^(tha_|handyman_)[A-Za-z0-9_]+$/.test(storageKey))item.storageKey=storageKey;
+  else if(storageKey==='local-db')item.target=storageKey;
   if(x.event==='ui_action'){
    const label=String(d.label||'').trim();
    const handler=String(d.handler||'').trim();
