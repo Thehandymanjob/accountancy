@@ -10,7 +10,7 @@ await new Promise(resolve=>server.listen(4175,'127.0.0.1',resolve));
 const browser=await chromium.launch({headless:true});
 const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
 try{
- const page=await browser.newPage();page.on('dialog',d=>d.accept());
+ const page=await browser.newPage();page.on('dialog',d=>{console.log('Browser dialog:',d.type(),d.message());d.accept()});
  await page.goto('http://127.0.0.1:4175/');
  await page.waitForFunction(()=>!!window.HandymanStorageFoundation);
  await page.evaluate(async()=>{
@@ -42,6 +42,7 @@ try{
  assert(idb.kv.some(x=>x.key==='user-setting-preserve'),'Non-diagnostic KV record missing from backup');
  
  await page.evaluate(()=>{window.openFactoryReset();window.factoryResetNextStep();window.factoryResetAcknowledgeBackup()});
+ console.log('Factory reset UI state:',await page.evaluate(()=>({stage:factoryResetStage,finalHidden:document.getElementById('factoryResetFinalButton').hidden,ackHidden:document.getElementById('factoryResetAcknowledgeBackup').hidden})));
  const resetNav=page.waitForNavigation({waitUntil:'domcontentloaded'});
  await page.evaluate(()=>{void window.factoryResetFinalConfirm();return true});
  await resetNav;
