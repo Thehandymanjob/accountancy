@@ -49,11 +49,16 @@ try{
  const clean=await page.evaluate(async()=>{
   const keys=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>/^(tha_|handyman_)/i.test(k));
   const values=keys.map(k=>localStorage.getItem(k)||'').join(' ');
+  const accounting=JSON.parse(localStorage.getItem('tha_v206_accounting_v1')||'null');
+  const projects=JSON.parse(localStorage.getItem('tha_v206_projects_v1')||'null');
+  const contracts=JSON.parse(localStorage.getItem('tha_v206_contracts_v1')||'null');
   const dbs=typeof indexedDB.databases==='function'?(await indexedDB.databases()).map(x=>x.name):[];
-  return {keys,oldLocalLog:values.includes('OLD-LOCAL-DIAGNOSTIC'),oldImage:values.includes('LOGO_IMAGE_DATA'),dbs};
+  return {keys,accounting,projects,contracts,oldLocalLog:values.includes('OLD-LOCAL-DIAGNOSTIC'),oldImage:values.includes('LOGO_IMAGE_DATA'),oldLanguage:localStorage.getItem('handyman_app_language_v1')==='fa',oldReport:values.includes('Saved report'),oldSequence:localStorage.getItem('tha_v206_invoice_sequence_v1')==='42',dbs};
  });
- assert(!clean.keys.includes('tha_v206_accounting_v1')&&!clean.keys.includes('tha_v206_projects_v1')&&!clean.keys.includes('tha_v206_contracts_v1'),'Factory Reset left core records');
- assert(!clean.oldLocalLog&&!clean.oldImage,'Factory Reset left old diagnostic or logo data');
+ assert(!(clean.accounting?.entries||[]).some(x=>x.id==='restore-entry')&&!(clean.accounting?.customers||[]).some(x=>x.id==='restore-customer')&&!(clean.accounting?.invoices||[]).some(x=>x.id==='restore-invoice'),'Factory Reset left previous accounting records');
+ assert(!(clean.projects?.projects||[]).some(x=>x.id==='restore-project')&&!clean.projects?.profile?.logo,'Factory Reset left previous project or logo data');
+ assert(!(clean.contracts||[]).some(x=>x.id==='restore-contract'),'Factory Reset left previous contracts');
+ assert(!clean.oldLocalLog&&!clean.oldImage&&!clean.oldLanguage&&!clean.oldReport&&!clean.oldSequence,'Factory Reset left old diagnostics, images, language, reports or invoice sequence');
  assert(!clean.dbs.some(n=>/the_handyman_accountancy_v250_idb/i.test(n)),'Factory Reset left the production IndexedDB database');
 
  const restoreNav=page.waitForNavigation({waitUntil:'domcontentloaded'});
