@@ -82,6 +82,7 @@ try {
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify(backup))
   });
+  await page.waitForFunction(() => window.__thaRestoreComplete === true, null, { timeout: 15000 });
 
   const result = await page.evaluate(() => ({
     accounting: JSON.parse(localStorage.getItem('tha_v206_accounting_v1')),
