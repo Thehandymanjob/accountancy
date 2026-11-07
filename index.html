@@ -1295,10 +1295,7 @@ async function directOpenReportPDF(node,filename,margin){
  const tab=window.open('about:blank','_blank');
  if(!tab){alert('Safari blocked the PDF tab. Allow pop-ups for this app and try again.');return}
  try{
-  tab.document.open();tab.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Creating PDF…</title></head><body style="font:16px Arial;padding:24px;color:#142b4a">Creating your PDF…
-
-
-</body></html>');tab.document.close();
+  tab.document.open();tab.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Creating PDF…</title></head><body style="font:16px Arial;padding:24px;color:#142b4a">Creating your PDF…</body></html>');tab.document.close();
   if(!window.html2pdf){await new Promise((resolve,reject)=>{let sc=document.querySelector('script[data-direct-report-pdf]');if(sc){if(window.html2pdf){resolve();return}sc.addEventListener('load',resolve,{once:true});sc.addEventListener('error',()=>reject(new Error('PDF library failed to load')),{once:true});return}sc=document.createElement('script');sc.dataset.directReportPdf='1';sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';sc.onload=resolve;sc.onerror=()=>reject(new Error('PDF library failed to load'));document.head.appendChild(sc)});}
   if(!window.html2pdf)throw new Error('PDF library is unavailable');
   await Promise.all(Array.from(node.querySelectorAll('img')).map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;setTimeout(resolve,2500)})));
