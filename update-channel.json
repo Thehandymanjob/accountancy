@@ -4,7 +4,7 @@
   "sourceBranch": "main",
   "version": "250",
   "buildId": "THA-250-PRODUCTION-20261107-BACKUP7",
-  "manifestSha256": "9ebef48dfb90dfc578c2743ff1053af4dc56e0e9590cac2a6113cc22b89cc860",
+  "manifestSha256": "63a76eda346c6e27111f9862ef7173469795ed36accf30075f182aac17539cb1",
   "updatedAt": "2026-11-07T00:00:00.000Z",
   "note": "Production v250 with complete LocalStorage + IndexedDB backup and restore v7.",
   "sourceCommit": "f6127951f0fa1e03ee71f6d84243039632c193f9"
