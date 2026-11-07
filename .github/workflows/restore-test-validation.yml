@@ -50,3 +50,4 @@ jobs:
           PW_BROWSER=webkit node tests/updater-install-offline-test.mjs
           node tests/restore-browser-test.mjs
           node tests/restore-failure-test.mjs
+          node tests/backup-v7-clean-reset-test.mjs
