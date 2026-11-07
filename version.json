@@ -1,7 +1,7 @@
 {
   "app": "The Handyman Accountancy",
   "version": "250",
-  "buildId": "THA-250-PRODUCTION-20261107-BACKUP7",
+  "buildId": "THA-250-PRODUCTION-20261107-BACKUP7-RESET",
   "releaseDate": "2026-11-07",
   "releaseStatus": "production",
   "databaseSchema": 4,
@@ -11,7 +11,7 @@
   "storageStatus": "Application records remain on LocalStorage in this release; backup v7 captures app-scoped LocalStorage and the complete namespaced IndexedDB database.",
   "files": {
     "index.html": {
-      "sha256": "0d260cd712bba42daf8e876100e899be890d6192957a32d90a6a3300cc2b5be9"
+      "sha256": "9d5843214821055f985aa325033c4a01bec72f58dc48f5d6069e68f4cb1a0d81"
     },
     "version-manager.js": {
       "sha256": "74bbf3bb1da6d7b97fbd4dacff1ae89d62b955ecb085bcb79594b53f903068c3"
