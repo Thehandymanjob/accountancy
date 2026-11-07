@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 
 const names=['index.html','version-manager.js','service-worker.js','storage-foundation.js','version.json','update-channel.json'];
 const assets=Object.fromEntries(await Promise.all(names.map(async n=>[n,await readFile(resolve(n))])));
-const server=createServer((req,res)=>{const path=new URL(req.url,'http://127.0.0.1').pathname;const name=path==='/'?'index.html':path.replace(/^\\//,'');const body=assets[name];if(!body){res.writeHead(404);res.end('Not found');return}const type=name.endsWith('.json')?'application/json':name.endsWith('.js')?'text/javascript':'text/html; charset=utf-8';res.writeHead(200,{'content-type':type,'cache-control':'no-store'});res.end(body)});
+const server=createServer((req,res)=>{const path=new URL(req.url,'http://127.0.0.1').pathname;const name=path==='/'?'index.html':path.length>1?path.slice(1):'index.html';const body=assets[name];if(!body){res.writeHead(404);res.end('Not found');return}const type=name.endsWith('.json')?'application/json':name.endsWith('.js')?'text/javascript':'text/html; charset=utf-8';res.writeHead(200,{'content-type':type,'cache-control':'no-store'});res.end(body)});
 await new Promise(resolve=>server.listen(4175,'127.0.0.1',resolve));
 const browser=await chromium.launch({headless:true});
 const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
