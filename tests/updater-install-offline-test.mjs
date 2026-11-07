@@ -274,7 +274,7 @@ try {
     throw new Error('Startup was confirmed but the active cache pointer does not identify the installed build.');
   }
 
-  console.log('Pre-offline activation diagnostic:', await page.evaluate(async () => {
+  console.log('Pre-offline activation diagnostic:', await page.evaluate(async (expectedVersion, expectedBuild) => {
     const pointer = await caches.open('tha-active-pointer-v1');
     const active = await pointer.match(new URL('__tha_active_cache__', location.href));
     const pending = await pointer.match(new URL('__tha_pending_activation__', location.href));
@@ -283,11 +283,11 @@ try {
       build: document.querySelector('meta[name="app-build-id"]')?.content,
       active: active ? await active.json() : null,
       pending: pending ? await pending.json() : null,
-      expectedCache: 'tha-app-v' + nextVersion + '-' + nextBuildId,
+      expectedCache: 'tha-app-v' + expectedVersion + '-' + expectedBuild,
       startupDiagnostics: window.__thaPendingActivationDiagnostics || null,
       status: document.getElementById('appUpdateStatus')?.textContent
     };
-  }));
+  }, nextVersion, nextBuildId));
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
   try {
