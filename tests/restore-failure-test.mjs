@@ -3,8 +3,17 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-const html = await readFile(resolve('index.html'));
-const server = createServer((req, res) => { res.writeHead(200, {'content-type':'text/html; charset=utf-8'}); res.end(html); });
+const assetNames = ['index.html','version-manager.js','service-worker.js','storage-foundation.js','version.json','update-channel.json'];
+const assets = Object.fromEntries(await Promise.all(assetNames.map(async name => [name, await readFile(resolve(name))])));
+const server = createServer((req, res) => {
+  const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
+  const name = pathname.length > 1 ? pathname.slice(1) : 'index.html';
+  const body = assets[name];
+  if (!body) { res.writeHead(404); res.end('Not found'); return; }
+  const type = name.endsWith('.json') ? 'application/json' : name.endsWith('.js') ? 'text/javascript' : 'text/html; charset=utf-8';
+  res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' });
+  res.end(body);
+});
 await new Promise(resolve => server.listen(4174, '127.0.0.1', resolve));
 const browser = await chromium.launch({headless:true});
 const backup = {
@@ -43,6 +52,7 @@ try {
     const before = await readKeys(page);
     await page.evaluate(() => { window.refreshAll = () => { throw new Error('SIMULATED_REFRESH_FAILURE'); }; });
     await page.locator('#restoreFile').setInputFiles({name:'valid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+    await page.waitForFunction(() => window.__thaRestoreComplete === true, null, {timeout:10000});
     const after = await readKeys(page);
     assert(after[0]===before[0] && after[1]===before[1] && after[2]===before[2],'Refresh failure did not restore original LocalStorage values');
     assert(after[3]===null,'Recovery snapshot was not cleared after verified rollback');
@@ -62,6 +72,7 @@ try {
       };
     });
     await page.locator('#restoreFile').setInputFiles({name:'valid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+    await page.waitForFunction(() => window.__thaRestoreComplete === true, null, {timeout:10000});
     const after = await readKeys(page);
     assert(after[0]===before[0] && after[1]===before[1] && after[2]===before[2],'Replacement write quota failure changed existing data');
     assert(after[3]===null,'Recovery key unexpectedly exists after replacement write quota failure');

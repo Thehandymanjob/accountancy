@@ -1,35 +1,36 @@
 {
   "app": "The Handyman Accountancy",
-  "version": "247",
-  "buildId": "THA-247-INVOICE-PAYMENT-DATE-METHOD-PICKERS-20261103",
-  "releaseDate": "2026-11-03",
+  "version": "250",
+  "buildId": "THA-250-PRODUCTION-20261107-BACKUP7-RESET",
+  "releaseDate": "2026-11-07",
   "releaseStatus": "production",
-  "databaseSchema": 1,
-  "minimumAppVersion": "206",
+  "databaseSchema": 4,
+  "minimumAppVersion": "247",
   "storageNamespace": "tha_v206_",
-  "legacyDataImport": "manual-only",
+  "legacyDataImport": "production LocalStorage keys retained; no automatic destructive migration",
+  "storageStatus": "Application records remain on LocalStorage in this release; complete backup v7 captures app-scoped user data from LocalStorage and all non-diagnostic records in the namespaced IndexedDB database.",
   "files": {
     "index.html": {
-      "sha256": "b837bf6b5b775d3c15906792a0f9210048eb90e65512775133b76148daf11e1a"
+      "sha256": "e1fdd9d10020bbe679f1bf2dc4e1f0443430bf51bcae0f0c333ba59fe5d59d85"
     },
     "version-manager.js": {
-      "sha256": "c78a5f6a2cc9a8b6daad4123430029fdf826a74f9467360e85a008a739d6dd2d"
+      "sha256": "74bbf3bb1da6d7b97fbd4dacff1ae89d62b955ecb085bcb79594b53f903068c3"
     },
     "service-worker.js": {
-      "sha256": "3ca6f4a187831e539d9df305a0b00b9d62552e714c4e01c188a6644eaaa87a6d"
+      "sha256": "9fec3b9ad007fb0fa0d023979cff0e08ef80d9f4e98cc14b9c49c376e27bf555"
     },
     "storage-foundation.js": {
-      "sha256": "8703b029759e3b6e9bd0d774cececf3bc0dc60a193d14e98d63874c5528a8164"
+      "sha256": "4c1211cf861a0ffd5ca56e074a630998f760ce1a07db64d14992a6f3fa2f5f27"
     }
   },
   "releaseNotes": [
-    "v247: Production invoice workflow aligned with the tested v247 behavior. New invoices start as Draft; Issued invoices expose a separate Paid/Unpaid selector. Paid invoices record payment date (today by default, editable) and Bank Transfer or Cash.",
-    "Mark Paid opens an in-app dialog with editable payment date and payment method. Existing duplicate-payment checks and invoice-linked Accounting income behavior are retained.",
-    "Invoice numbering uses the highest saved invoice/income number and the production reservation key. Numbers are reserved after a successful save; existing numbers are not renumbered.",
-    "Legacy invoices missing a valid number are assigned a unique number after existing invoice and income numbers, with linked income references updated only for conclusive invoiceId or generated income IDs.",
-    "Records includes invoice rows and retains soft-deleted invoices as Deleted records. Invoice-linked income is managed through the invoice workflow.",
-    "The malformed payment-dialog markup was removed from the PDF preview document and placed in the application DOM. All six inline scripts pass JavaScript syntax compilation.",
-    "Production LocalStorage namespace remains tha_v206_; IndexedDB schema remains 1. No test namespace, test cleanup, automatic orphan-income deletion, or backup restore is included. Existing accounting and project records are not intentionally cleared or migrated."
+    "Production v250 carries forward the v250 application interface and project, invoice and accounting fixes.",
+    "Production LocalStorage key names are retained so existing accounting, project, contract, report, language, logo and image data remain addressable.",
+    "Test-only startup cleanup routines were removed: no automatic deletion of the £1 isolation record, no invoice-sequence reset, and no automatic orphan-income deletion.",
+    "The update channel and Service Worker cache names now use the production accountancy repository and production cache namespace.",
+    "IndexedDB foundation database is namespaced for production. This release does not claim a completed application-wide LocalStorage-to-IndexedDB cutover; current app records remain on LocalStorage.",
+    "Complete backup v7 exports app-scoped user data from LocalStorage and all non-diagnostic records from the production IndexedDB database; diagnostic logs are intentionally excluded.",
+    "Factory Reset clears app-scoped LocalStorage and sessionStorage, all known and enumerated app IndexedDB databases, and verifies that no business data, settings or diagnostic logs remain. Application files, offline CacheStorage and the Service Worker are retained as software."
   ],
-  "releaseBranch": "production-v247-integration"
+  "releaseBranch": "main"
 }

@@ -4,6 +4,7 @@ on:
     branches:
       - fix/backup-restore-v212-safe-merge
       - updater-v224-service-worker-test
+      - production-v250-integration
   pull_request:
     branches:
       - main
@@ -19,12 +20,6 @@ jobs:
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium webkit
-      - name: Run isolated browser restore test
-        run: |
-          node tests/updater-install-offline-test.mjs
-          PW_BROWSER=webkit node tests/updater-install-offline-test.mjs
-          node tests/restore-browser-test.mjs
-          node tests/restore-failure-test.mjs
       - name: Verify manifest hashes and inline JavaScript syntax
         run: |
           node --input-type=module <<'NODE'
@@ -49,3 +44,10 @@ jobs:
           if (!restore.includes("price:(Array.isArray(project.subprojects)?project.subprojects:[]).reduce((total,sub)=>total+(typeof prSubprojectAgreedPrice==='function'?prSubprojectAgreedPrice(sub):Math.max(0,Number(sub&&sub.price)||0)),0)")) throw new Error('Project agreed price is not assigned from subproject agreed prices including extra work');
           console.log('Restore logic assertions OK');
           NODE
+      - name: Run isolated browser restore test
+        run: |
+          node tests/updater-install-offline-test.mjs
+          PW_BROWSER=webkit node tests/updater-install-offline-test.mjs
+          node tests/restore-browser-test.mjs
+          node tests/restore-failure-test.mjs
+          node tests/backup-v7-clean-reset-test.mjs

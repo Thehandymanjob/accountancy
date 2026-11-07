@@ -4,7 +4,7 @@
 const meta=n=>document.querySelector('meta[name="'+n+'"]')?.content||'';
 const LOCAL_VERSION=meta('app-version'),LOCAL_BUILD=meta('app-build-id');
 const base=new URL('.',document.baseURI),POINTER='tha-active-pointer-v1',pointerUrl=new URL('__tha_active_cache__',base).toString(),rollbackUrl=new URL('__tha_pending_activation__',base).toString();
-const CHANNEL_URL='https://raw.githubusercontent.com/Thehandymanjob/accountancy/update-channel-test/update-channel.json';
+const CHANNEL_URL='https://raw.githubusercontent.com/Thehandymanjob/accountancy/main/update-channel.json';
 const RAW_ROOT='https://raw.githubusercontent.com/Thehandymanjob/accountancy/';
 let latest=null,staged=null,busy=false;
 const el=id=>document.getElementById(id);
@@ -44,6 +44,21 @@ async function rollbackPendingActivation(reason){
  console.error('New app failed its startup check; restored previous cached app.',reason||'');
  const u=new URL(location.href);u.searchParams.delete('tha-installed-version');u.searchParams.delete('tha-installed-build');u.searchParams.set('tha-rollback','1');location.replace(u.toString());return true;
 }
+async function cleanupOldAppCaches(activeCache,previousCache){
+ // Only delete caches owned by this app. Never touch the pointer cache or
+ // unrelated origin caches. Keep the confirmed build and one known-good rollback build.
+ const keep=new Set([activeCache,previousCache].filter(Boolean));
+ const names=await caches.keys();
+ const candidates=names.filter(name=>name.startsWith('tha-app-v')&&!keep.has(name));
+ const removed=[];
+ for(const name of candidates){
+  // Recheck the allow-list immediately before deletion.
+  if(name.startsWith('tha-app-v')&&!keep.has(name)){
+   if(await caches.delete(name))removed.push(name);
+  }
+ }
+ return {kept:[...keep],removed};
+}
 async function confirmPendingActivation(){
  window.__thaPendingActivationDiagnostics={called:true,readyState:document.readyState,localVersion:LOCAL_VERSION,localBuild:LOCAL_BUILD};
  if(!('caches'in window)){window.__thaPendingActivationDiagnostics.noCacheApi=true;return;}
@@ -61,7 +76,18 @@ async function confirmPendingActivation(){
    window.__thaPendingActivationDiagnostics.health=health;console.info('Pending update startup health check', {expected, nextCache:p.nextCache, health});
    if(!healthy){await rollbackPendingActivation('Required app startup components are missing: '+JSON.stringify(health));return;}
    await c.delete(rollbackUrl);
-   window.__thaPendingActivationDiagnostics.result='confirmed';console.info('App startup verified; rollback protection cleared for',LOCAL_VERSION,LOCAL_BUILD);
+   window.__thaPendingActivationDiagnostics.result='confirmed';
+   // Cache cleanup runs only after the new build passed startup health checks.
+   // Keep the active build and the exact previous cache for one-step rollback.
+   try{
+    const cleanup=await cleanupOldAppCaches(expected,p.previousCache);
+    window.__thaPendingActivationDiagnostics.cacheCleanup=cleanup;
+    console.info('App startup verified; old app caches pruned',cleanup);
+   }catch(cleanupError){
+    window.__thaPendingActivationDiagnostics.cacheCleanupError=String(cleanupError&&cleanupError.message||cleanupError);
+    console.warn('App is healthy; cache cleanup was skipped safely.',cleanupError);
+   }
+   console.info('App startup verified; rollback protection cleared for',LOCAL_VERSION,LOCAL_BUILD);
   }catch(e){window.__thaPendingActivationDiagnostics.error=String(e&&e.stack||e);console.error('Could not confirm app startup health.',e);}
  };
  window.__thaPendingActivationDiagnostics.scheduled=true;
@@ -107,10 +133,10 @@ async function bootstrap(){
     }
    }catch(err){if(c)await caches.delete(target);throw err;}
   }
-  if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
+  // Waiting workers remain pending until the user explicitly chooses Update Now.
  }catch(e){console.warn('Offline cache setup unavailable; existing app data was not changed.',e);}
 }
-function notes(m){const box=el('appReleaseNotes');if(!box)return;box.textContent='';box.style.display='block';const h=document.createElement('strong');h.textContent='Published version '+m.version+' — What this update includes';box.appendChild(h);const list=Array.isArray(m.releaseNotes)?m.releaseNotes:[];if(list.length){const ul=document.createElement('ul');ul.style.paddingLeft='20px';list.forEach(v=>{const li=document.createElement('li');li.textContent=String(v);ul.appendChild(li);});box.appendChild(ul);}else{const p=document.createElement('p');p.textContent='No release notes supplied.';box.appendChild(p);}}
+function notes(m){const box=el('appReleaseNotes');if(!box)return;box.textContent='';box.style.display='block';const h=document.createElement('strong');h.textContent='Published version '+m.version+' — What this update includes';box.appendChild(h);const list=Array.isArray(m.releaseNotes)?m.releaseNotes.slice(0,1):[];if(list.length){const ul=document.createElement('ul');ul.style.paddingLeft='20px';list.forEach(v=>{const li=document.createElement('li');li.textContent=String(v);ul.appendChild(li);});box.appendChild(ul);}else{const p=document.createElement('p');p.textContent='No release notes supplied.';box.appendChild(p);}}
 window.checkForAppUpdate=async function(){
  if(busy)return;busy=true;latest=null;staged=null;button(false);progress(0,'',false);
  const check=document.querySelector('button[onclick="checkForAppUpdate(true)"]');if(check){check.disabled=true;check.textContent='Checking…';}
@@ -118,7 +144,7 @@ window.checkForAppUpdate=async function(){
   status('Checking the update channel…');
   const cr=await fetch(CHANNEL_URL+'?_check='+Date.now(),{cache:'no-store',credentials:'omit',mode:'cors'});if(!cr.ok)throw Error('Update channel HTTP '+cr.status);
   const channel=await cr.json();
-  if(channel.app!=='The Handyman Accountancy'||!['production','test'].includes(channel.channel)||!channel.sourceBranch||!/^[a-f0-9]{40}$/i.test(String(channel.sourceCommit||''))||!/^[a-f0-9]{64}$/i.test(String(channel.manifestSha256||'')))throw Error('Invalid update channel manifest.');
+  if(channel.app!=='The Handyman Accountancy'||channel.channel!=='production'||!channel.sourceBranch||!/^[a-f0-9]{40}$/i.test(String(channel.sourceCommit||''))||!/^[a-f0-9]{64}$/i.test(String(channel.manifestSha256||'')))throw Error('Invalid update channel manifest.');
   const root=releaseRoot(channel.sourceBranch);
   const mr=await fetch(root+'version.json?_check='+Date.now(),{cache:'no-store',credentials:'omit',mode:'cors'});if(!mr.ok)throw Error('Release manifest HTTP '+mr.status);
   const manifestBytes=await mr.arrayBuffer();if((await hash(manifestBytes)).toLowerCase()!==String(channel.manifestSha256).toLowerCase())throw Error('Release manifest integrity check failed.');
@@ -141,7 +167,7 @@ window.checkForAppUpdate=async function(){
 };
 window.reloadLatestApp=async function(){
  if(!latest||!staged){status('Check for updates and finish the download first.');return;}if(busy)return;busy=true;button(false,'Installing…');progress(100,'Activating verified update…');
- try{await activateCache(staged,true);const u=new URL(location.href);u.searchParams.set('tha-installed-version',String(latest.version));u.searchParams.set('tha-installed-build',latest.buildId);u.hash='';status('Installing version '+latest.version+'…');location.replace(u.toString());}
+ try{await activateCache(staged,true);/* CacheStorage pointer is authoritative. Do not wait for Service Worker registration/message here: iOS Safari can leave that promise pending and block the reload after activation. */try{navigator.serviceWorker?.getRegistration(base.href).then(reg=>{if(reg&&reg.waiting)reg.waiting.postMessage({type:'USER_APPROVED_UPDATE'});}).catch(swError=>console.warn('Optional Service Worker activation message was skipped; cached app pointer is already active.',swError));}catch(swError){console.warn('Optional Service Worker activation message was skipped; cached app pointer is already active.',swError);}const u=new URL(location.href);u.searchParams.set('tha-installed-version',String(latest.version));u.searchParams.set('tha-installed-build',latest.buildId);u.hash='';status('Installing version '+latest.version+'…');location.replace(u.toString());}
  catch(e){busy=false;button(true,'Update Now');status('Could not activate update: '+(e.message||e)+'. Previous cache remains available.');}
 };
 const installed=el('appInstalledVersion');if(installed)installed.textContent='Installed version: '+LOCAL_VERSION+' · '+LOCAL_BUILD;button(false);
