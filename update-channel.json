@@ -3,9 +3,9 @@
   "channel": "production",
   "sourceBranch": "main",
   "version": "250",
-  "buildId": "THA-250-PRODUCTION-20261107",
-  "manifestSha256": "b9b11f362cea8c957fc389560861c73fa8135f8be02d00fe6976403efaf9e79e",
+  "buildId": "THA-250-PRODUCTION-20261107-BACKUP7",
+  "manifestSha256": "254b4a1b49526a090298b408957c066f77b5c59b0d1354640c77438981ced024",
   "updatedAt": "2026-11-07T00:00:00.000Z",
-  "note": "Production v250 release with production storage keys and non-destructive startup behavior.",
+  "note": "Production v250 with complete LocalStorage + IndexedDB backup and restore v7.",
   "sourceCommit": "f6127951f0fa1e03ee71f6d84243039632c193f9"
 }
