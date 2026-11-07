@@ -2211,7 +2211,7 @@ function monitorReadLog(){try{const a=JSON.parse(localStorage.getItem(MONITOR_LO
 function monitorWriteLog(a){try{localStorage.setItem(MONITOR_LOG_KEY,JSON.stringify(a.slice(-MONITOR_MAX_EVENTS)));return true}catch(e){return false}}
 function monitorContext(){let projectVersion='';try{projectVersion=JSON.parse(localStorage.getItem('tha_v206_projects_v1')||'{}').version||''}catch(e){}return {appVersion:document.querySelector('meta[name="app-version"]')?.content||'unknown',platform:navigator.platform||'',userAgent:navigator.userAgent||'',language:navigator.language||'',online:navigator.onLine!==false,storageKeyAvailable:(()=>{try{return localStorage.getItem(KEY)!==null}catch(e){return false}})(),projectWorkspaceVersion:String(projectVersion||'')}}
 function logMonitorEvent(category,event,recordType='',recordId='',result='info',details={}){try{const item={id:'evt-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),timestamp:new Date().toISOString(),category:String(category||'activity'),event:String(event||'event'),recordType:String(recordType||''),recordId:String(recordId||''),result:String(result||'info'),details:details&&typeof details==='object'?details:{value:String(details)},context:{appVersion:document.querySelector('meta[name="app-version"]')?.content||'unknown'}};const all=monitorReadLog();all.push(item);if(!monitorWriteLog(all)&&!window.__monitorStorageWarning){window.__monitorStorageWarning=true;console.warn('Monitor log could not be saved; local storage may be full.')}return item.id}catch(e){console.warn('Monitor logging failed',e);return null}}
-function installMonitorStorageHooks(){if(Storage.prototype.__handymanMonitorHooks)return;const originalSet=Storage.prototype.setItem,originalRemove=Storage.prototype.removeItem;Storage.prototype.setItem=function(key,value){const result=originalSet.call(this,key,value);try{if(this===window.localStorage&&key!=='handyman_monitor_log_v1'&&key!=='tha_v206_invoice_sequence_v1'&&key!==KEY){const type=key==='tha_v206_projects_v1'?'projects':key==='tha_v206_contracts_v1'?'contracts':'storage';let counts={bytes:String(value??'').length};try{const parsed=JSON.parse(String(value));if(Array.isArray(parsed))counts.recordCount=parsed.length;else if(parsed&&typeof parsed==='object'){for(const k of ['projects','workers','entries','customers','invoices','contracts'])if(Array.isArray(parsed[k]))counts[k+'Count']=parsed[k].length}}catch(e){}logMonitorEvent('activity','local_storage_updated',type,key,'success',counts)}}catch(e){}return result};Storage.prototype.removeItem=function(key){const existed=this.getItem(key)!==null;const result=originalRemove.call(this,key);try{if(this===window.localStorage&&existed&&key!=='handyman_monitor_log_v1'&&key!=='tha_v206_invoice_sequence_v1')logMonitorEvent('activity','local_storage_item_removed',key==='tha_v206_projects_v1'?'projects':key==='tha_v206_contracts_v1'?'contracts':'storage',key,'success',{keyRemoved:true})}catch(e){}return result};Storage.prototype.__handymanMonitorHooks=true}installMonitorStorageHooks();
+function installMonitorStorageHooks(){if(Storage.prototype.__handymanMonitorHooks)return;const originalSet=Storage.prototype.setItem,originalRemove=Storage.prototype.removeItem;Storage.prototype.setItem=function(key,value){const result=originalSet.call(this,key,value);try{if(this===window.localStorage&&!window.__thaResetInProgress&&key!=='handyman_monitor_log_v1'&&key!=='tha_v206_invoice_sequence_v1'&&key!==KEY){const type=key==='tha_v206_projects_v1'?'projects':key==='tha_v206_contracts_v1'?'contracts':'storage';let counts={bytes:String(value??'').length};try{const parsed=JSON.parse(String(value));if(Array.isArray(parsed))counts.recordCount=parsed.length;else if(parsed&&typeof parsed==='object'){for(const k of ['projects','workers','entries','customers','invoices','contracts'])if(Array.isArray(parsed[k]))counts[k+'Count']=parsed[k].length}}catch(e){}logMonitorEvent('activity','local_storage_updated',type,key,'success',counts)}}catch(e){}return result};Storage.prototype.removeItem=function(key){const existed=this.getItem(key)!==null;const result=originalRemove.call(this,key);try{if(this===window.localStorage&&!window.__thaResetInProgress&&existed&&key!=='handyman_monitor_log_v1'&&key!=='tha_v206_invoice_sequence_v1')logMonitorEvent('activity','local_storage_item_removed',key==='tha_v206_projects_v1'?'projects':key==='tha_v206_contracts_v1'?'contracts':'storage',key,'success',{keyRemoved:true})}catch(e){}return result};Storage.prototype.__handymanMonitorHooks=true}installMonitorStorageHooks();
 function monitorSafeError(error){return {name:String(error?.name||'Error').slice(0,120),message:String(error?.message||error||'Unknown error').slice(0,1500),stack:String(error?.stack||'').slice(0,6000)}}
 window.addEventListener('error',function(e){logMonitorEvent('error','javascript_error','runtime',e.filename?String(e.filename).split('?')[0]+':'+(e.lineno||0)+':'+(e.colno||0):'window','failed',{message:String(e.message||'Script error').slice(0,1500),stack:String(e.error?.stack||'').slice(0,6000)})});
 window.addEventListener('unhandledrejection',function(e){logMonitorEvent('error','unhandled_promise_rejection','runtime','promise','failed',monitorSafeError(e.reason))});
@@ -2777,6 +2777,7 @@ function translateStaticUi(lang){
 const APP_LANG_PREF_VERSION_KEY='handyman_app_language_pref_version_v1';
 function currentAppLang(){
  try{
+  if(window.__thaResetInProgress)return 'en';
   // Earlier test builds could leave an accidental Arabic/Sorani selection behind.
   // Treat preferences from those builds as untrusted once, defaulting to English.
   const prefVersion=localStorage.getItem(APP_LANG_PREF_VERSION_KEY);
@@ -2809,7 +2810,7 @@ function applyAppLanguage(lang){
  translateStaticUi(safeLang);
 }
 window.setAppLanguage=function(lang){
- if(!Object.prototype.hasOwnProperty.call(APP_LANGS,lang))return;
+ if(window.__thaResetInProgress||!Object.prototype.hasOwnProperty.call(APP_LANGS,lang))return;
  try{localStorage.setItem(APP_LANG_KEY,lang);localStorage.setItem(APP_LANG_PREF_VERSION_KEY,'204')}catch(e){}
  applyAppLanguage(lang);
  const st=document.getElementById('languageSavedStatus');
@@ -2899,6 +2900,7 @@ async function factoryResetAllStorage(){
  const button=document.getElementById('factoryResetFinalButton'),status=document.getElementById('factoryResetBackupAdvice');
  if(typeof factoryResetStage!=='undefined'&&(factoryResetStage!==2||!button||button.hidden||document.getElementById('factoryResetAcknowledgeBackup')?.hidden===false)){alert('Complete both warning steps and confirm that the v7 backup file has been saved before resetting.');return false}
  if(!confirm('FINAL CONFIRMATION\n\nPermanently erase ALL The Handyman data from this browser: business records, logo, images, receipts, reports, language settings, diagnostic logs, LocalStorage, IndexedDB and old app caches.\n\nNo hidden recovery copy will be kept. The software files on GitHub will remain untouched.\n\nContinue?'))return false;
+ window.__thaResetInProgress=true;
  if(button){button.disabled=true;button.textContent='Erasing all app data…'}
  if(status){status.hidden=false;status.textContent='Removing app data and verifying that no previous records remain…'}
  try{
@@ -2920,6 +2922,10 @@ async function factoryResetAllStorage(){
    const cacheNames=await caches.keys();
    for(const name of cacheNames)if(/^(tha-|handyman)/i.test(name))await caches.delete(name);
   }
+  // A final sweep catches any app preference that was recreated during asynchronous cleanup.
+  for(let i=localStorage.length-1;i>=0;i--){const key=localStorage.key(i);if(isResetStorageKey(key))localStorage.removeItem(key)}
+  for(let i=sessionStorage.length-1;i>=0;i--){const key=sessionStorage.key(i);if(isResetStorageKey(key))sessionStorage.removeItem(key)}
+  localStorage.removeItem('handyman_monitor_log_v1');
   const remainingLocal=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(isResetStorageKey);
   const remainingSession=Array.from({length:sessionStorage.length},(_,i)=>sessionStorage.key(i)).filter(isResetStorageKey);
   if(remainingLocal.length||remainingSession.length)throw new Error('App storage keys remain after cleanup: '+[...remainingLocal,...remainingSession].join(', '));
@@ -2935,6 +2941,7 @@ async function factoryResetAllStorage(){
   alert('Factory Reset completed and verified.\n\nAll previous app data, logos, images, receipts, reports, settings, logs, LocalStorage records, IndexedDB databases and old app caches have been erased from this browser. No recovery snapshot was retained.\n\nThe application files on GitHub were not changed. The app will now reload as a clean installation.');
   window.location.reload();return true;
  }catch(e){
+  window.__thaResetInProgress=false;
   if(button){button.disabled=false;button.textContent='Reset All Data'}
   alert('Factory Reset could not be fully verified. Do not assume the browser is clean yet.\n\n'+(e&&e.message||e)+'\n\nClose any other The Handyman tabs and retry.');
   return false;
