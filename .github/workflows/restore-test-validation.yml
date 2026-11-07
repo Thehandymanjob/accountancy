@@ -4,6 +4,7 @@ on:
     branches:
       - fix/backup-restore-v212-safe-merge
       - updater-v224-service-worker-test
+      - production-v250-integration
   pull_request:
     branches:
       - main
