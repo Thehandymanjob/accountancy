@@ -86,7 +86,7 @@ try {
   // route page fetches through an active Service Worker before Playwright network
   // interception sees them, so use a deterministic fetch shim for this isolated test.
   const mockFiles = Object.fromEntries(Object.entries(files).map(([name, data]) => [name, Buffer.from(data).toString('base64')]));
-  await page.addInitScript(({ channelText, manifestText, previousManifestText, previousIndexBase64, nextIndexBase64, mockFiles }) => {
+  await page.addInitScript(({ channelText, manifestText, previousManifestText, previousIndexBase64, nextIndexBase64, mockFiles, currentVersion, nextReleaseBranch }) => {
     // Model an already-installed v224 app: its verified shell and active pointer
     // must exist before the user checks for v225. The fallback cache created by
     // the Service Worker is not itself proof of a known-good previous build.
@@ -134,7 +134,9 @@ try {
     previousManifestText: JSON.stringify(currentManifest),
     previousIndexBase64: files['index.html'].toString('base64'),
     nextIndexBase64: newIndex.toString('base64'),
-    mockFiles
+    mockFiles,
+    currentVersion,
+    nextReleaseBranch
   });
   await page.goto('http://127.0.0.1:4175/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(async () => {
