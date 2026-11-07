@@ -2899,7 +2899,7 @@ function isResetStorageKey(key){return /^(tha_|handyman_)/i.test(String(key||'')
 async function factoryResetAllStorage(){
  const button=document.getElementById('factoryResetFinalButton'),status=document.getElementById('factoryResetBackupAdvice');
  if(typeof factoryResetStage!=='undefined'&&(factoryResetStage!==2||!button||button.hidden||document.getElementById('factoryResetAcknowledgeBackup')?.hidden===false)){alert('Complete both warning steps and confirm that the v7 backup file has been saved before resetting.');return false}
- if(!confirm('FINAL CONFIRMATION\n\nPermanently erase ALL The Handyman data from this browser: business records, logo, images, receipts, reports, language settings, diagnostic logs, LocalStorage, IndexedDB and old app caches.\n\nNo hidden recovery copy will be kept. The software files on GitHub will remain untouched.\n\nContinue?'))return false;
+ if(!confirm('FINAL CONFIRMATION\n\nPermanently erase ALL The Handyman data from this browser: business records, logo, images, receipts, reports, language settings, diagnostic logs, LocalStorage and IndexedDB. The application files, offline cache and Service Worker will be retained because they are part of the software.\n\nNo hidden recovery copy will be kept. The software files on GitHub will remain untouched.\n\nContinue?'))return false;
  window.__thaResetInProgress=true;
  if(button){button.disabled=true;button.textContent='Erasing all app data…'}
  if(status){status.hidden=false;status.textContent='Removing app data and verifying that no previous records remain…'}
@@ -2917,11 +2917,6 @@ async function factoryResetAllStorage(){
   }
   dbNames=dbNames.filter(name=>/the_handyman_accountancy|handyman_accountancy/i.test(name));
   for(const name of dbNames)await deleteAppDatabase(name);
-  if('serviceWorker' in navigator){const appPath=new URL('.',document.baseURI).pathname;const regs=await navigator.serviceWorker.getRegistrations();for(const registration of regs){const scopePath=new URL(registration.scope).pathname;if(scopePath.startsWith(appPath)){const removed=await registration.unregister();if(!removed)throw new Error('Could not unregister the app Service Worker')}}}
-  if('caches' in window){
-   const cacheNames=await caches.keys();
-   for(const name of cacheNames)if(/^(tha-|handyman)/i.test(name))await caches.delete(name);
-  }
   // A final sweep catches any app preference that was recreated during asynchronous cleanup.
   for(let i=localStorage.length-1;i>=0;i--){const key=localStorage.key(i);if(isResetStorageKey(key))localStorage.removeItem(key)}
   for(let i=sessionStorage.length-1;i>=0;i--){const key=sessionStorage.key(i);if(isResetStorageKey(key))sessionStorage.removeItem(key)}
@@ -2933,12 +2928,8 @@ async function factoryResetAllStorage(){
    const remainingDBs=(await indexedDB.databases()).map(x=>x&&x.name).filter(name=>name&&/the_handyman_accountancy|handyman_accountancy/i.test(name));
    if(remainingDBs.length)throw new Error('IndexedDB databases remain: '+remainingDBs.join(', '));
   }
-  if('caches' in window){
-   const remainingCaches=(await caches.keys()).filter(name=>/^(tha-|handyman)/i.test(name));
-   if(remainingCaches.length)throw new Error('App caches remain: '+remainingCaches.join(', '));
-  }
   closeFactoryReset();
-  alert('Factory Reset completed and verified.\n\nAll previous app data, logos, images, receipts, reports, settings, logs, LocalStorage records, IndexedDB databases and old app caches have been erased from this browser. No recovery snapshot was retained.\n\nThe application files on GitHub were not changed. The app will now reload as a clean installation.');
+  alert('Factory Reset completed and verified.\n\nAll previous app data, logos, images, receipts, reports, settings, logs, LocalStorage records and IndexedDB databases have been erased from this browser. The application files, offline cache and Service Worker were retained as software. No recovery snapshot was retained.\n\nThe application files on GitHub were not changed. The app will now reload as a clean installation.');
   window.location.reload();return true;
  }catch(e){
   window.__thaResetInProgress=false;

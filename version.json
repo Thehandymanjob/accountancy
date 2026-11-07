@@ -11,7 +11,7 @@
   "storageStatus": "Application records remain on LocalStorage in this release; complete backup v7 captures app-scoped user data from LocalStorage and all non-diagnostic records in the namespaced IndexedDB database.",
   "files": {
     "index.html": {
-      "sha256": "8f99badd0112f71d1ae4b0720bff5d2c7afaca23abe059b62edc8b66646618a5"
+      "sha256": "31ad262e25af01d0cffb158ea7d63becf7f19ca7efe7e70fd2f4daee27632352"
     },
     "version-manager.js": {
       "sha256": "74bbf3bb1da6d7b97fbd4dacff1ae89d62b955ecb085bcb79594b53f903068c3"
@@ -30,7 +30,7 @@
     "The update channel and Service Worker cache names now use the production accountancy repository and production cache namespace.",
     "IndexedDB foundation database is namespaced for production. This release does not claim a completed application-wide LocalStorage-to-IndexedDB cutover; current app records remain on LocalStorage.",
     "Complete backup v7 exports app-scoped user data from LocalStorage and all non-diagnostic records from the production IndexedDB database; diagnostic logs are intentionally excluded.",
-    "Factory Reset clears app-scoped LocalStorage and sessionStorage, all known and enumerated app IndexedDB databases, app CacheStorage entries and the app-scoped Service Worker registration; it verifies the clean state and retains no local recovery snapshot."
+    "Factory Reset clears app-scoped LocalStorage and sessionStorage, all known and enumerated app IndexedDB databases, and verifies that no business data, settings or diagnostic logs remain. Application files, offline CacheStorage and the Service Worker are retained as software."
   ],
   "releaseBranch": "main"
 }
