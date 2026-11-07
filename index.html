@@ -2948,7 +2948,7 @@ window.factoryResetBackup=async function(){
 };
 window.factoryResetFinalConfirm=factoryResetAllStorage;
 
-window.backup=backupV7;window.restore=restoreV7;if(typeof window.openAccountancy!=='function')window.openAccountancy=function(){document.body.classList.remove('accountancy-landing-active','projects-open','contracts-open');document.body.classList.add('accountancy-open');if(typeof window.show==='function')window.show('accountancyHome');else{const home=document.getElementById('accountancyHome');if(home)home.classList.add('active')}};
+window.backup=backupV7;window.restore=restoreV7;const restoreInput=document.getElementById('restoreFile');if(restoreInput)restoreInput.onchange=restoreV7;const resetBackupButton=document.getElementById('factoryResetBackupNow');if(resetBackupButton)resetBackupButton.onclick=window.factoryResetBackup;const resetFinalButton=document.getElementById('factoryResetFinalButton');if(resetFinalButton)resetFinalButton.onclick=factoryResetAllStorage;if(typeof window.openAccountancy!=='function')window.openAccountancy=function(){document.body.classList.remove('accountancy-landing-active','projects-open','contracts-open');document.body.classList.add('accountancy-open');if(typeof window.show==='function')window.show('accountancyHome');else{const home=document.getElementById('accountancyHome');if(home)home.classList.add('active')}};
 })();
 </script>
 </body></html>
