@@ -7,5 +7,5 @@
   "manifestSha256": "943bc602008d59b7375c39c8d7a35b3e4da1737568d6431a476b26b52315c3f5",
   "updatedAt": "2026-11-07T00:00:00.000Z",
   "note": "Production v250 with complete LocalStorage + IndexedDB backup/restore v7; diagnostic logs excluded; full verified factory reset.",
-  "sourceCommit": "f6127951f0fa1e03ee71f6d84243039632c193f9"
+  "sourceCommit": "19de781efc4bcbd663955db30ede57a17b36d5bf"
 }
