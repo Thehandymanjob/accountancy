@@ -11,7 +11,7 @@
   "storageStatus": "IndexedDB foundation is present but application data cutover is not included in this release",
   "files": {
     "index.html": {
-      "sha256": "05a2ddc77058ecbd0093179f0b2027fcdcfb434ed197368b335b8d644d8e6dba"
+      "sha256": "139980407e33facd4863d00c929cd5212b55d0b49ae31c1d12e58e352755c462"
     },
     "version-manager.js": {
       "sha256": "74bbf3bb1da6d7b97fbd4dacff1ae89d62b955ecb085bcb79594b53f903068c3"

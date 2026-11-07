@@ -4,7 +4,7 @@
   "sourceBranch": "main",
   "version": "250",
   "buildId": "THA-250-PRODUCTION-20261107",
-  "manifestSha256": "47045d039c22d42f016344eebc7e8f08c267f4b4ccf9cb4f85fe11152e0ad7d4",
+  "manifestSha256": "b9b11f362cea8c957fc389560861c73fa8135f8be02d00fe6976403efaf9e79e",
   "updatedAt": "2026-11-07T00:00:00.000Z",
   "note": "Production v250 release with production storage keys and non-destructive startup behavior.",
   "sourceCommit": "f6127951f0fa1e03ee71f6d84243039632c193f9"
