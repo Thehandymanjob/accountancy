@@ -8,10 +8,10 @@
   "minimumAppVersion": "247",
   "storageNamespace": "tha_v206_",
   "legacyDataImport": "production LocalStorage keys retained; no automatic destructive migration",
-  "storageStatus": "Application records remain on LocalStorage in this release; backup v7 captures app-scoped LocalStorage and the complete namespaced IndexedDB database.",
+  "storageStatus": "Application records remain on LocalStorage in this release; complete backup v7 captures app-scoped user data from LocalStorage and all non-diagnostic records in the namespaced IndexedDB database.",
   "files": {
     "index.html": {
-      "sha256": "9d5843214821055f985aa325033c4a01bec72f58dc48f5d6069e68f4cb1a0d81"
+      "sha256": "54252763bfe99e4cc7a987c48462057770ece731be4e0dfa6b5f5b12ba12a4a4"
     },
     "version-manager.js": {
       "sha256": "74bbf3bb1da6d7b97fbd4dacff1ae89d62b955ecb085bcb79594b53f903068c3"
@@ -29,8 +29,8 @@
     "Test-only startup cleanup routines were removed: no automatic deletion of the £1 isolation record, no invoice-sequence reset, and no automatic orphan-income deletion.",
     "The update channel and Service Worker cache names now use the production accountancy repository and production cache namespace.",
     "IndexedDB foundation database is namespaced for production. This release does not claim a completed application-wide LocalStorage-to-IndexedDB cutover; current app records remain on LocalStorage.",
-    "Complete backup v7 exports all app-scoped LocalStorage values and every record in the production IndexedDB database; restore validates and restores both stores with rollback on write failure.",
-    "Factory Reset now clears all app-scoped LocalStorage and sessionStorage keys, all known and enumerated app IndexedDB databases, and app CacheStorage entries; it verifies the clean state and retains no local recovery snapshot."
+    "Complete backup v7 exports app-scoped user data from LocalStorage and all non-diagnostic records from the production IndexedDB database; diagnostic logs are intentionally excluded.",
+    "Factory Reset clears app-scoped LocalStorage and sessionStorage, all known and enumerated app IndexedDB databases, app CacheStorage entries and the app-scoped Service Worker registration; it verifies the clean state and retains no local recovery snapshot."
   ],
   "releaseBranch": "main"
 }
