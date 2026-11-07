@@ -43,6 +43,7 @@ try {
     const before = await readKeys(page);
     await page.evaluate(() => { window.refreshAll = () => { throw new Error('SIMULATED_REFRESH_FAILURE'); }; });
     await page.locator('#restoreFile').setInputFiles({name:'valid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+    await page.waitForFunction(() => window.__thaRestoreComplete === true, null, {timeout:10000});
     const after = await readKeys(page);
     assert(after[0]===before[0] && after[1]===before[1] && after[2]===before[2],'Refresh failure did not restore original LocalStorage values');
     assert(after[3]===null,'Recovery snapshot was not cleared after verified rollback');
@@ -62,6 +63,7 @@ try {
       };
     });
     await page.locator('#restoreFile').setInputFiles({name:'valid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+    await page.waitForFunction(() => window.__thaRestoreComplete === true, null, {timeout:10000});
     const after = await readKeys(page);
     assert(after[0]===before[0] && after[1]===before[1] && after[2]===before[2],'Replacement write quota failure changed existing data');
     assert(after[3]===null,'Recovery key unexpectedly exists after replacement write quota failure');
