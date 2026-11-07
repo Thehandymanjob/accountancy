@@ -11,7 +11,7 @@
   "storageStatus": "Application records remain on LocalStorage in this release; backup v7 captures app-scoped LocalStorage and the complete namespaced IndexedDB database.",
   "files": {
     "index.html": {
-      "sha256": "aaa878a2b110cfbb282e70107996f8d47bbdd3dbd450e8d6cd76989cd23cc688"
+      "sha256": "ab40741e559b291a77b2138c1a245e6c39c9bb4bc77092876f2fd705283d9ae0"
     },
     "version-manager.js": {
       "sha256": "74bbf3bb1da6d7b97fbd4dacff1ae89d62b955ecb085bcb79594b53f903068c3"
