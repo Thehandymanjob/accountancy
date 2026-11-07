@@ -11,7 +11,7 @@
   "storageStatus": "Application records remain on LocalStorage in this release; complete backup v7 captures app-scoped user data from LocalStorage and all non-diagnostic records in the namespaced IndexedDB database.",
   "files": {
     "index.html": {
-      "sha256": "31ad262e25af01d0cffb158ea7d63becf7f19ca7efe7e70fd2f4daee27632352"
+      "sha256": "e1fdd9d10020bbe679f1bf2dc4e1f0443430bf51bcae0f0c333ba59fe5d59d85"
     },
     "version-manager.js": {
       "sha256": "74bbf3bb1da6d7b97fbd4dacff1ae89d62b955ecb085bcb79594b53f903068c3"

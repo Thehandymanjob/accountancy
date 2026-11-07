@@ -22,7 +22,7 @@ try{
   localStorage.setItem('handyman_app_language_v1','fa');
   localStorage.setItem('handyman_monitor_log_v1',JSON.stringify([{event:'OLD-LOCAL-DIAGNOSTIC'}]));
   const api=window.HandymanStorageFoundation,db=await api.openDatabase(),stores=api.stores;
-  await new Promise((resolve,reject)=>{const tx=db.transaction(stores,'readwrite');for(const n of stores){const o=tx.objectStore(n);if(n==='kv'){o.put({key:'user-setting-preserve',value:'kv-value'});o.put({key:'handyman_monitor_log_v1',value:'OLD-IDB-DIAGNOSTIC'})}else if(n==='auditLog')o.put({id:'old-audit-log',event:'OLD-IDB-AUDIT'});else o.put({id:'seed-'+n,payload:'record-'+n})}tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('seed transaction aborted'))});
+  await new Promise((resolve,reject)=>{const tx=db.transaction(stores,'readwrite');for(const n of stores){const o=tx.objectStore(n);if(n==='kv'){o.put({key:'user-setting-preserve',value:'kv-value'});o.put({key:'handyman_monitor_log_v1',value:'OLD-IDB-DIAGNOSTIC'})}else if(n==='auditLog')o.put({id:'old-audit-log',event:'OLD-IDB-AUDIT'});else if(n==='legacySnapshots'){o.put({id:'seed-legacySnapshots',legacyKey:'tha_v206_accounting_v1',raw:'BACKUP-USER-SNAPSHOT'});o.put({id:'diag-snapshot',legacyKey:'handyman_monitor_log_v1',raw:'OLD-IDB-LOG'})}else o.put({id:'seed-'+n,payload:'record-'+n})}tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('seed transaction aborted'))});
   db.close();
  });
  const downloadPromise=page.waitForEvent('download');
@@ -37,6 +37,8 @@ try{
  assert(ls['handyman_app_language_v1']==='fa','Language preference missing from backup');
  assert(!Object.keys(ls).some(k=>/(monitor|diagnostic|audit[_-]?log)/i.test(k)),'Diagnostic LocalStorage logs should not be included');
  assert(idb.auditLog.length===0,'IndexedDB audit log should not be included');
+ assert(!idb.legacySnapshots.some(x=>/monitor|diagnostic|audit[_-]?log/i.test(String(x.legacyKey||''))),'Diagnostic legacy snapshot should not be included');
+ assert(idb.legacySnapshots.some(x=>x.legacyKey==='tha_v206_accounting_v1'),'Non-diagnostic legacy snapshot missing from backup');
  assert(!idb.kv.some(x=>/monitor|diagnostic|audit[_-]?log/i.test(String(x.key||''))),'IndexedDB diagnostic KV item should not be included');
  assert(idb.projects.some(x=>x.id==='seed-projects'),'Project IndexedDB record missing from backup');
  assert(idb.kv.some(x=>x.key==='user-setting-preserve'),'Non-diagnostic KV record missing from backup');
@@ -82,6 +84,8 @@ try{
  assert(restored.rows.projects.some(x=>x.id==='seed-projects'),'IndexedDB project record not restored');
  assert(restored.rows.kv.some(x=>x.key==='user-setting-preserve'),'IndexedDB KV record not restored');
  assert(restored.rows.auditLog.length===0,'Old IndexedDB audit log was restored');
+ assert(!restored.rows.legacySnapshots.some(x=>/monitor|diagnostic|audit[_-]?log/i.test(String(x.legacyKey||''))),'Old diagnostic legacy snapshot was restored');
+ assert(restored.rows.legacySnapshots.some(x=>x.legacyKey==='tha_v206_accounting_v1'),'Non-diagnostic legacy snapshot was not restored');
  assert(!restored.rows.kv.some(x=>/monitor|diagnostic|audit[_-]?log/i.test(String(x.key||''))),'Old diagnostic KV data was restored');
  console.log('Complete v7 clean-reset round trip passed: LocalStorage, IndexedDB, reports, sequence, language, logo, project image and contracts restored; diagnostic logs excluded; full reset cleared prior records and production IndexedDB.');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve))}
