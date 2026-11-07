@@ -1376,7 +1376,7 @@ html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#172b4
  w.document.open();w.document.write(html);w.document.close();
 }
 
-function openAccountancy(){accountingPageStack=[];currentAccountingPage=null;document.body.classList.remove('accountancy-landing-active','projects-open','contracts-open');document.body.classList.add('accountancy-open');show('accountancyHome')}
+function openAccountancy(){accountingPageStack=[];currentAccountingPage=null;document.body.classList.remove('accountancy-landing-active','projects-open','contracts-open');document.body.classList.add('accountancy-open');show('accountancyHome')};window.openAccountancy=openAccountancy
 function openContractsApp(){document.body.classList.remove('accountancy-open','projects-open');document.body.classList.add('contracts-open');if(typeof window.ctShowSection==='function'){window.ctShowSection('contracts')}else{const app=document.getElementById('contractsApp');if(app)app.style.display='block';}}
 function closeContractsApp(){document.body.classList.remove('contracts-open');const app=document.getElementById('contractsApp');if(app)app.style.display='';syncLauncherBrand()}
 function returnToLauncher(){document.body.classList.remove('accountancy-open','accountancy-landing-active','projects-open','contracts-open');accountingPageStack=[];currentAccountingPage=null;syncLauncherBrand()}
