@@ -4,7 +4,7 @@
   "sourceBranch": "main",
   "version": "250",
   "buildId": "THA-250-PRODUCTION-20261107-BACKUP7-RESET",
-  "manifestSha256": "b08f441d4f1ab2006295dfd76ee196241efe89bfa6bc2231175d90660dd9dff0",
+  "manifestSha256": "35ceec113f3f0ce12f09f52f31200e4658ac52a3a60d9505a36e45e23fbf19aa",
   "updatedAt": "2026-11-07T00:00:00.000Z",
   "note": "Production v250 with complete LocalStorage + IndexedDB backup/restore v7; diagnostic logs excluded; full verified factory reset.",
   "sourceCommit": "f6127951f0fa1e03ee71f6d84243039632c193f9"

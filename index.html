@@ -2917,7 +2917,7 @@ async function factoryResetAllStorage(){
   }
   dbNames=dbNames.filter(name=>/the_handyman_accountancy|handyman_accountancy/i.test(name));
   for(const name of dbNames)await deleteAppDatabase(name);
-  if('serviceWorker' in navigator){const appPath=new URL('.',document.baseURI).pathname;const regs=await navigator.serviceWorker.getRegistrations();for(const registration of regs){const scopePath=new URL(registration.scope).pathname;if(scopePath.startsWith(appPath))await registration.unregister()}const remainingRegs=(await navigator.serviceWorker.getRegistrations()).filter(registration=>new URL(registration.scope).pathname.startsWith(appPath));if(remainingRegs.length)throw new Error('Service Worker registrations remain for this app scope')}
+  if('serviceWorker' in navigator){const appPath=new URL('.',document.baseURI).pathname;const regs=await navigator.serviceWorker.getRegistrations();for(const registration of regs){const scopePath=new URL(registration.scope).pathname;if(scopePath.startsWith(appPath)){const removed=await registration.unregister();if(!removed)throw new Error('Could not unregister the app Service Worker')}}}
   if('caches' in window){
    const cacheNames=await caches.keys();
    for(const name of cacheNames)if(/^(tha-|handyman)/i.test(name))await caches.delete(name);
