@@ -41,7 +41,7 @@ try{
  assert(idb.projects.some(x=>x.id==='seed-projects'),'Project IndexedDB record missing from backup');
  assert(idb.kv.some(x=>x.key==='user-setting-preserve'),'Non-diagnostic KV record missing from backup');
  
- await page.evaluate(()=>{factoryResetStage=2;document.getElementById('factoryResetFinalButton').hidden=false;document.getElementById('factoryResetAcknowledgeBackup').hidden=true});
+ await page.evaluate(()=>{window.openFactoryReset();window.factoryResetNextStep();window.factoryResetAcknowledgeBackup()});
  const resetNav=page.waitForNavigation({waitUntil:'domcontentloaded'});
  await page.evaluate(()=>{void window.factoryResetFinalConfirm();return true});
  await resetNav;
