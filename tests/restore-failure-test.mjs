@@ -7,7 +7,7 @@ const assetNames = ['index.html','version-manager.js','service-worker.js','stora
 const assets = Object.fromEntries(await Promise.all(assetNames.map(async name => [name, await readFile(resolve(name))])));
 const server = createServer((req, res) => {
   const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
-  const name = pathname.charAt(0) === '/' ? pathname.slice(1) : pathname || 'index.html';
+  const name = pathname.length > 1 ? pathname.slice(1) : 'index.html';
   const body = assets[name];
   if (!body) { res.writeHead(404); res.end('Not found'); return; }
   const type = name.endsWith('.json') ? 'application/json' : name.endsWith('.js') ? 'text/javascript' : 'text/html; charset=utf-8';
