@@ -43,7 +43,7 @@ try{
  
  await page.evaluate(()=>{factoryResetStage=2;document.getElementById('factoryResetFinalButton').hidden=false;document.getElementById('factoryResetAcknowledgeBackup').hidden=true});
  const resetNav=page.waitForNavigation({waitUntil:'domcontentloaded'});
- await page.evaluate(()=>window.factoryResetFinalConfirm());
+ await page.evaluate(()=>{void window.factoryResetFinalConfirm();return true});
  await resetNav;
  const clean=await page.evaluate(async()=>{
   const keys=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>/^(tha_|handyman_)/i.test(k));
