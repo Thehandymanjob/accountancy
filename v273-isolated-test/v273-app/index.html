@@ -1656,7 +1656,7 @@ async function saveInvoice(){
  const paymentMethod=paymentStatus==='paid'?($('invPaymentMethod').value||'bank'):'';
  if(paymentStatus==='paid'&&(!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)||!['bank','cash'].includes(paymentMethod))){alert('Enter a valid payment date and method.');return false}
  const invoice={...(prev||{}),id,number,date,customerId:customer.id,customerName:name,phone,billingAddress,workAddress,description,items,qty,unitPrice,vat:$('invVat').value,status:draft?'draft':'issued',paymentStatus,paymentDate,paymentMethod,notes:$('invNotes').value.trim(),updatedAt:new Date().toISOString()};
- const oldInvoices=db.invoices,oldEntries=db.entries,oldCustomers=customersChanged?db.customers.filter(c=>c.id!==customer.id):db.customers;
+ const oldInvoices=db.invoices,oldEntries=db.entries,oldIncomeSequence=db.incomeSequence,oldCustomers=customersChanged?db.customers.filter(c=>c.id!==customer.id):db.customers;
  db.invoices=oldInvoices.some(x=>x.id===id)?oldInvoices.map(x=>x.id===id?invoice:x):[...oldInvoices,invoice];
  const isLinked=e=>e&&e.type==='income'&&(String(e.invoiceId||'')===String(id)||String(e.reference||'').trim()==='Invoice '+String(prev?.number||number)||String(e.id||'')==='invoice-income-'+id);
  const linked=oldEntries.filter(isLinked);
@@ -1664,8 +1664,8 @@ async function saveInvoice(){
   const income={...(linked[0]||{}),id:linked[0]?.id||'invoice-income-'+id,type:'income',date:paymentDate,amount:invoiceAmounts(invoice).total,method:paymentMethod,category:'Work income',reference:'Invoice '+number,notes:'Payment received for invoice '+number,invoiceId:id,number:linked[0]?.number||nextEntryRecordNumber('income'),deletedAt:undefined,deleted:false,createdAt:linked[0]?.createdAt||new Date().toISOString()};
   const stamp=new Date().toISOString();let usedPrimary=false;db.entries=oldEntries.map(e=>{if(!isLinked(e))return e;if(!usedPrimary&&String(e.id)===String(income.id)){usedPrimary=true;return income}return {...e,deletedAt:e.deletedAt||stamp,deleted:true}});if(!usedPrimary)db.entries.push(income);
  }else{const stamp=new Date().toISOString();db.entries=oldEntries.map(e=>isLinked(e)?{...e,deletedAt:e.deletedAt||stamp,deleted:true}:e);}
- if(!await persist()){db.invoices=oldInvoices;db.entries=oldEntries;if(customersChanged)db.customers=oldCustomers;return false}
- let idbVerified=false;try{await flushAccountingWrites();idbVerified=true}catch(error){db.invoices=oldInvoices;db.entries=oldEntries;if(customersChanged)db.customers=oldCustomers;alert('Invoice was not saved in IndexedDB. '+(error&&error.message||error));return false}
+ if(!await persist()){db.invoices=oldInvoices;db.entries=oldEntries;db.incomeSequence=oldIncomeSequence;if(customersChanged)db.customers=oldCustomers;return false}
+ let idbVerified=false;try{await flushAccountingWrites();idbVerified=true}catch(error){db.invoices=oldInvoices;db.entries=oldEntries;db.incomeSequence=oldIncomeSequence;if(customersChanged)db.customers=oldCustomers;alert('Invoice was not saved in IndexedDB. '+(error&&error.message||error));return false}
  if(!prev){try{await reserveRecordNumber(number)}catch(error){setStatus('Invoice saved, but the number reservation could not be verified: '+(error&&error.message||error),'warn')}}
  logMonitorEvent('activity',prev?'invoice_updated':'invoice_created','invoice',String(invoice.number||invoice.id),'success',{invoiceId:invoice.id,status:invoice.status,paymentStatus:invoice.paymentStatus,paymentDate:invoice.paymentDate,paymentMethod:invoice.paymentMethod,accountingIncomeRecorded:paymentStatus==='paid',customerId:invoice.customerId,total:invoiceAmounts(invoice).total});
  if(customersChanged)logMonitorEvent('activity','customer_created_from_invoice','customer',customer.id,'success',{customerId:customer.id,sourceInvoiceId:invoice.id});
