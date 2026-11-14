@@ -15,8 +15,9 @@
   support:()=>root.HandymanSupportV264
  };
  let ready=false,initializing=null,states=null;
+ const domainStatusSnapshot=()=>{const out={};for(const name of ["accounting","projects","contracts","businessProfile","support"])out[name]={ok:!!(states&&Object.prototype.hasOwnProperty.call(states,name)),error:""};return out;};
  async function initialize(){
-  if(ready)return {ok:true,mode:"indexeddb-only",legacyImport:false,states:clone(states)};
+  if(ready)return {ok:true,mode:"indexeddb-only",legacyImport:false,states:clone(states),domainStatus:domainStatusSnapshot()};
   if(initializing)return initializing;
   initializing=(async()=>{
    const names=["accounting","projects","contracts","businessProfile","support"];
@@ -26,7 +27,7 @@
    ]);
    const next={};names.forEach((name,i)=>{if(!results[i]||results[i].ok!==true||results[i].mode!=="indexeddb-only"||results[i].legacyImport!==false)throw new Error("IndexedDB startup verification failed for "+name+".");next[name]=clone(results[i].state);});
    states=next;ready=true;
-   return {ok:true,mode:"indexeddb-only",legacyImport:false,database:results[0].database,states:clone(states)};
+   return {ok:true,mode:"indexeddb-only",legacyImport:false,database:results[0].database,states:clone(states),domainStatus:domainStatusSnapshot()};
   })().catch(error=>{ready=false;states=null;throw error;}).finally(()=>{initializing=null;});
   return initializing;
  }
