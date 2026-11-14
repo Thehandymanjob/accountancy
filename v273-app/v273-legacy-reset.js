@@ -28,10 +28,14 @@ async function convertLegacy(file){
  unique(a.entries,"Accounting entries");unique(a.customers,"Customers");unique(a.invoices,"Invoices");unique(p.projects,"Projects");unique(p.workers,"Workers");
  for(const project of p.projects)unique(project.subprojects||[],"Subprojects");
  const profile=p.profile||{},projects={...p};delete projects.profile;
+ // Prefix legacy Income and Expense records only during conversion. Existing numeric values are retained.
+ const seriesMax={income:0,expense:0};
+ for(const e of a.entries){if(!e||!['income','expense'].includes(e.type))continue;const prefix=e.type==='income'?'IN':'E';const raw=String(e.number??'').trim();const match=raw.match(new RegExp('^(?:'+prefix+')?(\\d+)$','i'));if(match){const n=Number(match[1]);if(Number.isSafeInteger(n)&&n>0){e.number=prefix+String(n).padStart(3,'0');seriesMax[e.type]=Math.max(seriesMax[e.type],n)}}}
+ for(const type of ['income','expense']){const prefix=type==='income'?'IN':'E';const missing=a.entries.filter(e=>e&&e.type===type&&!new RegExp('^'+prefix+'\\d+$','i').test(String(e.number??''))).sort((x,y)=>String(x.date||'').localeCompare(String(y.date||''))||String(x.createdAt||'').localeCompare(String(y.createdAt||''))||String(x.id||'').localeCompare(String(y.id||'')));for(const e of missing){e.number=prefix+String(++seriesMax[type]).padStart(3,'0')}}
  const businessProfile={businessName:String(profile.businessName||""),ownerName:String(profile.ownerName||""),phone:String(profile.phone||""),email:String(profile.email||""),address:String(profile.address||""),logo:String(profile.logo||""),paymentDetails:String(profile.paymentDetails||"")};
  const maxInvoice=Math.max(140,...a.invoices.map(x=>Number(x.number)||0),...a.entries.map(x=>Number(x.invoiceNumber)||0));
  const pkg={format:FORMAT,database:DB,sourceSha256:SOURCE_SHA,createdAt:new Date().toISOString(),domains:DOMAINS.slice(),records:[
- row("accounting","state",a),row("business_profile","identity",businessProfile),row("contracts","state",{contracts:source.contracts}),row("projects","state",projects),row("sequences","invoice-number",maxInvoice),
+ row("accounting","state",{...a,incomeSequence:seriesMax.income,expenseSequence:seriesMax.expense}),row("business_profile","identity",businessProfile),row("contracts","state",{contracts:source.contracts}),row("projects","state",projects),row("sequences","invoice-number",maxInvoice),
  row("preferences","language","en"),row("preference_meta","language-pref-version",""),row("diagnostics","monitor-log",[]),row("reports","archive",[]),row("report_notifications","notifications",[]),row("report_settings","settings",{}),row("report_workflow","workflow",{}),row("notifications","items",[]),row("recovery","last-reset-snapshot",null),row("factory_reset_recovery","factory-reset-recovery",null),row("help_contact_drafts","drafts",[]),row("media","assets",{items:[]})
  ]};
  assert(pkg.records.length===17,"Expected 17 records.");
