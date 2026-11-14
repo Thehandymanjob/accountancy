@@ -1877,7 +1877,7 @@ function removeOrphanedInvoiceIncome(){
  const before=db.entries.length;db.entries=db.entries.filter(e=>!isOrphan(e));return before-db.entries.length;
 }
 async function migrateInvoiceNumberPrefixes(){
- const oldInvoices=db.invoices.map(i=>({id:i.id,number:i.number}));
+ const oldInvoices=db.invoices.map(i=>({id:i.id,number:i.number,notes:i.notes}));
  const oldEntries=db.entries.map(e=>({id:e.id,reference:e.reference,notes:e.notes,invoiceNumber:e.invoiceNumber}));
  let changed=false;const byId=new Map(),byNumber=new Map();
  for(const i of db.invoices){
@@ -1885,15 +1885,17 @@ async function migrateInvoiceNumberPrefixes(){
   const next='INV'+String(n).padStart(3,'0');
   byId.set(String(i.id),next);byNumber.set(String(n),next);
   if(i.number!==next){i.number=next;changed=true}
+  const updatedNotes=String(i.notes||'').replace(/^(Please use invoice number\s+)(?:INV)?(\d+)/i,'$1'+next);
+  if(updatedNotes!==String(i.notes||'')){i.notes=updatedNotes;changed=true}
  }
  for(const e of db.entries){
   const linked=byId.get(String(e.invoiceId||''));
   const refMatch=String(e.reference||'').match(/^Invoice\s+(?:INV)?(\d+)$/i);
-  const noteMatch=String(e.notes||'').match(/^Payment received for invoice\s+(?:INV)?(\d+)$/i);
+  const noteMatch=String(e.notes||'').match(/^(Payment received for invoice\s+)(?:INV)?(\d+)(.*)$/i);
   const ref=linked||(refMatch&&byNumber.get(String(Number(refMatch[1]))));
-  const note=linked||(noteMatch&&byNumber.get(String(Number(noteMatch[1]))));
+  const note=linked||(noteMatch&&byNumber.get(String(Number(noteMatch[2]))));
   if(e.type==='income'&&ref&&e.reference!=='Invoice '+ref){e.reference='Invoice '+ref;changed=true}
-  if(e.type==='income'&&note&&e.notes!=='Payment received for invoice '+note){e.notes='Payment received for invoice '+note;changed=true}
+  if(e.type==='income'&&note&&noteMatch){const updated=noteMatch[1]+note+noteMatch[3];if(e.notes!==updated){e.notes=updated;changed=true}}
   if(e.invoiceNumber&&invoiceNumericSuffix(e.invoiceNumber)){
    const next='INV'+String(invoiceNumericSuffix(e.invoiceNumber)).padStart(3,'0');
    if(e.invoiceNumber!==next){e.invoiceNumber=next;changed=true}
@@ -1901,7 +1903,7 @@ async function migrateInvoiceNumberPrefixes(){
  }
  if(!changed)return false;
  if(!await persist()){
-  db.invoices.forEach(i=>{const o=oldInvoices.find(x=>x.id===i.id);if(o)i.number=o.number});
+  db.invoices.forEach(i=>{const o=oldInvoices.find(x=>x.id===i.id);if(o){i.number=o.number;i.notes=o.notes}});
   db.entries.forEach(e=>{const o=oldEntries.find(x=>x.id===e.id);if(o){e.reference=o.reference;e.notes=o.notes;e.invoiceNumber=o.invoiceNumber}});
   throw new Error('Invoice prefix migration could not be saved.');
  }
