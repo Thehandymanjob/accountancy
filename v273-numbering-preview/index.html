@@ -1618,7 +1618,7 @@ function selectInvoiceCustomer(){const c=customerById($('invCustomer').value);if
 const INVOICE_SEQUENCE_KEY='tha_test226_invoice_sequence_v1';
 function invoiceNumericSuffix(value){const m=String(value??'').trim().match(/^(?:INV)?(\d+)$/i);const n=m?Number(m[1]):0;return Number.isSafeInteger(n)&&n>0?n:0}
 function formatInvoiceNumber(value){const n=invoiceNumericSuffix(value);return n?'INV'+String(n).padStart(3,'0'):''}
-function recordNumericSuffix(value){const m=String(value??'').trim().match(/^(?:INV|IN|E)?(\\d+)$/i);const n=m?Number(m[1]):0;return Number.isSafeInteger(n)&&n>0?n:0}
+function recordNumericSuffix(value){const m=String(value??'').trim().match(/^(?:INV|IN|E)?(\d+)$/i);const n=m?Number(m[1]):0;return Number.isSafeInteger(n)&&n>0?n:0}
 function highestInvoiceNumber(){return Math.max(0,...(Array.isArray(db.invoices)?db.invoices.map(x=>invoiceNumericSuffix(x.number)):[]))}
 function nextInvoiceNumber(){return 'INV'+String(highestInvoiceNumber()+1).padStart(3,'0')}
 async function reserveRecordNumber(n){const num=invoiceNumericSuffix(n);if(num<=0)return;const controller=window.HandymanAccountingV264;if(!controller)throw new Error('IndexedDB accounting controller is unavailable.');const reserved=await controller.reserveInvoiceNumber(num);if(typeof logMonitorEvent==='function')logMonitorEvent('activity','invoice_number_reserved','invoice',String(reserved),'success',{number:reserved});return reserved}
@@ -1876,7 +1876,37 @@ function removeOrphanedInvoiceIncome(){
  };
  const before=db.entries.length;db.entries=db.entries.filter(e=>!isOrphan(e));return before-db.entries.length;
 }
-async function migrateInvoiceNumberPrefixes(){const oldInvoices=db.invoices.map(i=>({id:i.id,number:i.number})),oldEntries=db.entries.map(e=>({id:e.id,reference:e.reference,notes:e.notes,invoiceNumber:e.invoiceNumber}));let changed=false;const byId=new Map();for(const i of db.invoices){const n=invoiceNumericSuffix(i.number);if(n){const next='INV'+String(n).padStart(3,'0');if(i.number!==next){i.number=next;changed=true}byId.set(String(i.id),next)}}for(const e of db.entries){const linked=byId.get(String(e.invoiceId||''));const oldRef=String(e.reference||'').match(/^Invoice\\s+(\\d+)$/i);const ref=linked||(oldRef&&byId.size===1?byId.values().next().value:null);if(ref&&e.type==='income'){if(e.reference==='Invoice '+String(Number(ref.replace(/^INV/i,'')))){e.reference='Invoice '+ref;changed=true}if(/^Payment received for invoice \\d+$/i.test(String(e.notes||''))){e.notes='Payment received for invoice '+ref;changed=true}}if(e.invoiceNumber&&invoiceNumericSuffix(e.invoiceNumber)){const next='INV'+String(invoiceNumericSuffix(e.invoiceNumber)).padStart(3,'0');if(e.invoiceNumber!==next){e.invoiceNumber=next;changed=true}}}if(!changed)return false;if(!await persist()){db.invoices.forEach(i=>{const o=oldInvoices.find(x=>x.id===i.id);if(o)i.number=o.number});db.entries.forEach(e=>{const o=oldEntries.find(x=>x.id===e.id);if(o){e.reference=o.reference;e.notes=o.notes;e.invoiceNumber=o.invoiceNumber}});throw new Error('Invoice prefix migration could not be saved.')}await flushAccountingWrites();return true}
+async function migrateInvoiceNumberPrefixes(){
+ const oldInvoices=db.invoices.map(i=>({id:i.id,number:i.number}));
+ const oldEntries=db.entries.map(e=>({id:e.id,reference:e.reference,notes:e.notes,invoiceNumber:e.invoiceNumber}));
+ let changed=false;const byId=new Map(),byNumber=new Map();
+ for(const i of db.invoices){
+  const n=invoiceNumericSuffix(i.number);if(!n)continue;
+  const next='INV'+String(n).padStart(3,'0');
+  byId.set(String(i.id),next);byNumber.set(String(n),next);
+  if(i.number!==next){i.number=next;changed=true}
+ }
+ for(const e of db.entries){
+  const linked=byId.get(String(e.invoiceId||''));
+  const refMatch=String(e.reference||'').match(/^Invoice\s+(?:INV)?(\d+)$/i);
+  const noteMatch=String(e.notes||'').match(/^Payment received for invoice\s+(?:INV)?(\d+)$/i);
+  const ref=linked||(refMatch&&byNumber.get(String(Number(refMatch[1]))));
+  const note=linked||(noteMatch&&byNumber.get(String(Number(noteMatch[1]))));
+  if(e.type==='income'&&ref&&e.reference!=='Invoice '+ref){e.reference='Invoice '+ref;changed=true}
+  if(e.type==='income'&&note&&e.notes!=='Payment received for invoice '+note){e.notes='Payment received for invoice '+note;changed=true}
+  if(e.invoiceNumber&&invoiceNumericSuffix(e.invoiceNumber)){
+   const next='INV'+String(invoiceNumericSuffix(e.invoiceNumber)).padStart(3,'0');
+   if(e.invoiceNumber!==next){e.invoiceNumber=next;changed=true}
+  }
+ }
+ if(!changed)return false;
+ if(!await persist()){
+  db.invoices.forEach(i=>{const o=oldInvoices.find(x=>x.id===i.id);if(o)i.number=o.number});
+  db.entries.forEach(e=>{const o=oldEntries.find(x=>x.id===e.id);if(o){e.reference=o.reference;e.notes=o.notes;e.invoiceNumber=o.invoiceNumber}});
+  throw new Error('Invoice prefix migration could not be saved.');
+ }
+ await flushAccountingWrites();return true;
+}
 async function initializeAccountingUI(){try{await loadDB();await migrateInvoiceNumberPrefixes();ensureInvoicePaymentFields();ensureInvoiceFields();await reserveRecordNumber(highestInvoiceNumber());$('date').value=today();setPeriod();show('accountancyHome');syncLauncherBrand();refreshAll();return true}catch(e){$('date').value=today();setPeriod();setStatus('Accounting is locked because IndexedDB did not initialize. '+(e&&e.message||e),'error');return false}}
 // v273-R4: Accounting is initialized only after the user opens it and the shared IndexedDB gateway has settled.
 
