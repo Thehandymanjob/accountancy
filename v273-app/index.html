@@ -1668,7 +1668,7 @@ async function saveInvoice(){
  const isLinked=e=>e&&e.type==='income'&&(String(e.invoiceId||'')===String(id)||String(e.reference||'').trim()==='Invoice '+String(prev?.number||number)||String(e.id||'')==='invoice-income-'+id);
  const linked=oldEntries.filter(isLinked);
  if(paymentStatus==='paid'){
-  const income={id:linked[0]?.id||'invoice-income-'+id,type:'income',date:paymentDate,amount:invoiceAmounts(invoice).total,method:paymentMethod,category:'Work income',reference:'Invoice '+number,notes:'Payment received for invoice '+number,invoiceId:id,createdAt:linked[0]?.createdAt||new Date().toISOString()};
+  const income={id:linked[0]?.id||'invoice-income-'+id,type:'income',date:paymentDate,amount:invoiceAmounts(invoice).total,method:paymentMethod,category:'Work income',reference:'Invoice '+number,notes:'Payment received for invoice '+number,invoiceId:id,number:linked[0]?.number||nextEntryRecordNumber('income'),createdAt:linked[0]?.createdAt||new Date().toISOString()};
   db.entries=[...oldEntries.filter(e=>!isLinked(e)),income];
  }else{db.entries=oldEntries.filter(e=>!isLinked(e));}
  if(!await persist()){db.invoices=oldInvoices;db.entries=oldEntries;if(customersChanged)db.customers=oldCustomers;return false}
@@ -1838,8 +1838,8 @@ async function saveInvoicePaidPayment(id,date,method){
  const duplicate=db.entries.find(e=>e.type==='income'&&(e.invoiceId===i.id||e.reference===`Invoice ${i.number}`));
  if(!duplicate){const possible=db.entries.filter(e=>e.type==='income'&&e.date===date&&Math.round(Number(e.amount)*100)===Math.round(total*100));if(possible.length){const detail=possible.slice(0,4).map(e=>`${e.date} · £${Number(e.amount).toFixed(2)} · ${e.reference||e.category||'Income entry'}`).join('\\n');if(!confirm(`Possible duplicate payment: an income entry with the same date and amount already exists.\\n\\n${detail}\\n\\nChoose OK only if this invoice payment is a separate receipt. Choose Cancel to review the existing entry first.`))return}}
  i.paymentStatus='paid';i.paymentDate=date;i.paymentMethod=method;i.status='issued';
- if(!duplicate)db.entries.push({id:`invoice-income-${i.id}`,type:'income',date,amount:total,method,category:'Work income',reference:`Invoice ${i.number}`,notes:`Payment received for invoice ${i.number}`,invoiceId:i.id,createdAt:new Date().toISOString()});
- else{duplicate.date=date;duplicate.amount=total;duplicate.method=method;duplicate.invoiceId=i.id}
+ if(!duplicate)db.entries.push({id:`invoice-income-${i.id}`,type:'income',date,amount:total,method,category:'Work income',reference:`Invoice ${i.number}`,notes:`Payment received for invoice ${i.number}`,invoiceId:i.id,number:nextEntryRecordNumber('income'),createdAt:new Date().toISOString()});
+ else{duplicate.date=date;duplicate.amount=total;duplicate.method=method;duplicate.invoiceId=i.id;if(!duplicate.number)duplicate.number=nextEntryRecordNumber('income')}
  if(!await persist()){db=JSON.parse(old);return}
  let idbVerified=false,verificationError='';try{await flushAccountingWrites();idbVerified=true}catch(error){verificationError=String(error&&error.message||error);db=JSON.parse(old);window.__thaAccountingSaveOk=false;alert('Invoice payment was not saved in IndexedDB. '+verificationError);return}
  window.__thaAccountingSaveOk=true;
