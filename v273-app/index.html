@@ -1769,8 +1769,8 @@ async function assignNumbersToExistingInvoices(){
  if(!pending.length)return 0;
  const used=new Set();
  db.invoices.forEach(i=>{const n=Number(i?.number);if(Number.isSafeInteger(n)&&n>0)used.add(n);});
- db.entries.filter(e=>e&&e.type==='income').forEach(e=>{const n=Number(e.number);if(Number.isSafeInteger(n)&&n>0)used.add(n);});
- let next=Math.floor(highestSharedRecordNumber())+1;
+ 
+ let next=Math.floor(highestInvoiceNumber())+1;
  const changes=[];
  for(const invoice of pending){
   while(used.has(next))next++;
