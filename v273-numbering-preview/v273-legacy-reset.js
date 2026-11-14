@@ -64,7 +64,7 @@ async function inspectImportFile(file){
  const accounting=pkg.records.find(x=>x.id==="accounting:state").value,projects=pkg.records.find(x=>x.id==="projects:state").value;
  assert(accounting&&Array.isArray(accounting.entries)&&Array.isArray(accounting.customers)&&Array.isArray(accounting.invoices),"Accounting validation failed.");
  assert(projects&&Array.isArray(projects.projects)&&Array.isArray(projects.workers),"Project validation failed.");
- const invoiceNumbers=accounting.invoices.map(i=>String(i.number||''));assert(invoiceNumbers.every(n=>/^INV\\d+$/.test(n)),"Every imported invoice must use the INV prefix.");assert(new Set(invoiceNumbers).size===invoiceNumbers.length,"Imported invoice numbers must be unique.");
+ const invoiceNumbers=accounting.invoices.map(i=>String(i.number||''));assert(invoiceNumbers.every(n=>/^INV\d+$/.test(n)),"Every imported invoice must use the INV prefix.");assert(new Set(invoiceNumbers).size===invoiceNumbers.length,"Imported invoice numbers must be unique.");
  return pkg;
 }
 async function emergencyBackup(){
