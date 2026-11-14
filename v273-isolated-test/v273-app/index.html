@@ -1856,7 +1856,19 @@ function removeOrphanedInvoiceIncome(){
  };
  const before=db.entries.length;db.entries=db.entries.filter(e=>!isOrphan(e));return before-db.entries.length;
 }
-async function initializeAccountingUI(){try{await loadDB();ensureInvoicePaymentFields();ensureInvoiceFields();db.invoiceSequence=Math.max(Number(await window.HandymanAppStorageV264.read('sequences'))||0,highestInvoiceNumber()+1);$('date').value=today();setPeriod();show('accountancyHome');syncLauncherBrand();refreshAll();return true}catch(e){$('date').value=today();setPeriod();setStatus('Accounting is locked because IndexedDB did not initialize. '+(e&&e.message||e),'error');return false}}
+function normalizeDeletedMarkers(){
+ let changed=false;const stamp=(x)=>x.deletedAt||x.deletedOn||x.deleted_at||x.updatedAt||x.createdAt||x.date||new Date().toISOString();
+ for(const list of [db.entries,db.invoices])for(const record of (Array.isArray(list)?list:[])){
+  const legacyMarked=record.markedDeleted===true;
+  const hasDeletedAt=!!record.deletedAt;
+  if(legacyMarked||record.deleted===true||hasDeletedAt){
+   if(record.deleted!==true){record.deleted=true;changed=true}
+   if(!hasDeletedAt){record.deletedAt=stamp(record);changed=true}
+  }
+ }
+ return changed;
+}
+async function initializeAccountingUI(){try{await loadDB();ensureInvoicePaymentFields();ensureInvoiceFields();if(normalizeDeletedMarkers()){if(!await persist())throw new Error('Deleted-record marker normalization was not saved.');await flushAccountingWrites()}db.invoiceSequence=Math.max(Number(await window.HandymanAppStorageV264.read('sequences'))||0,highestInvoiceNumber()+1);$('date').value=today();setPeriod();show('accountancyHome');syncLauncherBrand();refreshAll();return true}catch(e){$('date').value=today();setPeriod();setStatus('Accounting is locked because IndexedDB did not initialize. '+(e&&e.message||e),'error');return false}}
 // v273-R4: Accounting is initialized only after the user opens it and the shared IndexedDB gateway has settled.
 
 /* Projects workspace logic: deliberately isolated from accounting database */
