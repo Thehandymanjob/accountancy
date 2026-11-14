@@ -32,8 +32,12 @@ async function convertLegacy(file){
  const seriesMax={income:0,expense:0};
  for(const e of a.entries){if(!e||!['income','expense'].includes(e.type))continue;const prefix=e.type==='income'?'IN':'E';const raw=String(e.number??'').trim();const match=raw.match(new RegExp('^(?:'+prefix+')?(\\d+)$','i'));if(match){const n=Number(match[1]);if(Number.isSafeInteger(n)&&n>0){e.number=prefix+String(n).padStart(3,'0');seriesMax[e.type]=Math.max(seriesMax[e.type],n)}}}
  for(const type of ['income','expense']){const prefix=type==='income'?'IN':'E';const missing=a.entries.filter(e=>e&&e.type===type&&!new RegExp('^'+prefix+'\\d+$','i').test(String(e.number??''))).sort((x,y)=>String(x.date||'').localeCompare(String(y.date||''))||String(x.createdAt||'').localeCompare(String(y.createdAt||''))||String(x.id||'').localeCompare(String(y.id||'')));for(const e of missing){e.number=prefix+String(++seriesMax[type]).padStart(3,'0')}}
+ // Prefix every legacy invoice number while preserving its numeric suffix.
+ const invoiceMap=new Map();let maxInvoice=0;
+ for(const invoice of a.invoices){const raw=String(invoice.number??'').trim();const m=raw.match(/^(?:INV)?(\d+)$/i);if(!m)continue;const n=Number(m[1]);if(!Number.isSafeInteger(n)||n<1)continue;const prefixed='INV'+String(n).padStart(3,'0');invoiceMap.set(String(n),prefixed);invoice.number=prefixed;maxInvoice=Math.max(maxInvoice,n)}
+ for(const entry of a.entries){const ref=String(entry.reference||'').match(/^Invoice\s+(?:INV)?(\d+)$/i);if(ref&&invoiceMap.has(String(Number(ref[1]))))entry.reference='Invoice '+invoiceMap.get(String(Number(ref[1])));const note=String(entry.notes||'').match(/^Payment received for invoice\s+(?:INV)?(\d+)$/i);if(note&&invoiceMap.has(String(Number(note[1]))))entry.notes='Payment received for invoice '+invoiceMap.get(String(Number(note[1])));if(entry.invoiceNumber){const n=Number(String(entry.invoiceNumber).replace(/^INV/i,''));if(Number.isSafeInteger(n)&&n>0){entry.invoiceNumber='INV'+String(n).padStart(3,'0');maxInvoice=Math.max(maxInvoice,n)}}}
  const businessProfile={businessName:String(profile.businessName||""),ownerName:String(profile.ownerName||""),phone:String(profile.phone||""),email:String(profile.email||""),address:String(profile.address||""),logo:String(profile.logo||""),paymentDetails:String(profile.paymentDetails||"")};
- const maxInvoice=Math.max(140,...a.invoices.map(x=>Number(x.number)||0),...a.entries.map(x=>Number(x.invoiceNumber)||0));
+ const maxInvoiceFromEntries=Math.max(0,...a.entries.map(x=>Number(String(x.invoiceNumber||'').replace(/^INV/i,''))||0));maxInvoice=Math.max(maxInvoice,maxInvoiceFromEntries);
  const pkg={format:FORMAT,database:DB,sourceSha256:SOURCE_SHA,createdAt:new Date().toISOString(),domains:DOMAINS.slice(),records:[
  row("accounting","state",{...a,incomeSequence:seriesMax.income,expenseSequence:seriesMax.expense}),row("business_profile","identity",businessProfile),row("contracts","state",{contracts:source.contracts}),row("projects","state",projects),row("sequences","invoice-number",maxInvoice),
  row("preferences","language","en"),row("preference_meta","language-pref-version",""),row("diagnostics","monitor-log",[]),row("reports","archive",[]),row("report_notifications","notifications",[]),row("report_settings","settings",{}),row("report_workflow","workflow",{}),row("notifications","items",[]),row("recovery","last-reset-snapshot",null),row("factory_reset_recovery","factory-reset-recovery",null),row("help_contact_drafts","drafts",[]),row("media","assets",{items:[]})
@@ -42,7 +46,7 @@ async function convertLegacy(file){
  assert(JSON.stringify(pkg.domains)===JSON.stringify([...pkg.domains].sort()),"Domain list is not canonical.");
  assert(pkg.records.every(x=>x.id===x.domain+":"+x.key&&DOMAINS.includes(x.domain)),"Record identity validation failed.");
  const serialized=JSON.stringify(pkg);assert(JSON.stringify(JSON.parse(serialized))===serialized,"JSON round-trip failed.");
- return {pkg,sourceSha:SOURCE_SHA,stats:{entries:a.entries.length,customers:a.customers.length,invoices:a.invoices.length,projects:p.projects.length,subprojects:p.projects.reduce((n,x)=>n+(x.subprojects||[]).length,0),invoiceNext:maxInvoice+1}};
+ return {pkg,sourceSha:SOURCE_SHA,stats:{entries:a.entries.length,customers:a.customers.length,invoices:a.invoices.length,projects:p.projects.length,subprojects:p.projects.reduce((n,x)=>n+(x.subprojects||[]).length,0),invoiceNext:'INV'+String(maxInvoice+1).padStart(3,'0')}};
 }
 function downloadText(filename,text,mime){
  const blob=new Blob([text],{type:mime||"application/json"}),url=URL.createObjectURL(blob),a=root.document.createElement("a");
@@ -60,6 +64,7 @@ async function inspectImportFile(file){
  const accounting=pkg.records.find(x=>x.id==="accounting:state").value,projects=pkg.records.find(x=>x.id==="projects:state").value;
  assert(accounting&&Array.isArray(accounting.entries)&&Array.isArray(accounting.customers)&&Array.isArray(accounting.invoices),"Accounting validation failed.");
  assert(projects&&Array.isArray(projects.projects)&&Array.isArray(projects.workers),"Project validation failed.");
+ const invoiceNumbers=accounting.invoices.map(i=>String(i.number||''));assert(invoiceNumbers.every(n=>/^INV\\d+$/.test(n)),"Every imported invoice must use the INV prefix.");assert(new Set(invoiceNumbers).size===invoiceNumbers.length,"Imported invoice numbers must be unique.");
  return pkg;
 }
 async function emergencyBackup(){
