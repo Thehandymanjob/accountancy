@@ -1870,7 +1870,7 @@ function removeOrphanedInvoiceIncome(){
  };
  const before=db.entries.length;db.entries=db.entries.filter(e=>!isOrphan(e));return before-db.entries.length;
 }
-async function initializeAccountingUI(){try{await loadDB();ensureInvoicePaymentFields();ensureInvoiceFields();await reserveRecordNumber(highestSharedRecordNumber());$('date').value=today();setPeriod();show('accountancyHome');syncLauncherBrand();refreshAll();return true}catch(e){$('date').value=today();setPeriod();setStatus('Accounting is locked because IndexedDB did not initialize. '+(e&&e.message||e),'error');return false}}
+async function initializeAccountingUI(){try{await loadDB();ensureInvoicePaymentFields();ensureInvoiceFields();await reserveRecordNumber(highestInvoiceNumber());$('date').value=today();setPeriod();show('accountancyHome');syncLauncherBrand();refreshAll();return true}catch(e){$('date').value=today();setPeriod();setStatus('Accounting is locked because IndexedDB did not initialize. '+(e&&e.message||e),'error');return false}}
 // v273-R4: Accounting is initialized only after the user opens it and the shared IndexedDB gateway has settled.
 
 /* Projects workspace logic: deliberately isolated from accounting database */
