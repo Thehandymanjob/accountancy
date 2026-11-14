@@ -1212,12 +1212,12 @@ function invoiceLinkedToEntry(entry){
  if(!entry||entry.type!=='income'||!Array.isArray(db.invoices))return null;
  if(entry.invoiceId){return db.invoices.find(i=>String(i.id)===String(entry.invoiceId))||null;}
  const match=String(entry.reference||'').match(/^Invoice\s+(.+)$/i);if(!match)return null;
- const candidates=db.invoices.filter(i=>String(i.number)===match[1].trim());
+ const n=invoiceNumericSuffix(match[1].trim()),candidates=db.invoices.filter(i=>invoiceNumericSuffix(i.number)===n);
  return candidates.length===1?candidates[0]:null;
 }
 async function saveEntry(){const date=$('date').value,amount=Math.round(Number($('amount').value)*100)/100,type=$('type').value;let category=$('category').value.trim();const typedNew=$('newCategoryRow')&&!$('newCategoryRow').hidden;if(type==='expense'&&typedNew){category=$('newCategoryName').value.trim();if(!category){alert('Enter the new store or expense name.');$('newCategoryName').focus();return}if(category.length>70){alert('The name must be 70 characters or fewer.');return}}if(type==='expense'&&!category){alert('Please select a category or choose + New store / expense.');$('categoryPickerButton').focus();return}if(!date||!Number.isFinite(amount)||amount<=0){alert('Please enter a valid date and amount greater than zero.');return}const id=$('editId').value||`${Date.now()}-${Math.random().toString(36).slice(2,7)}`;const old=db.entries.find(x=>x.id===id);if(!old){const possible=db.entries.filter(x=>x.id!==id&&x.type===type&&x.date===date&&Math.round(Number(x.amount)*100)===Math.round(amount*100));if(possible.length){const detail=possible.slice(0,4).map(x=>`${x.type} £${Number(x.amount).toFixed(2)} (${x.date}) — ${x.reference||x.category||'Existing entry'}${x.invoiceId?' [Invoice-linked]':''}`).join('\n');if(!confirm(`Possible duplicate: an entry with the same type, date and amount already exists.\n\n${detail}\n\nIf this is a separate real payment, choose OK to save it. Choose Cancel to review the existing entry first.`))return}}const entry={id,type,date,amount,method:$('method').value,category,reference:old?.reference||$('reference').value.trim(),notes:$('notes').value.trim(),receiptImage:entryReceiptTouched?($('entryReceiptData')?.value||''):(old?.receiptImage||''),createdAt:old?.createdAt||new Date().toISOString(),number:old?.number||(old?undefined:nextEntryRecordNumber(type))};const previous=db.entries,previousCustom=[...(db.customExpenseCategories||[])],previousIncomeSequence=db.incomeSequence,previousExpenseSequence=db.expenseSequence;db.entries=old?db.entries.map(x=>x.id===id?entry:x):[...db.entries,entry];if(type==='expense'&&typedNew&&!categories.expense.includes(category)&&!db.customExpenseCategories.includes(category)){db.customExpenseCategories=[...db.customExpenseCategories,category]}if(await persist()){try{await flushAccountingWrites();listPages.records=1;resetEntry();refreshAll();show('records')}catch(error){db.entries=previous;db.customExpenseCategories=previousCustom;db.incomeSequence=previousIncomeSequence;db.expenseSequence=previousExpenseSequence;fillCategories();alert('Entry was not saved in IndexedDB. '+(error&&error.message||error))}}else{db.entries=previous;db.customExpenseCategories=previousCustom;fillCategories()}}function editEntry(id){const x=db.entries.find(y=>y.id===id);if(!x)return;if(invoiceLinkedToEntry(x)){alert('This income record is linked to an invoice. Manage its payment from Invoices using Mark paid / Mark unpaid.');return;}show('entry');$('newCategoryRow').hidden=true;$('newCategoryName').value='';$('editId').value=id;$('entryTitle').textContent='Edit Entry';$('type').value=x.type;updateEntryReceiptVisibility();fillCategories();updateCategoryFieldVisibility();$('date').value=x.date;$('amount').value=x.amount;$('method').value=x.method;$('category').value=x.category;syncCategoryPicker();$('reference').value=x.reference||'';updateMainExpenseFields(x.category);if(x.type==='income'){$('mainContractorField').hidden=true;$('newCategoryRow').hidden=true;$('newCategoryName').value=''}if(x.category==='Contractor / subcontractor'&&$('mainContractorPicker'))$('mainContractorPicker').value=x.reference||'';$('notes').value=x.notes||'';renderReceiptPreview('entry',x.receiptImage||'')}
 async function deleteEntry(id){const entry=db.entries.find(x=>String(x.id)===String(id));if(!entry||entry.deletedAt||entry.deleted===true)return;if(invoiceLinkedToEntry(entry)){alert('This income record is linked to an invoice. Manage its payment from Invoices.');return;}if(!confirm('Move this entry to Deleted Records? Its number will remain reserved.'))return;const old=structuredClone(db);entry.deletedAt=new Date().toISOString();entry.deleted=true;if(!await persist()){db=old;return}try{await flushAccountingWrites();refreshAll()}catch(error){db=old;alert('Entry deletion was not saved in IndexedDB. '+(error&&error.message||error))}}
-function filteredHome(){return db.entries.filter(x=>(!$('homeFrom').value||x.date>=$('homeFrom').value)&&(!$('homeTo').value||x.date<=$('homeTo').value))}
+function filteredHome(){return db.entries.filter(x=>!x.deletedAt&&x.deleted!==true&&(!$('homeFrom').value||x.date>=$('homeFrom').value)&&(!$('homeTo').value||x.date<=$('homeTo').value))}
 function sums(a){const sum=x=>x.reduce((t,y)=>t+Number(y.amount||0),0),inc=a.filter(x=>x.type==='income'),exp=a.filter(x=>x.type==='expense');return {income:sum(inc),cash:sum(inc.filter(x=>x.method==='cash')),bank:sum(inc.filter(x=>x.method==='bank')),expense:sum(exp),count:a.length}}
 function refreshAll(){const s=sums(filteredHome());$('sIncome').textContent=money(s.income);$('sCash').textContent=money(s.cash);$('sBank').textContent=money(s.bank);$('sExpense').textContent=money(s.expense);$('sNet').textContent=money(s.income-s.expense);$('sCount').textContent=s.count;renderRecords();refreshReport();const backupCount=$('backupCount');if(backupCount)backupCount.textContent=db.entries.length}
 function renderThirdPartyRecords(){const root=$('thirdPartyRecordRows');if(!root)return;const q=($('search')?.value||'').toLowerCase();const rows=(Array.isArray(db.thirdPartyTransactions)?db.thirdPartyTransactions:[]).filter(t=>[t.personName,t.direction,t.amount,t.reference,t.notes,t.date].join(' ').toLowerCase().includes(q)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));root.innerHTML=rows.map(t=>`<tr><td>${esc(t.date||'—')}</td><td>${esc(t.personName||'Other Person')}</td><td>${t.direction==='received-on-behalf'?'Received for person':'Paid to person'}</td><td>${money(t.amount)}</td><td>${esc(t.reference||'—')}</td><td>${esc(t.notes||'')}</td></tr>`).join('')||'<tr><td colspan="6">No third-party transactions found.</td></tr>'}
@@ -1246,7 +1246,7 @@ function localizeAccountingReport(root,lang){
 }
 function refreshReport(){
  const from=$('reportFrom').value,to=$('reportTo').value;
- const items=db.entries.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));
+ const items=db.entries.filter(x=>!x.deletedAt&&x.deleted!==true&&(!from||x.date>=from)&&(!to||x.date<=to));
  const s=sums(items),income=items.filter(x=>x.type==='income'),expenses=items.filter(x=>x.type==='expense');
  const fmtDate=x=>{if(!x)return '—';const d=new Date(x+'T12:00:00');return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})};
  const total=arr=>arr.reduce((n,x)=>n+Number(x.amount||0),0);
@@ -1661,8 +1661,8 @@ async function saveInvoice(){
  const isLinked=e=>e&&e.type==='income'&&(String(e.invoiceId||'')===String(id)||String(e.reference||'').trim()==='Invoice '+String(prev?.number||number)||String(e.id||'')==='invoice-income-'+id);
  const linked=oldEntries.filter(isLinked);
  if(paymentStatus==='paid'){
-  const income={id:linked[0]?.id||'invoice-income-'+id,type:'income',date:paymentDate,amount:invoiceAmounts(invoice).total,method:paymentMethod,category:'Work income',reference:'Invoice '+number,notes:'Payment received for invoice '+number,invoiceId:id,createdAt:linked[0]?.createdAt||new Date().toISOString()};
-  db.entries=[...oldEntries.filter(e=>!isLinked(e)),income];
+  const income={...(linked[0]||{}),id:linked[0]?.id||'invoice-income-'+id,type:'income',date:paymentDate,amount:invoiceAmounts(invoice).total,method:paymentMethod,category:'Work income',reference:'Invoice '+number,notes:'Payment received for invoice '+number,invoiceId:id,number:linked[0]?.number||nextEntryRecordNumber('income'),deletedAt:undefined,deleted:false,createdAt:linked[0]?.createdAt||new Date().toISOString()};
+  const stamp=new Date().toISOString();let usedPrimary=false;db.entries=oldEntries.map(e=>{if(!isLinked(e))return e;if(!usedPrimary&&String(e.id)===String(income.id)){usedPrimary=true;return income}return {...e,deletedAt:e.deletedAt||stamp,deleted:true}});if(!usedPrimary)db.entries.push(income);
  }else{const stamp=new Date().toISOString();db.entries=oldEntries.map(e=>isLinked(e)?{...e,deletedAt:e.deletedAt||stamp,deleted:true}:e);}
  if(!await persist()){db.invoices=oldInvoices;db.entries=oldEntries;if(customersChanged)db.customers=oldCustomers;return false}
  let idbVerified=false;try{await flushAccountingWrites();idbVerified=true}catch(error){db.invoices=oldInvoices;db.entries=oldEntries;if(customersChanged)db.customers=oldCustomers;alert('Invoice was not saved in IndexedDB. '+(error&&error.message||error));return false}
@@ -1751,40 +1751,7 @@ function ensureInvoiceFields(){
   if(invoice.paymentStatus==='paid')invoice.status='issued';
  });
 }
-async function assignNumbersToExistingInvoices(){
- if(!storageAvailable||!Array.isArray(db.invoices)||!db.invoices.length)return 0;
- const pending=db.invoices.filter(i=>i&&(!Number.isSafeInteger(Number(i.number))||Number(i.number)<1))
-  .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.createdAt||'').localeCompare(String(b.createdAt||''))||String(a.id||'').localeCompare(String(b.id||'')));
- if(!pending.length)return 0;
- const used=new Set();
- db.invoices.forEach(i=>{const n=Number(i?.number);if(Number.isSafeInteger(n)&&n>0)used.add(n);});
- db.entries.filter(e=>e&&e.type==='income').forEach(e=>{const n=Number(e.number);if(Number.isSafeInteger(n)&&n>0)used.add(n);});
- let next=Math.floor(highestSharedRecordNumber())+1;
- const changes=[];
- for(const invoice of pending){
-  while(used.has(next))next++;
-  changes.push({invoice,previous:invoice.number,number:next});
-  used.add(next++);
- }
- const linkedChanges=[];
- changes.forEach(x=>{
-  x.invoice.number=x.number;
-  const id=String(x.invoice.id||'');
-  db.entries.filter(e=>e&&e.type==='income'&&(String(e.invoiceId||'')===id||String(e.id||'')==='invoice-income-'+id)).forEach(e=>{
-   linkedChanges.push({entry:e,invoiceId:e.invoiceId,reference:e.reference});
-   e.invoiceId=id;e.reference='Invoice '+x.number;
-  });
- });
- if(!await persist()){
-  changes.forEach(x=>{if(x.previous===undefined)delete x.invoice.number;else x.invoice.number=x.previous;});
-  linkedChanges.forEach(x=>{if(x.invoiceId===undefined)delete x.entry.invoiceId;else x.entry.invoiceId=x.invoiceId;if(x.reference===undefined)delete x.entry.reference;else x.entry.reference=x.reference;});
-  return 0;
- }
- for(const x of changes){try{await reserveRecordNumber(x.number)}catch(error){setStatus('Invoice numbers were assigned, but a sequence reservation could not be refreshed: '+(error&&error.message||error),'warn');break}}
- if(typeof logMonitorEvent==='function')logMonitorEvent('activity','legacy_invoice_numbers_assigned','invoice','startup','success',{count:changes.length,firstNumber:changes[0].number,lastNumber:changes[changes.length-1].number,ordering:'date-createdAt-id'});
- setStatus(changes.length+' older invoice(s) without a number have been assigned unique invoice numbers. Their status and payment details were preserved.');
- return changes.length;
-}
+async function assignNumbersToExistingInvoices(){return 0; /* Automatic assignment to existing invoices is intentionally disabled; existing records remain unchanged. */}
 function recordInvoicePayment(id){return markInvoicePaid(id);}
 
 function renderInvoices(){
@@ -1822,11 +1789,11 @@ function confirmInvoicePaid(){
 async function saveInvoicePaidPayment(id,date,method){
  const i=db.invoices.find(x=>x.id===id);if(!i||i.deletedAt||i.deleted===true)return;
  const total=invoiceAmounts(i).total,old=JSON.stringify(db);
- const duplicate=db.entries.find(e=>e.type==='income'&&(e.invoiceId===i.id||e.reference===`Invoice ${i.number}`));
+ const duplicate=db.entries.find(e=>e.type==='income'&&(e.invoiceId===i.id||e.reference===`Invoice ${i.number}`||e.reference===`Invoice ${formatInvoiceNumber(i.number)}`));
  if(!duplicate){const possible=db.entries.filter(e=>e.type==='income'&&e.date===date&&Math.round(Number(e.amount)*100)===Math.round(total*100));if(possible.length){const detail=possible.slice(0,4).map(e=>`${e.date} · £${Number(e.amount).toFixed(2)} · ${e.reference||e.category||'Income entry'}`).join('\\n');if(!confirm(`Possible duplicate payment: an income entry with the same date and amount already exists.\\n\\n${detail}\\n\\nChoose OK only if this invoice payment is a separate receipt. Choose Cancel to review the existing entry first.`))return}}
  i.paymentStatus='paid';i.paymentDate=date;i.paymentMethod=method;i.status='issued';
- if(!duplicate)db.entries.push({id:`invoice-income-${i.id}`,type:'income',date,amount:total,method,category:'Work income',reference:`Invoice ${i.number}`,notes:`Payment received for invoice ${i.number}`,invoiceId:i.id,createdAt:new Date().toISOString()});
- else{duplicate.date=date;duplicate.amount=total;duplicate.method=method;duplicate.invoiceId=i.id}
+ if(!duplicate)db.entries.push({id:`invoice-income-${i.id}`,type:'income',date,amount:total,method,category:'Work income',reference:`Invoice ${formatInvoiceNumber(i.number)}`,notes:`Payment received for invoice ${formatInvoiceNumber(i.number)}`,invoiceId:i.id,number:nextEntryRecordNumber('income'),createdAt:new Date().toISOString()});
+ else{duplicate.date=date;duplicate.amount=total;duplicate.method=method;duplicate.invoiceId=i.id;duplicate.reference=`Invoice ${formatInvoiceNumber(i.number)}`;duplicate.notes=`Payment received for invoice ${formatInvoiceNumber(i.number)}`;duplicate.number=duplicate.number||nextEntryRecordNumber('income');duplicate.deletedAt=undefined;duplicate.deleted=false}
  if(!await persist()){db=JSON.parse(old);return}
  let idbVerified=false,verificationError='';try{await flushAccountingWrites();idbVerified=true}catch(error){verificationError=String(error&&error.message||error);db=JSON.parse(old);window.__thaAccountingSaveOk=false;alert('Invoice payment was not saved in IndexedDB. '+verificationError);return}
  window.__thaAccountingSaveOk=true;
