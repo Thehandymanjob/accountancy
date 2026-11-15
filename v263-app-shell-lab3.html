@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><title>THA v263 — Isolated App Shell Lab</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f4f7;color:#172033;font:16px -apple-system,BlinkMacSystemFont,Arial,sans-serif;padding:18px;line-height:1.5}.wrap{max-width:760px;margin:auto}.card{background:#fff;border:1px solid #dce1e8;border-radius:14px;padding:18px;margin:14px 0}h1{font-size:23px;margin:0 0 6px}h2{font-size:18px;margin:0 0 10px}.muted{color:#596579;font-size:14px}.status{padding:12px;border-radius:9px;background:#eef2f7;white-space:pre-wrap;overflow-wrap:anywhere;font:13px ui-monospace,monospace}button{width:100%;border:0;border-radius:9px;padding:14px;background:#173d68;color:white;font-size:16px;font-weight:700;margin:7px 0}button.secondary{background:#596579}button:disabled{opacity:.55}#report{min-height:160px}ul{padding-left:20px}
+</style></head><body><main class="wrap">
+<section class="card"><h1>The Handyman Accountancy — v263</h1><div class="muted">Independent IndexedDB application-shell laboratory · build THA-263-APP-SHELL-LAB-3</div><p><strong>Important:</strong> This page is separate from the live app. It uses a new, dedicated database and synthetic test records only. It does not read or modify LocalStorage, the existing app database, production files, or your backups.</p><div id="dbstatus" class="status">Waiting to initialise…</div></section>
+<section class="card"><h2>Application-domain integration test</h2><p class="muted">Tests the same logical domains and asynchronous controllers intended for the v263 migration: accounting, projects, contracts, image/blob persistence, and backup/restore.</p><button id="run">Run isolated app-shell test</button><button id="copy" class="secondary" disabled>Copy full report</button><div id="report" class="status">No test has been run yet.</div></section>
+<section class="card"><h2>Test scope</h2><ul><li>Initialise the isolated IndexedDB database.</li><li>Create/read/update synthetic accounting data.</li><li>Create a project and sub-project with a Blob image attachment.</li><li>Create and reload a contract record.</li><li>Snapshot all 14 application domains and restore the snapshot.</li><li>Verify that the synthetic records and binary image survive restore.</li><li>Confirm database identity and no legacy storage access.</li></ul></section>
+</main>
+<script src="storage-idb-v263-app-shell-engine.js"></script>
+<script src="app-storage-v263-v4.js"></script>
+<script src="v263-projects-controller.js"></script>
+<script src="v263-contracts-controller-atomic.js"></script>
+<script src="v263-support-controller-v2.js"></script>
+<script src="v263-project-accounting-transfer-atomic-v2.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+let lastReport=null;
+const stamp=new Date().toISOString();
+function line(name,ok,detail){return {check:name,ok:!!ok,detail:detail||""};}
+async function run(){
+ $("run").disabled=true;$("copy").disabled=true;
+ const checks=[];
+ const report={title:"THA v263 Isolated App-Shell Integration Report",build:"THA-263-APP-SHELL-LAB-3",createdAt:new Date().toISOString(),database:"tha_v263_app_shell_lab_20261109_idb",syntheticDataOnly:true,legacyStorageAccess:false,productionAccess:false,checks};
+ try{
+  const init=await HandymanAppStorageV263.initialize();
+  checks.push(line("IndexedDB initialisation",init.ok===true,JSON.stringify(init)));
+  const health0=await HandymanAppStorageV263.health();
+  checks.push(line("Dedicated database identity",health0.database===report.database,health0.database));
+  const accounting=await HandymanAppStorageV263.read("accounting");
+  const sampleId="v263-shell-invoice-001";
+  const accResult=await HandymanAppStorageV263.mutate("accounting",state=>{
+   const s=state&&typeof state==="object"?state:{entries:[],customers:[],invoices:[],customExpenseCategories:[],settings:{}};
+   s.entries=Array.isArray(s.entries)?s.entries:[];
+   s.customers=Array.isArray(s.customers)?s.customers:[];
+   s.invoices=Array.isArray(s.invoices)?s.invoices:[];
+   s.customers=s.customers.filter(x=>x.id!=="v263-shell-customer-001");
+   s.invoices=s.invoices.filter(x=>x.id!==sampleId);
+   s.customers.push({id:"v263-shell-customer-001",name:"Synthetic Test Customer",email:"test@example.invalid"});
+   s.invoices.push({id:sampleId,number:990001,customerId:"v263-shell-customer-001",amount:123.45,status:"draft",createdAt:stamp});
+   return s;
+  });
+  const accRead=await HandymanAppStorageV263.read("accounting");
+  const accOK=accResult.ok&&accRead.invoices.some(x=>x.id===sampleId&&x.amount===123.45)&&accRead.customers.some(x=>x.id==="v263-shell-customer-001");
+  checks.push(line("Accounting customer/invoice write and read-back",accOK,"customers="+accRead.customers.length+", invoices="+accRead.invoices.length));
+  await HandymanProjectsV263.initialize();
+  const projectId="v263-shell-project-001";
+  const imageBlob=new Blob(["synthetic-project-photo-v263"],{type:"image/jpeg"});
+  await HandymanProjectsV263.update(state=>{state.projects=state.projects.filter(x=>x.id!==projectId);return state;});
+  await HandymanProjectsV263.addProject({id:projectId,name:"Synthetic Shell Project",status:"active",photo:imageBlob,receipts:[{id:"receipt-1",image:new Blob(["synthetic-receipt-v263"],{type:"image/jpeg"})}],income:[],expenses:[],subprojects:[]});
+  await HandymanProjectsV263.addSubproject(projectId,{id:"v263-shell-subproject-001",name:"Synthetic Extra Job",income:[],expenses:[]});
+  const pRead=await HandymanProjectsV263.load();
+  const p=pRead.projects.find(x=>x.id===projectId);
+  const pOK=!!p&&p.photo instanceof Blob&&p.photo.size===imageBlob.size&&p.receipts[0].image instanceof Blob&&p.subprojects.some(x=>x.id==="v263-shell-subproject-001");
+  checks.push(line("Projects/sub-project and Blob media persistence",pOK,p?"project and receipt Blob restored; sub-projects="+p.subprojects.length:"project missing"));
+  const contract={id:"v263-shell-contract-001",customerName:"Synthetic Test Customer",title:"Synthetic contract",attachment:new Blob(["synthetic-contract-attachment"],{type:"application/pdf"}),createdAt:stamp};
+  await HandymanContractsV263.save(contract);
+  const cRead=await HandymanContractsV263.load();
+  const c=cRead.contracts.find(x=>x.id===contract.id);
+  const cOK=!!c&&c.attachment instanceof Blob&&c.attachment.size===contract.attachment.size;
+  checks.push(line("Contract and PDF attachment persistence",cOK,c?"contract and PDF Blob verified":"contract missing"));
+  const snapshot=await HandymanAppStorageV263.backup();
+  const snapshotOK=!!snapshot&&Array.isArray(snapshot.domains)&&snapshot.domains.length===14&&Array.isArray(snapshot.records)&&snapshot.records.some(x=>x.domain==="accounting")&&snapshot.records.some(x=>x.domain==="projects")&&snapshot.records.some(x=>x.domain==="contracts");
+  checks.push(line("Fourteen-domain snapshot scope",snapshotOK,"domains="+(snapshot.domains?snapshot.domains.length:"invalid")+"; populated records="+(snapshot.records?snapshot.records.length:"invalid")));
+  await HandymanAppStorageV263.mutate("accounting",s=>({...s,entries:[...(s.entries||[]),{id:"post-snapshot-marker",type:"expense",amount:9}]}));
+  const restore=await HandymanAppStorageV263.restore(snapshot);
+  const restoredAccounting=await HandymanAppStorageV263.read("accounting");
+  const restoredProjects=await HandymanProjectsV263.load();
+  const restoredContracts=await HandymanContractsV263.load();
+  const restoredProject=restoredProjects.projects.find(x=>x.id===projectId);
+  const restoreOK=restore.ok===true&&!restoredAccounting.entries.some(x=>x.id==="post-snapshot-marker")&&!!restoredProject&&restoredProject.photo instanceof Blob&&restoredContracts.contracts.some(x=>x.id===contract.id&&x.attachment instanceof Blob);
+  checks.push(line("Full-domain restore including Blob attachments",restoreOK,"restored="+restore.restored+"; accounting marker removed; project photo and contract PDF verified"));
+
+  // Prepare isolated, repeatable synthetic transfer fixtures.
+  await HandymanProjectsV263.update(state=>{
+   state.projects=state.projects.filter(x=>x.id!=="v263-transfer-project-001");
+   state.projects.push({id:"v263-transfer-project-001",name:"Synthetic Transfer Project",status:"active",income:[
+    {id:"transfer-source-a",date:"2026-11-09",amount:47.50,category:"Synthetic test income",description:"Concurrent duplicate test"},
+    {id:"transfer-source-b",date:"2026-11-09",amount:22.00,category:"Synthetic test income",description:"Independent concurrent test"},
+    {id:"transfer-source-c",date:"2026-11-09",amount:13.25,category:"Synthetic test income",description:"Independent concurrent test"}
+   ],expenses:[],subprojects:[]});
+   return state;
+  });
+  await HandymanAppStorageV263.mutate("accounting",state=>{
+   state.entries=(Array.isArray(state.entries)?state.entries:[]).filter(x=>!String(x.id||"").startsWith("project-transfer:v263-transfer-project-001:"));
+   return state;
+  });
+  const duplicateArgs={approved:true,projectId:"v263-transfer-project-001",collection:"income",recordId:"transfer-source-a"};
+  const duplicateAttempts=await Promise.allSettled([
+   HandymanProjectAccountingTransferV263.transfer(duplicateArgs),
+   HandymanProjectAccountingTransferV263.transfer(duplicateArgs)
+  ]);
+  const duplicateSuccess=duplicateAttempts.filter(x=>x.status==="fulfilled").length;
+  const duplicateFailure=duplicateAttempts.filter(x=>x.status==="rejected").length;
+  let transferProjects=await HandymanProjectsV263.load();
+  let transferProject=transferProjects.projects.find(x=>x.id==="v263-transfer-project-001");
+  let transferAccounting=await HandymanAppStorageV263.read("accounting");
+  const duplicateEntries=transferAccounting.entries.filter(x=>x.projectTransferId==="project-transfer:v263-transfer-project-001:main:income:transfer-source-a");
+  const duplicateSource=transferProject&&transferProject.income.find(x=>x.id==="transfer-source-a");
+  const duplicateOK=duplicateSuccess===1&&duplicateFailure===1&&duplicateEntries.length===1&&duplicateSource&&duplicateSource.transferredToAccounting===true;
+  checks.push(line("Concurrent duplicate transfer is blocked",duplicateOK,"fulfilled="+duplicateSuccess+"; rejected="+duplicateFailure+"; accounting copies="+duplicateEntries.length));
+  const distinctResults=await Promise.all([
+   HandymanProjectAccountingTransferV263.transfer({approved:true,projectId:"v263-transfer-project-001",collection:"income",recordId:"transfer-source-b"}),
+   HandymanProjectAccountingTransferV263.transfer({approved:true,projectId:"v263-transfer-project-001",collection:"income",recordId:"transfer-source-c"})
+  ]);
+  transferAccounting=await HandymanAppStorageV263.read("accounting");
+  const distinctIds=["transfer-source-b","transfer-source-c"].map(id=>"project-transfer:v263-transfer-project-001:main:income:"+id);
+  const distinctEntries=transferAccounting.entries.filter(x=>distinctIds.includes(x.projectTransferId));
+  const distinctOK=distinctResults.every(x=>x.ok===true)&&distinctEntries.length===2&&distinctEntries.reduce((sum,x)=>sum+x.amount,0)===35.25;
+  checks.push(line("Two distinct concurrent transfers are both retained",distinctOK,"successful transfers="+distinctResults.length+"; accounting copies="+distinctEntries.length+"; total=£"+distinctEntries.reduce((sum,x)=>sum+x.amount,0).toFixed(2)));
+  transferProjects=await HandymanProjectsV263.load();
+  transferProject=transferProjects.projects.find(x=>x.id==="v263-transfer-project-001");
+  const sourcesRetained=!!transferProject&&["transfer-source-a","transfer-source-b","transfer-source-c"].every(id=>transferProject.income.some(x=>x.id===id));
+  checks.push(line("Project source records remain in project P&L",sourcesRetained,"source income records retained="+(transferProject?transferProject.income.length:0)));
+
+  const health=await HandymanAppStorageV263.health();
+  checks.push(line("Final database health",health.ok===true&&health.database===report.database,JSON.stringify(health)));
+  report.ok=checks.every(x=>x.ok);
+  report.totalChecks=checks.length;report.passed=checks.filter(x=>x.ok).length;report.failed=checks.filter(x=>!x.ok).length;
+ }catch(error){
+  report.ok=false;report.errorName=String(error&&error.name||"Error");report.errorMessage=String(error&&error.message||error);report.errorStack=String(error&&error.stack||"");report.totalChecks=checks.length;report.passed=checks.filter(x=>x.ok).length;report.failed=checks.filter(x=>!x.ok).length+1;
+ }
+ lastReport=report;$("report").textContent=JSON.stringify(report,null,2);$("copy").disabled=false;
+ $("dbstatus").textContent="Database: "+report.database+"\nResult: "+(report.ok?"PASS":"FAIL")+" · "+report.passed+"/"+report.totalChecks+" checks";
+ $("run").disabled=false;
+}
+$("run").addEventListener("click",run);
+$("copy").addEventListener("click",async()=>{if(!lastReport)return;try{await navigator.clipboard.writeText(JSON.stringify(lastReport,null,2));$("copy").textContent="Copied";}catch(e){$("copy").textContent="Copy unavailable — select report text";}});
+HandymanStorageV263.ready().then(x=>{$("dbstatus").textContent="Database ready: "+x.database+"\nBuild: "+x.build+"\nNo legacy storage access."}).catch(e=>{$("dbstatus").textContent="Initialisation error: "+(e.message||e)});
+})();
+</script></body></html>

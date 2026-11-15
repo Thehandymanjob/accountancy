@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THA v250 Legacy Data Migration Lab</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172b45;background:#f3f6fa}
+body{margin:0;padding:18px;max-width:820px;margin-inline:auto}
+main{background:#fff;border:1px solid #dce4ee;border-radius:15px;padding:20px}
+h1{font-size:22px;margin:0 0 10px}
+p{line-height:1.5;color:#53657a}
+.notice{padding:13px;border-radius:10px;background:#fff5dc;border:1px solid #e6cb87;color:#624d1d;margin:14px 0}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#174d83;color:white;font-weight:800;margin:8px 0}
+button.secondary{background:#e8edf4;color:#172b45}
+button:disabled{opacity:.5}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101d2c;color:#e8f1fb;padding:14px;border-radius:10px;font-size:12px;min-height:120px}
+.small{font-size:13px;color:#63748a}
+</style>
+</head>
+<body>
+<main>
+<h1>THA v250 — Legacy Data Migration Lab</h1>
+<p>Non-destructive copy of all same-origin LocalStorage keys into the verified v250 IndexedDB repository.</p>
+<div class="notice"><strong>Safety boundary:</strong> This page reads LocalStorage only. The copy operation writes exact raw values into the separate v250 IndexedDB database under the <code>legacy</code> domain. It never edits or deletes LocalStorage, does not change the application entry point, and does not enable app cutover. Review the inspection report before copying.</div>
+<button id="inspect">1. Inspect all LocalStorage keys (read-only)</button>
+<button id="stage" disabled>2. Copy verified keys into v250 IndexedDB</button>
+<button id="snapshot" class="secondary" disabled>3. Export v250 legacy snapshot JSON</button>
+<pre id="out">Ready. No operation has run.</pre>
+<p class="small">This is migration stage 1: an exact, recoverable copy of source values. It is not yet the final conversion of each app module to read and write IndexedDB.</p>
+</main>
+<script src="storage-repository.js?v=repo-selftest-20261107-05"></script>
+<script src="storage-v250-legacy-migration.js?v=1"></script>
+<script>
+(() => {
+  const out = document.getElementById("out");
+  const inspectButton = document.getElementById("inspect");
+  const stageButton = document.getElementById("stage");
+  const snapshotButton = document.getElementById("snapshot");
+  const buttons = [inspectButton, stageButton, snapshotButton];
+  let lastInspection = null;
+  const show = value => { out.textContent = JSON.stringify(value, null, 2); };
+  const busy = value => buttons.forEach(button => button.disabled = value);
+
+  if (!window.HandymanStorageRepository || !window.HandymanV250LegacyMigration) {
+    show({ok:false,error:"The v250 repository or migration module failed to load."});
+    inspectButton.disabled = true;
+    return;
+  }
+
+  inspectButton.onclick = async () => {
+    busy(true);
+    try {
+      lastInspection = await HandymanV250LegacyMigration.inspect();
+      stageButton.disabled = !lastInspection.ok || lastInspection.sourceKeyCount === 0;
+      snapshotButton.disabled = true;
+      show(lastInspection);
+    } catch (error) {
+      stageButton.disabled = true;
+      show({ok:false,error:String(error && error.message || error),localStorageChanged:false,appCutover:false});
+    } finally { busy(false); }
+  };
+
+  stageButton.onclick = async () => {
+    if (!lastInspection || !lastInspection.ok) {
+      show({ok:false,error:"Run a successful read-only inspection first."});
+      return;
+    }
+    if (!confirm("Copy all inspected LocalStorage values into the separate v250 IndexedDB database? The original LocalStorage will not be changed or deleted.")) return;
+    busy(true);
+    try {
+      const result = await HandymanV250LegacyMigration.stage();
+      snapshotButton.disabled = !result.ok;
+      show(result);
+      if (!result.ok) stageButton.disabled = true;
+    } catch (error) {
+      snapshotButton.disabled = true;
+      show({ok:false,error:String(error && error.message || error),localStorageChanged:false,appCutover:false});
+    } finally { busy(false); }
+  };
+
+  snapshotButton.onclick = async () => {
+    busy(true);
+    try {
+      const snapshot = await HandymanV250LegacyMigration.snapshot();
+      const json = JSON.stringify(snapshot, null, 2);
+      const blob = new Blob([json], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "THA-v250-legacy-snapshot.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      show({
+        ok:true,
+        exported:true,
+        database:snapshot.database,
+        domains:snapshot.domains,
+        recordCount:snapshot.records.length,
+        fileName:"THA-v250-legacy-snapshot.json",
+        note:"Snapshot exported. Original LocalStorage remains unchanged; app cutover remains disabled."
+      });
+    } catch (error) {
+      show({ok:false,error:String(error && error.message || error),appCutover:false});
+    } finally { busy(false); }
+  };
+})();
+</script>
+</body>
+</html>

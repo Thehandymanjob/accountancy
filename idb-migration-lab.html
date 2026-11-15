@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THA IndexedDB Migration Lab</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172b45;background:#f3f6fa}
+body{margin:0;padding:20px;max-width:760px;margin-inline:auto}
+main{background:#fff;border:1px solid #dce4ee;border-radius:16px;padding:20px;box-shadow:0 8px 28px #142b4a12}
+h1{font-size:22px;margin:0 0 8px}p{line-height:1.55;color:#52647a}
+.notice{background:#fff8e8;border:1px solid #f0d79c;border-radius:10px;padding:12px;color:#654b16}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+button{border:0;border-radius:10px;padding:12px 16px;font-weight:700;background:#174d83;color:white}
+button.secondary{background:#e8eef5;color:#173c69}button:disabled{opacity:.55}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101d2c;color:#e8f1fb;padding:14px;border-radius:10px;min-height:100px;font-size:13px}
+small{color:#66778c}
+</style>
+<script src="storage-foundation.js"></script>
+</head>
+<body>
+<main>
+<h1>IndexedDB Migration Lab — Test v247</h1>
+<p>This isolated tool copies the test app's namespaced LocalStorage values into the test IndexedDB key-value store. It does not change, remove, rename, or overwrite any LocalStorage value. It does not connect to production storage.</p>
+<div class="notice"><strong>Safety boundary:</strong> This page is for the <code>accountancy-test</code> site only. It uses database <code>the_handyman_accountancy_test226</code> and prefix <code>tha_test226_</code>. Do not use this page on the production site. The operation is a raw, byte-for-byte storage mirror, not yet the final normalized-table migration.</div>
+<div class="actions">
+<button id="copy" type="button">Snapshot + copy test data to IndexedDB</button>
+<button id="verify" class="secondary" type="button">Verify copied data</button>
+<button id="status" class="secondary" type="button">Show IndexedDB status</button>
+</div>
+<pre id="result" aria-live="polite">Ready. No operation has run.</pre>
+<small>LocalStorage remains the active application storage. No app cutover is performed.</small>
+</main>
+<script>
+(function(){
+"use strict";
+const out=document.getElementById("result");
+const buttons=[...document.querySelectorAll("button")];
+function busy(on){buttons.forEach(b=>b.disabled=on)}
+function show(value){out.textContent=typeof value==="string"?value:JSON.stringify(value,null,2)}
+function api(){if(!window.HandymanStorageFoundation)throw new Error("Storage foundation did not load");return window.HandymanStorageFoundation}
+document.getElementById("copy").addEventListener("click",async()=>{
+ if(!confirm("Copy all tha_test226_ LocalStorage values into the isolated test IndexedDB? Existing LocalStorage values will not be changed."))return;
+ busy(true);show("Taking a verified snapshot and copying raw values…");
+ try{const result=await api().migrateLegacyData();show({operation:"raw mirror",...result,localStorageChanged:false,applicationCutover:false})}
+ catch(e){show({ok:false,error:String(e&&e.message||e),localStorageChanged:false})}
+ finally{busy(false)}
+});
+document.getElementById("verify").addEventListener("click",async()=>{
+ busy(true);show("Comparing every namespaced LocalStorage value with its IndexedDB copy…");
+ try{const result=await api().verifyMigration();show({...result,localStorageChanged:false})}
+ catch(e){show({ok:false,error:String(e&&e.message||e)})}
+ finally{busy(false)}
+});
+document.getElementById("status").addEventListener("click",async()=>{
+ busy(true);try{show(await api().status())}catch(e){show({ok:false,error:String(e&&e.message||e)})}finally{busy(false)}
+});
+})();
+</script>
+</body>
+</html>

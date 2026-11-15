@@ -1,0 +1,53 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Contracts Controller Test</title>
+<style>body{font:16px -apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f3f5f8;color:#172235;margin:0;padding:18px}main{max-width:760px;margin:auto;background:#fff;border:1px solid #dce2ea;border-radius:14px;padding:18px}button{padding:13px 18px;border:0;border-radius:9px;background:#142b4a;color:#fff;font-weight:700;font-size:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101b2b;color:#eaf0f8;padding:14px;border-radius:9px;min-height:150px;font-size:12px}.note{line-height:1.5;color:#58677b}</style>
+<script src="storage-idb-v263.js?v=THA-263-IDB-ONLY-FOUNDATION-3"></script><script src="app-storage-v263.js?v=THA-263-APP-ADAPTER-2"></script><script src="v263-contracts-controller.js?v=THA-263-CONTRACTS-1"></script></head>
+<body><main><h1>v263 Contracts Controller — isolated test</h1><p class="note">Tests contract and quotation CRUD, stable IDs, preservation of existing/unknown fields, binary attachment storage, validation, and exact full-domain snapshot restoration. It stops before writes unless Contracts is empty. No LocalStorage access occurs.</p><button id="run">Run Contracts test</button><pre id="out">Ready.</pre></main>
+<script>
+(function(){
+ const button=document.getElementById("run"),out=document.getElementById("out"),names=window.HandymanAppStorageV263.domains;
+ const checks={engineReady:false,controllerReady:false,emptyInitialState:false,addContract:false,addQuotation:false,updateContract:false,getContract:false,deleteContract:false,validationGuards:false,blobAttachmentRoundTrip:false,backupRestore:false};
+ const report={ok:false,build:"THA-263-CONTRACTS-1",checks,errors:[],noLocalStorageAccess:true};
+ const equal=async(a,b,seen=new WeakMap())=>{
+  if(Object.is(a,b))return true;if(a===null||b===null||typeof a!=="object"||typeof b!=="object")return false;
+  let paired=seen.get(a);if(paired&&paired.has(b))return true;if(!paired){paired=new WeakSet();seen.set(a,paired)}paired.add(b);
+  if(a instanceof Blob||b instanceof Blob){if(!(a instanceof Blob)||!(b instanceof Blob)||a.size!==b.size||a.type!==b.type)return false;const [x,y]=await Promise.all([a.arrayBuffer(),b.arrayBuffer()]);const ax=new Uint8Array(x),by=new Uint8Array(y);return ax.length===by.length&&ax.every((v,i)=>v===by[i])}
+  if(a instanceof Date||b instanceof Date)return a instanceof Date&&b instanceof Date&&a.getTime()===b.getTime();
+  if(a instanceof ArrayBuffer||b instanceof ArrayBuffer){if(!(a instanceof ArrayBuffer)||!(b instanceof ArrayBuffer)||a.byteLength!==b.byteLength)return false;const x=new Uint8Array(a),y=new Uint8Array(b);return x.length===y.length&&x.every((v,i)=>v===y[i])}
+  if(ArrayBuffer.isView(a)||ArrayBuffer.isView(b)){if(!ArrayBuffer.isView(a)||!ArrayBuffer.isView(b)||a.constructor!==b.constructor||a.byteLength!==b.byteLength)return false;const x=new Uint8Array(a.buffer,a.byteOffset,a.byteLength),y=new Uint8Array(b.buffer,b.byteOffset,b.byteLength);return x.length===y.length&&x.every((v,i)=>v===y[i])}
+  if(Array.isArray(a)||Array.isArray(b)){if(!Array.isArray(a)||!Array.isArray(b)||a.length!==b.length)return false;for(let i=0;i<a.length;i++)if(!(await equal(a[i],b[i],seen)))return false;return true}
+  const ak=Object.keys(a).sort(),bk=Object.keys(b).sort();if(ak.length!==bk.length||ak.some((k,i)=>k!==bk[i]))return false;
+  for(const k of ak)if(!(await equal(a[k],b[k],seen)))return false;return true;
+ };
+ const log=()=>out.textContent=JSON.stringify(report,null,2);
+ button.addEventListener("click",async()=>{
+  button.disabled=true;let snapshot=null;
+  try{
+   await window.HandymanAppStorageV263.initialize();checks.engineReady=true;
+   snapshot=await window.HandymanStorageV263.snapshot(names);
+   const initial=await window.HandymanContractsV263.initialize();checks.controllerReady=true;
+   checks.emptyInitialState=initial.contracts.length===0;
+   if(!checks.emptyInitialState)throw new Error("Contracts domain is not empty; test stopped before modifying it.");
+   const attachment=new Blob(["contract-attachment-v263"],{type:"application/pdf"});
+   await window.HandymanContractsV263.add({id:"v263-contract-test",documentType:"contract",title:"Test Work Contract",date:"2026-11-08",customer:"Test Customer",contact:"000",address:"Test Address",price:"1250",start:"2026-11-10",body:"Test scope",updated:"2026-11-08T00:00:00.000Z",customLegacyField:{keep:true},attachment});
+   let state=await window.HandymanContractsV263.load();checks.addContract=state.contracts.length===1&&state.contracts[0].customer==="Test Customer";
+   await window.HandymanContractsV263.add({id:"v263-quotation-test",documentType:"quotation",title:"Test Quotation",date:"2026-11-08",customer:"Quotation Customer",price:"300",body:"Quotation text"});
+   state=await window.HandymanContractsV263.load();checks.addQuotation=state.contracts.length===2&&state.contracts.some(c=>c.documentType==="quotation");
+   await window.HandymanContractsV263.updateContract("v263-contract-test",{title:"Updated Work Contract",price:"1350",updated:"2026-11-08T01:00:00.000Z"});
+   const item=await window.HandymanContractsV263.get("v263-contract-test");checks.updateContract=item.title==="Updated Work Contract"&&item.price==="1350"&&item.customLegacyField.keep===true;
+   checks.getContract=item.id==="v263-contract-test";checks.blobAttachmentRoundTrip=item.attachment instanceof Blob&&(await item.attachment.text())==="contract-attachment-v263";
+   let duplicateBlocked=false,missingBlocked=false;
+   try{await window.HandymanContractsV263.add({id:"v263-contract-test",title:"Duplicate"});}catch(e){duplicateBlocked=true}
+   try{await window.HandymanContractsV263.remove("not-a-contract");}catch(e){missingBlocked=true}
+   checks.validationGuards=duplicateBlocked&&missingBlocked;
+   await window.HandymanContractsV263.remove("v263-contract-test");
+   state=await window.HandymanContractsV263.load();checks.deleteContract=state.contracts.length===1&&state.contracts[0].id==="v263-quotation-test";
+   
+  }catch(e){report.errors.push(String(e&&e.message||e))}
+  finally{
+   if(snapshot){try{const restored=await window.HandymanStorageV263.restore(snapshot);const after=await window.HandymanStorageV263.snapshot(names);checks.backupRestore=restored.ok===true&&await equal(after.records.map(x=>({id:x.id,value:x.value})),snapshot.records.map(x=>({id:x.id,value:x.value})));if(!checks.backupRestore)report.errors.push("Original application-domain snapshot was not restored exactly.")}catch(e){report.errors.push("Snapshot restore failed: "+String(e&&e.message||e))}}
+   else report.errors.push("No snapshot was captured; no domain writes were attempted.");
+   report.ok=Object.values(checks).every(Boolean)&&report.errors.length===0;log();button.disabled=false;
+  }
+ });
+})();
+</script></body></html>

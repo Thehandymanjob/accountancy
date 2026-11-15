@@ -1,0 +1,72 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Missing Domains Recovery</title><style>*{box-sizing:border-box}body{margin:0;padding:18px 14px 40px;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;max-width:760px;margin-inline:auto}h1{font-size:22px}.card{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:16px;margin:12px 0}.notice{background:#fff4d6;border-color:#e7c75f}button{border:0;border-radius:9px;padding:14px;background:#142b4a;color:white;font-weight:700;font-size:16px;width:100%;margin-top:8px}button:disabled{opacity:.45}input{width:100%;padding:12px;border:1px solid #b9c4d2;border-radius:8px;margin:8px 0}.status{font-weight:700}.good{color:#176b35}.bad{color:#a52d39}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101820;color:#e7edf5;padding:12px;border-radius:8px;font-size:12px;direction:ltr;text-align:left}</style></head><body>
+<h1>بازیابی دو بخش مفقود در v263</h1>
+<div class="card notice"><b>فقط حسابداری و قراردادها.</b> پروژه‌ها، پروفایل تجاری و شماره فاکتور دست‌نخورده می‌مانند. مقصد هر بخش پیش از ورود باید خالی باشد. پس از نوشتن، مقدار دوباره خوانده می‌شود و شمارش کل رکوردهای دیتابیس بررسی می‌شود. اگر مقصد از قبل پر باشد، عملیات متوقف می‌شود.</div>
+<div class="card"><h3>۱. حسابداری v212</h3><p>فایل THA-candidate-accounting…json را انتخاب کن. رکورد آزمایشی £1 با شناسهٔ مشخص قبلی حذف می‌شود؛ ۲۲ رکورد، یک مشتری و دو فاکتور باید باقی بماند.</p><input id="accountingFile" type="file" accept=".json,application/json"><div id="accountingStatus" class="status">فایلی انتخاب نشده</div><pre id="accountingPreview">در انتظار فایل</pre><button id="accountingBtn" disabled>ورود حسابداری و تأیید پایدار</button></div>
+<div class="card"><h3>۲. قراردادها v212</h3><p>فایل THA-candidate-contracts…json را انتخاب کن. یک قرارداد بدون تغییر وارد می‌شود.</p><input id="contractsFile" type="file" accept=".json,application/json"><div id="contractsStatus" class="status">فایلی انتخاب نشده</div><pre id="contractsPreview">در انتظار فایل</pre><button id="contractsBtn" disabled>ورود قراردادها و تأیید پایدار</button></div>
+<div class="card"><h3>ممیزی نهایی</h3><p>پس از ورود هر دو بخش، این گزارش شمارش واقعی رکوردها را از IndexedDB می‌خواند.</p><button id="auditBtn">بررسی وضعیت نهایی</button><pre id="auditResult">در انتظار بررسی</pre></div>
+<script src="./storage-idb-v263.js"></script><script src="./v263-strict-domain-boundary.js"></script><script>
+(()=>{"use strict";
+const $=id=>document.getElementById(id);
+const excludedId="project-v1-pr-1792258756429-z8fug9-pr-1792263742588-vlbgug-pr-1793445826791-s5mz7z";
+const configs={
+ accounting:{domain:"accounting",key:"state",scope:"accountingState",source:"tha_v212_migration_accounting_v1",input:"accountingFile",status:"accountingStatus",preview:"accountingPreview",button:"accountingBtn"},
+ contracts:{domain:"contracts",key:"state",scope:"contracts",source:"tha_v212_migration_contracts_v1",input:"contractsFile",status:"contractsStatus",preview:"contractsPreview",button:"contractsBtn"}
+};
+const prepared={};
+async function parse(file,cfg){
+ const pkg=JSON.parse(await file.text());
+ if(!pkg||pkg.format!=="tha-v263-legacy-domain-package-v1"||pkg.algorithm!=="SHA-256"||!pkg.payload)throw Error("قالب فایل معتبر نیست.");
+ const p=pkg.payload;if(p.format!=="tha-v263-legacy-domain-import-v1"||p.domain!==cfg.domain||p.sourceKey!==cfg.source)throw Error("این فایل برای دامنه یا منبع تأییدشده نیست.");
+ const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(p)));
+ const hex=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+ if(hex!==pkg.sha256)throw Error("SHA-256 فایل صحیح نیست.");
+ let data=p.data,summary;
+ if(cfg.domain==="accounting"){
+  if(!data||!Array.isArray(data.entries)||!Array.isArray(data.customers)||!Array.isArray(data.invoices))throw Error("ساختار حسابداری معتبر نیست.");
+  const removed=data.entries.filter(x=>x&&x.id===excludedId);
+  data={...data,entries:data.entries.filter(x=>!removed.includes(x)),migrationAudit:{sourceKey:cfg.source,excludedExperimentalEntries:removed.map(x=>({id:x.id,amount:x.amount,reason:"User confirmed this £1 record was experimental and must not be imported."}))}};
+  summary={entries:data.entries.length,customers:data.customers.length,invoices:data.invoices.length,excludedExperimentalOnePound:removed.length};
+  if(data.entries.length!==22||data.customers.length!==1||data.invoices.length!==2)throw Error("تعداد رکوردهای فایل با انتظار تأییدشده مطابقت ندارد.");
+ }else{
+  if(!Array.isArray(data)||data.length!==1)throw Error("فایل قرارداد باید دقیقاً یک رکورد داشته باشد.");
+  data={contracts:data};summary={contracts:data.contracts.length};
+ }
+ return {data,summary};
+}
+for(const [name,cfg] of Object.entries(configs)){
+ $(cfg.input).addEventListener("change",async()=>{
+  $(cfg.button).disabled=true;prepared[name]=null;
+  try{const f=$(cfg.input).files[0];if(!f)return;prepared[name]=await parse(f,cfg);$(cfg.status).textContent="فایل معتبر است؛ آماده ورود";$(cfg.status).className="status good";$(cfg.preview).textContent=JSON.stringify(prepared[name].summary,null,2);$(cfg.button).disabled=false;}
+  catch(e){$(cfg.status).textContent="فایل رد شد: "+e.message;$(cfg.status).className="status bad";$(cfg.preview).textContent="";}});
+ $(cfg.button).addEventListener("click",async()=>{
+  const b=$(cfg.button);b.disabled=true;
+  try{
+   if(!prepared[name])throw Error("ابتدا فایل را انتخاب و بررسی کن.");
+   const e=window.HandymanStorageV263,scope=window.HandymanV263DomainBoundary.createScope(cfg.scope);
+   await e.ready();
+   if(await scope.get(cfg.domain,cfg.key)!==null)throw Error("مقصد از قبل دارای داده است؛ هیچ بازنویسی انجام نشد.");
+   await scope.put(cfg.domain,cfg.key,prepared[name].data);
+   const saved=await scope.get(cfg.domain,cfg.key);
+   if(!(await e.valuesEqual(saved,prepared[name].data)))throw Error("مقایسهٔ کامل پس از ذخیره ناموفق بود.");
+   const snapshot=await e.snapshot([cfg.domain]);
+   if(snapshot.records.length!==1||snapshot.records[0].key!==cfg.key)throw Error("تأیید snapshot پایدار ناموفق بود.");
+   const health=await e.health();
+   const result={ok:true,domain:cfg.domain,verified:true,persistedSnapshotRecords:snapshot.records.length,domainCounts:health.counts,summary:prepared[name].summary};
+   $(cfg.status).textContent="ذخیره و تأیید پایدار موفق شد";$(cfg.status).className="status good";$(cfg.preview).textContent=JSON.stringify(result,null,2);b.textContent="تأیید شد ✓";
+  }catch(err){$(cfg.status).textContent="متوقف شد: "+err.message;$(cfg.status).className="status bad";b.disabled=false;}
+ });
+}
+$("auditBtn").addEventListener("click",async()=>{
+ const b=$("auditBtn"),o=$("auditResult");b.disabled=true;
+ try{
+  const e=window.HandymanStorageV263,bd=window.HandymanV263DomainBoundary;await e.ready();const h=await e.health();
+  const specs=[["projects","projects","state"],["business_profile","business_profile","identity"],["accounting","accounting","state"],["contracts","contracts","state"],["sequences","sequences","invoice-number"]];
+  const rows={};for(const [label,d,k] of specs){const v=await bd.createScope(label==="accounting"?"accountingState":label==="contracts"?"contracts":label==="projects"?"projects":label==="business_profile"?"businessProfile":"invoiceSequence").get(d,k);rows[label]=v;}
+  const a=rows.accounting,c=rows.contracts;
+  const report={ok:true,mode:"READ_ONLY",database:e.databaseName,totalRecords:h.totalRecords,domainCounts:h.counts,projectsPresent:!!rows.projects,profilePresent:!!rows.business_profile,accounting:{present:!!a,entries:a&&a.entries?a.entries.length:null,customers:a&&a.customers?a.customers.length:null,invoices:a&&a.invoices?a.invoices.length:null,excludedExperimentalOnePoundRecorded:!!(a&&a.migrationAudit&&a.migrationAudit.excludedExperimentalEntries.some(x=>x.id===excludedId))},contracts:{present:!!c,count:c&&c.contracts?c.contracts.length:null},invoiceSequence:rows.sequences,nextInvoiceNumber:typeof rows.sequences==="number"?rows.sequences+1:null,writesPerformed:false};
+  o.textContent=JSON.stringify(report,null,2);
+ }catch(err){o.textContent=JSON.stringify({ok:false,error:err.message},null,2);}
+ finally{b.disabled=false;}
+});
+})();
+</script></body></html>

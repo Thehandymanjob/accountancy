@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#142b4a">
+<title>THA v250 — Full IndexedDB Snapshot Export</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172235;background:#f3f5f8}
+body{margin:0;padding:18px;max-width:850px;margin-inline:auto}
+main{background:#fff;border:1px solid #dce2ea;border-radius:14px;padding:20px}
+h1{font-size:22px;margin:0 0 10px}p{line-height:1.5;color:#53657a}
+.notice{padding:13px;border-radius:10px;background:#fff5dc;border:1px solid #e6cb87;color:#624d1d;margin:14px 0}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#174d83;color:white;font-weight:800;margin:8px 0}
+button.secondary{background:#e8edf4;color:#172b45}button:disabled{opacity:.5}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101d2c;color:#e8f1fb;padding:14px;border-radius:10px;font-size:12px;min-height:130px}
+.small{font-size:13px;color:#63748a}
+</style>
+</head>
+<body>
+<main>
+<h1>THA v250 — Full IndexedDB Snapshot Export</h1>
+<p>This page reads every record from the v250 repository's <code>records</code> object store and exports one JSON snapshot covering every domain found in the database.</p>
+<div class="notice"><strong>Read-only safety:</strong> No business record is created, updated or deleted. LocalStorage is not accessed. The accountancy app is not loaded and no cutover is performed. GitHub Pages paths under this same site share the same browser origin and therefore the same IndexedDB database.</div>
+<p><strong>Database:</strong> <code>the_handyman_accountancy_v250_idb</code> · <strong>Schema:</strong> 1</p>
+<button id="inspect" type="button">1. Inspect all IndexedDB domains (read-only)</button>
+<button id="export" class="secondary" type="button" disabled>2. Download complete IndexedDB snapshot JSON</button>
+<pre id="out" aria-live="polite">Ready. No database operation has run.</pre>
+<p class="small">The export includes all records in the repository records store, including the legacy domain and any typed domains. The internal metadata store contains only repository schema metadata and is not part of the user-data snapshot. Keep this file private because it may contain financial and personal information.</p>
+</main>
+<script src="storage-repository.js?v=repo-selftest-20261107-05"></script>
+<script>
+(function(){
+ "use strict";
+ const api=window.HandymanStorageRepository;
+ const inspectButton=document.getElementById("inspect");
+ const exportButton=document.getElementById("export");
+ const out=document.getElementById("out");
+ let verifiedSnapshot=null;
+ const show=value=>{out.textContent=JSON.stringify(value,null,2)};
+ const busy=value=>{inspectButton.disabled=value;exportButton.disabled=value||!verifiedSnapshot};
+ if(!api||api.databaseName!=="the_handyman_accountancy_v250_idb"||typeof api.health!=="function"||typeof api.snapshot!=="function"){
+  show({ok:false,error:"The expected v250 repository API did not load. No export was attempted."});
+  inspectButton.disabled=true;
+  return;
+ }
+ inspectButton.addEventListener("click",async()=>{
+  busy(true);verifiedSnapshot=null;
+  out.textContent="Reading database health and all repository records…";
+  try{
+   const before=await api.health();
+   if(!before||before.ok!==true||before.database!==api.databaseName)throw new Error("Database health check did not confirm the expected v250 database.");
+   const domains=Object.keys(before.counts||{}).sort();
+   const snapshot=await api.snapshot(domains);
+   const after=await api.health();
+   const actual={};
+   for(const row of snapshot.records){
+    if(!actual[row.domain])actual[row.domain]=0;
+    actual[row.domain]++;
+   }
+   const expected={};
+   for(const domain of domains)expected[domain]=before.counts[domain]||0;
+   const countsMatch=JSON.stringify(Object.keys(actual).sort().map(k=>[k,actual[k]]))===JSON.stringify(Object.keys(expected).filter(k=>expected[k]>0).sort().map(k=>[k,expected[k]]));
+   const stable=JSON.stringify(before.counts)===JSON.stringify(after.counts);
+   const valid=snapshot.database===api.databaseName&&snapshot.records.length===before.totalRecords&&countsMatch&&stable;
+   if(!valid)throw new Error("Snapshot verification failed: record counts changed or do not match database health. Do not use this export.");
+   verifiedSnapshot=snapshot;
+   const bytes=new Blob([JSON.stringify(snapshot)]).size;
+   show({
+    ok:true,readOnly:true,database:before.database,schemaVersion:before.schemaVersion,
+    totalRecords:before.totalRecords,domains:before.counts,
+    snapshotRecordCount:snapshot.records.length,countsMatch:true,
+    databaseCountsStableDuringRead:true,estimatedJsonBytes:bytes,
+    localStorageAccessed:false,businessRecordsWritten:false,businessRecordsDeleted:false,appCutover:false,
+    nextAction:"Use the download button to save the complete snapshot JSON."
+   });
+  }catch(error){
+   verifiedSnapshot=null;
+   show({ok:false,error:String(error&&error.message||error),readOnly:true,localStorageAccessed:false,businessRecordsWritten:false,appCutover:false});
+  }finally{busy(false)}
+ });
+ exportButton.addEventListener("click",()=>{
+  if(!verifiedSnapshot)return;
+  const json=JSON.stringify(verifiedSnapshot,null,2);
+  const blob=new Blob([json],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;link.download="THA-v250-IDB-full-snapshot.json";
+  document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  show({ok:true,exported:true,fileName:"THA-v250-IDB-full-snapshot.json",recordCount:verifiedSnapshot.records.length,database:verifiedSnapshot.database,readOnly:true,localStorageAccessed:false,businessRecordsWritten:false,appCutover:false});
+ });
+})();
+</script>
+</body>
+</html>

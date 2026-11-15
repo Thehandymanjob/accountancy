@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>THA v264 Isolated Full Backup Restore Lab</title>
+<style>body{font:16px -apple-system,BlinkMacSystemFont,sans-serif;background:#f3f5f8;color:#172235;margin:0;padding:16px}main{max-width:860px;margin:auto}section{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:16px;margin:12px 0}button{padding:12px 16px;border:0;border-radius:8px;background:#17365d;color:#fff;font-weight:700;margin:5px}.warn{background:#fff4d6;padding:12px;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101c2d;color:#e8f0fb;padding:12px;border-radius:8px;font-size:12px}</style></head>
+<body><main><section><h1>THA v264 — Full Backup & Restore Lab</h1>
+<p class="warn"><b>Isolated synthetic test only.</b> This page uses a separate IndexedDB database named <code>tha_v264_recovery_lab_20261110_idb</code>. It does not open, clear, restore, or modify the application database or production. Only synthetic test records are created and removed.</p>
+<p><b>Test database:</b> <code>tha_v264_recovery_lab_20261110_idb</code></p>
+<button id="run">Run full backup and restore checks</button><pre id="out">Waiting…</pre></section></main>
+<script src="./storage-idb-v264-recovery-lab.js?v=lab1"></script>
+<script src="../v264-fresh/v264-strict-domain-boundary.js?v=lab1"></script>
+<script src="../v264-fresh/app-storage-v264.js?v=lab1"></script>
+<script src="../v264-fresh/v264-media-controller.js?v=lab1"></script>
+<script src="../v264-fresh/v264-recovery.js?v=lab1"></script>
+<script>
+"use strict";
+const out=document.getElementById("out"),show=x=>out.textContent=JSON.stringify(x,null,2);
+const DOMAINS=["accounting","business_profile","contracts","diagnostics","factory_reset_recovery","help_contact_drafts","media","notifications","preference_meta","preferences","projects","recovery","report_notifications","report_settings","report_workflow","reports","sequences"];
+document.getElementById("run").onclick=async()=>{
+ const results={},errors={},token="recovery-lab-"+Date.now(),keys=DOMAINS.map(d=>({domain:d,key:token+"-"+d}));
+ const original={get:Storage.prototype.getItem,set:Storage.prototype.setItem,remove:Storage.prototype.removeItem,clear:Storage.prototype.clear};
+ let initialized=false,backupBlob=null;
+ try{
+  Storage.prototype.getItem=function(){throw new Error("Legacy storage read attempted.");};
+  Storage.prototype.setItem=function(){throw new Error("Legacy storage write attempted.");};
+  Storage.prototype.removeItem=function(){throw new Error("Legacy storage remove attempted.");};
+  Storage.prototype.clear=function(){throw new Error("Legacy storage clear attempted.");};
+  const ready=await HandymanAppStorageV264.initialize();initialized=true;
+  results.isolatedDatabase=ready.database==="tha_v264_recovery_lab_20261110_idb"&&HandymanStorageV264.databaseName===ready.database;
+  results.productionDatabaseNotSelected=ready.database!=="the_handyman_accountancy_v264_idb";
+  for(const item of keys){
+   let value={testToken:token,domain:item.domain,createdAt:"2026-11-10T00:00:00.000Z",payload:{count:17,valid:true,labels:["synthetic","restore"]}};
+   if(item.domain==="media")value={id:item.key,name:"lab-photo.jpg",type:"image/jpeg",size:22,ownerType:"project",ownerId:token,role:"project-photo",blob:new Blob(["synthetic media payload"],{type:"image/jpeg"}),file:new File(["synthetic file payload"],"lab-receipt.pdf",{type:"application/pdf",lastModified:1700000000000})};
+   if(item.domain==="help_contact_drafts")value={id:item.key,name:"Lab User",email:"lab@example.invalid",subject:"Recovery lab",message:"Synthetic draft"};
+   await HandymanStorageV264.put(item.domain,item.key,value);
+  }
+  const before=await HandymanStorageV264.snapshot(DOMAINS);
+  results.syntheticRecordsCreated=before.records.length===DOMAINS.length;
+  results.allRecoveryDomainsPresent=DOMAINS.every(d=>before.domains.includes(d));
+  results.backupBlobAndFilePresent=(()=>{const m=before.records.find(r=>r.domain==="media")?.value;return m?.blob instanceof Blob&&m?.file instanceof File;})();
+  const recovery=HandymanRecoveryV264.create(),backup=await recovery.createBackup();backupBlob=backup.blob;
+  results.backupCreated=backup.ok===true&&backup.verification.ok===true;
+  results.backupHasEveryDomain=backup.verification.domains===DOMAINS.length&&backup.verification.records===DOMAINS.length;
+  const inspection=await recovery.inspectFile(backupBlob);
+  results.backupFileIntegrity=inspection.ok===true&&inspection.digest===backup.verification.digest&&inspection.records===DOMAINS.length;
+  for(const item of keys){await HandymanStorageV264.remove(item.domain,item.key);}
+  results.preRestoreDatabaseEmpty=(await HandymanStorageV264.snapshot(DOMAINS)).records.length===0;
+  const restored=await recovery.restoreFromFile(backupBlob);
+  results.restoreReportedVerified=restored.ok===true&&restored.verified===true&&restored.restored===DOMAINS.length;
+  const after=await HandymanStorageV264.snapshot(DOMAINS);
+  results.restoredRecordCount=after.records.length===before.records.length;
+  let exact=true;
+  for(let i=0;i<before.records.length;i++){if(after.records[i].id!==before.records[i].id||!(await HandymanStorageV264.valuesEqual(after.records[i].value,before.records[i].value))){exact=false;break;}}
+  results.exactAllDomainContent=exact;
+  const media=await HandymanStorageV264.get("media",token+"-media");
+  results.restoredBlobContent=media?.blob instanceof Blob&&await media.blob.text()==="synthetic media payload";
+  results.restoredFileContent=media?.file instanceof File&&media.file.name==="lab-receipt.pdf"&&await media.file.text()==="synthetic file payload";
+  results.noLegacyStorageAccess=true;
+ }catch(e){results.failed=true;results.error=String(e&&e.message||e);}
+ finally{
+  Storage.prototype.getItem=original.get;Storage.prototype.setItem=original.set;Storage.prototype.removeItem=original.remove;Storage.prototype.clear=original.clear;
+  if(initialized){try{for(const item of keys)await HandymanStorageV264.remove(item.domain,item.key);results.syntheticCleanup=(await HandymanStorageV264.snapshot(DOMAINS)).records.length===0;}catch(e){results.syntheticCleanup=false;errors.cleanup=String(e&&e.message||e);}}
+  else results.syntheticCleanup=false;
+ }
+ const checks=Object.entries(results).filter(([k,v])=>typeof v==="boolean"&&k!=="failed");
+ results.health=initialized?await HandymanStorageV264.health():null;
+ results.overall=results.failed!==true&&checks.length>=10&&checks.every(([,v])=>v===true)&&results.syntheticCleanup===true;
+ if(Object.keys(errors).length)results.cleanupErrors=errors;
+ show(results);
+};
+</script></body></html>

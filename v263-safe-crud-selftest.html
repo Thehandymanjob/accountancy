@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THA v263 Safe CRUD Self-Test</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:18px 14px 40px;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;max-width:760px;margin-inline:auto}
+h1{font-size:22px}.card{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:16px;margin:12px 0}.notice{background:#edf5ff;border-color:#a9c9ef}
+button{border:0;border-radius:9px;padding:14px;background:#142b4a;color:white;font-weight:700;font-size:16px;width:100%;margin-top:8px}button:disabled{opacity:.45}
+.status{font-weight:700}.good{color:#176b35}.bad{color:#a52d39}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101820;color:#e7edf5;padding:12px;border-radius:8px;font-size:12px;direction:ltr;text-align:left}
+</style></head>
+<body>
+<h1>آزمایش امن ذخیره‌سازی v263</h1>
+<div class="card notice"><b>آزمایش فقط روی رکوردهای موقت.</b><p>این تست روی یک دامنهٔ تصادفی و جداگانه اجرا می‌شود؛ اطلاعات حسابداری، پروژه‌ها، قراردادها، پروفایل و شماره فاکتور را نمی‌خواند یا تغییر نمی‌دهد. قبل و بعد از تست، تعداد رکوردهای دامنه‌های اصلی مقایسه می‌شود. رکوردهای آزمایشی در پایان حذف می‌شوند.</p><p>این صفحه فقط موتور IndexedDB نسخهٔ ۲۶۳ را می‌آزماید و به معنی انتقال یا فعال‌سازی برنامهٔ اصلی نیست.</p></div>
+<div class="card"><div id="status" class="status">آمادهٔ اجرا</div><button id="run">اجرای آزمایش امن</button><pre id="report">پس از اجرا، گزارش کامل اینجا نمایش داده می‌شود.</pre></div>
+<script src="./storage-idb-v263.js"></script>
+<script>
+(()=>{"use strict";
+const btn=document.getElementById("run"),status=document.getElementById("status"),out=document.getElementById("report");
+btn.addEventListener("click",async()=>{
+ btn.disabled=true;status.textContent="در حال آزمایش...";status.className="status";
+ const e=window.HandymanStorageV263;
+ try{
+  if(!e)throw new Error("موتور IndexedDB v263 بارگذاری نشد.");
+  const before=await e.health();
+  if(before.resetLocked)throw new Error("قفل بازنشانی فعال است؛ برای جلوگیری از تداخل، آزمایش اجرا نشد.");
+  const result=await e.selfTest();
+  const after=await e.health();
+  const core=["accounting","business_profile","contracts","projects","sequences"];
+  const coreCounts={};
+  for(const d of core)coreCounts[d]={before:before.counts[d]||0,after:after.counts[d]||0,unchanged:(before.counts[d]||0)===(after.counts[d]||0)};
+  const noTestRows=after.totalRecords===before.totalRecords;
+  const coreUnchanged=Object.values(coreCounts).every(x=>x.unchanged);
+  const report={ok:!!result.ok&&noTestRows&&coreUnchanged,mode:"TEMPORARY_TEST_RECORDS_ONLY",database:before.database,build:before.build,checks:result.checks||{},selfTestError:result.error||null,cleanupVerified:noTestRows,coreDomainsUnchanged:coreUnchanged,coreCounts,totalRecordsBefore:before.totalRecords,totalRecordsAfter:after.totalRecords,domainCountsBefore:before.counts,domainCountsAfter:after.counts,noLocalStorageAccess:true,productionTouched:false,appCutover:false};
+  out.textContent=JSON.stringify(report,null,2);
+  status.textContent=report.ok?"PASS — همهٔ آزمایش‌ها موفق و رکوردهای موقت پاک شدند.":"FAIL — گزارش را بررسی کن؛ تست را تکرار نکن.";
+  status.className="status "+(report.ok?"good":"bad");
+ }catch(err){status.textContent="آزمایش متوقف شد: "+err.message;status.className="status bad";out.textContent=JSON.stringify({ok:false,error:err.message,productionTouched:false},null,2);}
+ finally{btn.disabled=false;}
+});
+})();
+</script></body></html>

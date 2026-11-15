@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THA v250 — Authoritative Backup Audit</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172b45;background:#f3f6fa}
+body{margin:0;padding:18px;max-width:900px;margin-inline:auto}
+main{background:#fff;border:1px solid #dce4ee;border-radius:15px;padding:20px}
+h1{font-size:22px;margin:0 0 10px}
+p{line-height:1.5;color:#53657a}
+.notice{padding:13px;border-radius:10px;background:#fff5dc;border:1px solid #e6cb87;color:#624d1d;margin:14px 0}
+input{display:block;width:100%;box-sizing:border-box;padding:12px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;margin:12px 0}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#174d83;color:white;font-weight:800;margin:8px 0}
+button.secondary{background:#e8edf4;color:#172b45}
+button:disabled{opacity:.5}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101d2c;color:#e8f1fb;padding:14px;border-radius:10px;font-size:12px;min-height:160px}
+.small{font-size:13px;color:#63748a}
+</style>
+</head>
+<body>
+<main>
+<h1>THA v250 — Authoritative Backup Audit</h1>
+<p>Select the designated <strong>New_new(1).json</strong> file. This page verifies its SHA-256, checks the backup structure and totals, and builds a read-only dry-run manifest with canonical payload hashes for the proposed v250 destination records.</p>
+<div class="notice"><strong>Safety boundary:</strong> This is a read-only file audit. It does not open IndexedDB, read or change LocalStorage, write typed records, or perform app cutover. It checks the exact backup SHA-256 before marking the source as verified.</div>
+<input id="file" type="file" accept=".json,application/json">
+<button id="run">Inspect selected backup (read-only)</button>
+<button id="download" class="secondary" disabled>Export audit report JSON</button>
+<button id="copy" class="secondary" disabled>Copy audit report</button>
+<p id="status" class="small" aria-live="polite"></p>
+<pre id="out">Ready. No file has been inspected.</pre>
+<p class="small">Use the same <code>New_new(1).json</code> that was designated as the migration source. Do not substitute a test snapshot or another backup. All unclassified LocalStorage keys remain preserved in the v250 legacy store. The manifest does not write any typed records.</p>
+</main>
+<script src="storage-v250-backup-audit.js?v=1"></script>
+<script>
+(()=>{
+ const file=document.getElementById("file"),run=document.getElementById("run"),download=document.getElementById("download"),copy=document.getElementById("copy"),out=document.getElementById("out"),status=document.getElementById("status");
+ let last=null;
+ const show=value=>{out.textContent=JSON.stringify(value,null,2);copy.disabled=false;status.textContent="";};
+ run.onclick=async()=>{
+  run.disabled=true;download.disabled=true;copy.disabled=true;status.textContent="Inspecting file in memory…";
+  try{last=await HandymanV250BackupAudit.inspectFile(file.files&&file.files[0]);show(last);download.disabled=false;status.textContent=last.summary&&last.summary.sourceHashMatches?"Exact designated backup hash verified.":"Audit completed; inspect any source-hash blocker before proceeding.";}
+  catch(error){last=null;show({ok:false,error:String(error&&error.message||error),writesPerformed:false,localStorageChanged:false,typedDomainsChanged:false,appCutover:false});}
+  finally{run.disabled=false;}
+ };
+ copy.onclick=async()=>{
+  try{await navigator.clipboard.writeText(out.textContent);status.textContent="Report copied.";}
+  catch(_){status.textContent="Copy unavailable. Use Export audit report JSON.";}
+ };
+ download.onclick=()=>{
+  if(!last)return;
+  const blob=new Blob([JSON.stringify(last,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="THA_v250_authoritative_backup_audit.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ };
+})();
+</script>
+</body>
+</html>

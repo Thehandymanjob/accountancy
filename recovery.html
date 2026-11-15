@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Handyman v262 Recovery Check</title>
+<style>
+body{font:16px -apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:22px;background:#f3f5f8;color:#172033}
+main{max-width:760px;margin:auto;background:white;border-radius:18px;padding:22px;box-shadow:0 4px 24px #0001}
+h1{font-size:22px}p{line-height:1.5}.note{background:#fff4d6;padding:12px;border-radius:10px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#111827;color:#e5e7eb;padding:14px;border-radius:10px;font-size:12px}
+button{padding:12px 18px;border:0;border-radius:10px;background:#f2c94c;font-weight:700;font-size:16px}
+</style>
+</head>
+<body><main>
+<h1>The Handyman — Safe Recovery Check</h1>
+<p class="note"><strong>Read-only check.</strong> This page does not change LocalStorage, IndexedDB, CacheStorage, or the app data. Do not run Restore from this page.</p>
+<button id="run">Run read-only check</button>
+<pre id="out">Waiting…</pre>
+</main>
+<script>
+(async()=>{
+ const out=document.getElementById('out');
+ const run=async()=>{
+  const report={page:location.href,checkedAt:new Date().toISOString(),serviceWorker:{supported:('serviceWorker'in navigator),controller:!!navigator.serviceWorker?.controller,controllerScript:navigator.serviceWorker?.controller?.scriptURL||null},cacheStorage:{supported:('caches'in window),names:[]},localStorage:{readable:false,appKeys:[]},indexedDB:{supported:('indexedDB'in window)}};
+  try{
+   report.localStorage.readable=true;
+   for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&(/^(tha_test226_|handyman_)/).test(k))report.localStorage.appKeys.push(k);}
+  }catch(e){report.localStorage.error=String(e);}
+  try{
+   const names=await caches.keys();report.cacheStorage.names=names;
+   for(const n of names){
+    if(n==='tha-test226-active-pointer-v1'){
+     const c=await caches.open(n),keys=await c.keys(),items=[];
+     for(const req of keys){const res=await c.match(req);let body=null;try{body=await res.clone().json()}catch(e){body='non-json'}items.push({url:req.url,value:body});}
+     report.cacheStorage.pointerItems=items;
+    }
+    if(n.startsWith('tha-test226-app-v')){
+     const c=await caches.open(n),keys=await c.keys();
+     report.cacheStorage.appCaches=report.cacheStorage.appCaches||[];
+     report.cacheStorage.appCaches.push({name:n,entryCount:keys.length,entries:keys.map(k=>new URL(k.url).pathname)});
+    }
+   }
+  }catch(e){report.cacheStorage.error=String(e);}
+  out.textContent=JSON.stringify(report,null,2);
+ };
+ document.getElementById('run').addEventListener('click',run);
+ await run();
+})();
+</script></body></html>

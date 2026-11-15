@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Reset Concurrency Lab</title>
+<style>body{font:16px system-ui;margin:18px;line-height:1.5}button{padding:13px 18px;font-size:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:12px;border-radius:8px}.note{background:#fff5d8;padding:10px;border-radius:8px}</style></head>
+<body><h1>THA v263 — Reset Concurrency Lab</h1>
+<p class="note"><b>Isolation:</b> This test uses only the separate database <code>tha_v263_reset_concurrency_lab</code>. It does not open or modify the application's v263 database, LocalStorage, or user records.</p>
+<button id="run">Run concurrency tests</button><pre id="out">Ready.</pre>
+<script>
+(async function(){
+"use strict";
+const DB="tha_v263_reset_concurrency_lab", STORE="records", META="metadata";
+const out=document.getElementById("out"),button=document.getElementById("run");
+const report={database:DB,checks:{},errors:[]};
+function log(){out.textContent=JSON.stringify(report,null,2);}
+function assert(name,condition,detail){report.checks[name]=!!condition;if(!condition)throw new Error(name+(detail?": "+detail:""));log();}
+function open(){return new Promise((resolve,reject)=>{const q=indexedDB.open(DB,1);q.onupgradeneeded=()=>{const d=q.result;d.createObjectStore(STORE,{keyPath:"id"});d.createObjectStore(META,{keyPath:"key"});};q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});}
+function done(tx){return new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error||new Error("transaction aborted"));tx.onerror=()=>reject(tx.error||new Error("transaction failed"));});}
+function guardedWrite(db,id,value){return new Promise((resolve,reject)=>{const tx=db.transaction([STORE,META],"readwrite"),s=tx.objectStore(STORE),m=tx.objectStore(META),q=m.get("resetLock");let blocked=false;q.onsuccess=()=>{if(q.result&&q.result.active){blocked=true;try{tx.abort();}catch(e){}}else s.put({id,value});};tx.oncomplete=()=>resolve({written:true});tx.onabort=()=>blocked?resolve({written:false,blocked:true}):reject(tx.error||new Error("write aborted"));tx.onerror=()=>{};});}
+function resetAndClear(db){return new Promise((resolve,reject)=>{const tx=db.transaction([STORE,META],"readwrite"),s=tx.objectStore(STORE),m=tx.objectStore(META);m.put({key:"resetLock",active:true,at:new Date().toISOString()});const q=s.clear();q.onerror=()=>{try{tx.abort();}catch(e){}};tx.oncomplete=()=>resolve();tx.onabort=()=>reject(tx.error||new Error("reset transaction aborted"));tx.onerror=()=>{};});}
+function unlock(db){return new Promise((resolve,reject)=>{const tx=db.transaction([META],"readwrite");tx.objectStore(META).put({key:"resetLock",active:false});tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error);});}
+function readAll(db){return new Promise((resolve,reject)=>{const tx=db.transaction([STORE],"readonly"),q=tx.objectStore(STORE).getAll();q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});}
+button.onclick=async()=>{button.disabled=true;report.checks={};report.errors=[];log();let a,b;
+try{
+if(!indexedDB)throw new Error("IndexedDB unavailable");
+a=await open();b=await open();
+await new Promise((resolve,reject)=>{const tx=a.transaction([STORE,META],"readwrite");tx.objectStore(STORE).clear();tx.objectStore(META).clear();tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error);});
+await guardedWrite(a,"seed",{n:1});
+assert("Initial guarded write succeeds",(await readAll(a)).length===1);
+await resetAndClear(a);
+assert("Reset atomically sets persistent lock and clears records",(await readAll(b)).length===0);
+const blocked=await guardedWrite(b,"late-write",{n:2});
+assert("A second connection cannot write while reset lock is active",blocked.blocked===true);
+const lock=await new Promise((resolve,reject)=>{const tx=b.transaction([META],"readonly"),q=tx.objectStore(META).get("resetLock");q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});
+assert("Reset lock survives across database connections",lock&&lock.active===true);
+await unlock(a);
+const allowed=await guardedWrite(b,"after-unlock",{n:3});
+assert("Writes resume only after explicit unlock",allowed.written===true);
+const rows=await readAll(a);
+assert("Only post-unlock write exists after reset",rows.length===1&&rows[0].id==="after-unlock");
+await resetAndClear(a);
+assert("Second reset clears post-unlock data",(await readAll(b)).length===0);
+report.ok=Object.values(report.checks).every(Boolean)&&report.errors.length===0;
+}catch(e){report.errors.push(String(e&&e.stack||e));report.ok=false;}
+finally{if(a)a.close();if(b)b.close();try{await new Promise((resolve,reject)=>{const q=indexedDB.deleteDatabase(DB);q.onsuccess=resolve;q.onerror=()=>reject(q.error);q.onblocked=()=>reject(new Error("Lab cleanup blocked"));});report.cleanup="PASS";}catch(e){report.cleanup="REQUIRES ATTENTION: "+String(e);}log();button.disabled=false;}
+};
+})();
+</script></body></html>

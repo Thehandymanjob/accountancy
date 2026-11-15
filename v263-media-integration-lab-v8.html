@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Media Integration Lab — Diagnostic v8</title>
+<style>body{font:16px system-ui;margin:0;padding:18px;background:#f3f6fb;color:#172235}main{max-width:850px;margin:auto;background:white;padding:20px;border-radius:14px}button{padding:12px 18px;border:0;border-radius:9px;background:#174f91;color:white;font-weight:700}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101827;color:#d8e5f5;padding:14px;border-radius:10px;min-height:120px}.muted{color:#526276}#status{font-weight:700}</style></head><body><main>
+<h1>v263 — Media & Controller Integration Lab</h1>
+<p><strong>Isolated test only.</strong> This page uses its own IndexedDB database (<code>tha_v263_media_integration_lab_idb</code>). It does not open or modify the application database, LocalStorage, or the production app.</p>
+<p class="muted">Tests controller round-trips for accounting, projects/subprojects, contracts, preferences, diagnostics, reports, recovery metadata, plus Blob/File and image Data URL retention.</p>
+<button id="run">Run all integration checks</button> <span id="status">Not run</span>
+<pre id="log">Waiting…</pre>
+</main>
+<script src="storage-idb-v263-media-lab-engine-v2.js"></script>
+<script src="app-storage-v263-v2.js"></script>
+<script src="v263-accounting-controller-diagnostic-v2.js"></script>
+<script src="v263-projects-controller.js"></script>
+<script src="v263-contracts-controller.js"></script>
+<script src="v263-support-controller-v2.js"></script>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),log=$('log'),status=$('status');let results=[];
+function record(name,ok,detail){results.push({name,ok:!!ok,detail:detail||''});log.textContent=results.map((x,i)=>(x.ok?'PASS':'FAIL')+' '+(i+1)+'. '+x.name+(x.detail?' — '+x.detail:'')).join('\n');}
+const equal=async(a,b)=>window.HandymanStorageV263.valuesEqual(a,b);
+async function run(){
+ results=[];log.textContent='Starting…';status.textContent='Running';
+ try{
+  const init=await HandymanAppStorageV263.initialize();
+  record('Isolated database initialized',init.ok&&init.database==='tha_v263_media_integration_lab_idb',init.database);
+  const health=await HandymanAppStorageV263.health();
+  record('Database initially empty and unlocked',health.ok===true&&health.resetLocked===false);
+  const pngBytes=new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,0]);
+  const blob=new Blob([pngBytes],{type:'image/png'});
+  const file=new File([pngBytes],'lab-receipt.png',{type:'image/png',lastModified:1731067200000});
+  const imageData='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB';
+  const account={entries:[{id:'entry-1',type:'expense',date:'2026-11-08',amount:17.25,receiptImage:imageData,receiptBlob:blob,receiptFile:file}],customers:[{id:'cust-1',name:'Lab Customer'}],invoices:[{id:'inv-1',number:501,customerId:'cust-1',attachment:blob}],customExpenseCategories:['Lab materials'],settings:{businessName:'Lab Builder',logo:blob,extra:{keep:true}}};
+  await HandymanAccountingV263.save(account);
+  const accountRead=await HandymanAccountingV263.load();
+  const normalizedAccount={...account,settings:{businessName:'',ownerName:'',...account.settings}};
+  record('Accounting full round-trip incl. receipt/logo Blob, File and Data URL',await equal(accountRead,normalizedAccount)&&accountRead.entries[0].receiptFile instanceof File,'normalization defaults verified');
+  await HandymanAccountingV263.addEntry({id:'entry-2',type:'income',date:'2026-11-08',amount:300,method:'bank'});
+  record('Accounting atomic update and read-back', (await HandymanAccountingV263.load()).entries.length===2);
+  const project={id:'project-1',name:'Media Test Project',photo:blob,photoFile:file,profileNote:'preserve',income:[],expenses:[{id:'expense-1',amount:22,receipt:{name:'receipt.png',type:'image/png',data:imageData,blob}}],subprojects:[{id:'sub-1',name:'Extra Job',photo:blob,expenses:[{id:'sub-exp-1',amount:8,file:blob}]}]};
+  const projectsState={projects:[project],workers:[{id:'worker-1',name:'Test'}],partners:[],contractors:[],companies:[],companyJobs:[],profile:{businessName:'Lab Builder',logo:blob},current:'project-1',guide:'en',unknownPreserved:{v:7}};
+  await HandymanProjectsV263.save(projectsState);
+  const pRead=await HandymanProjectsV263.load();
+  record('Projects/subprojects round-trip incl. nested Blob/File and unknown fields',await equal(pRead,projectsState)&&pRead.projects[0].photoFile instanceof File);
+  await HandymanProjectsV263.saveLedgerRecord('project-1','sub-1','expenses',{id:'sub-exp-2',amount:9,receipt:blob});
+  const pUpdated=await HandymanProjectsV263.load();
+  record('Sub-project ledger write preserves existing media',pUpdated.projects[0].subprojects[0].expenses.length===2&&await equal(pUpdated.projects[0].photo,blob));
+  const contracts={contracts:[{id:'contract-1',customerId:'cust-1',html:'<p>Lab</p>',logo:blob,signature:{data:imageData,file},attachment:{name:'signed.pdf',type:'application/pdf',data:'data:application/pdf;base64,JVBERi0x',blob}}],futureField:{retain:42}};
+  await HandymanContractsV263.save(contracts);
+  const cRead=await HandymanContractsV263.load();
+  record('Contracts full round-trip incl. attachment File and unknown fields',await equal(cRead,contracts)&&cRead.contracts[0].signature.file instanceof File);
+  await HandymanContractsV263.updateContract('contract-1',{status:'signed'});
+  record('Contract update preserves attachment', (await HandymanContractsV263.get('contract-1')).status==='signed'&&await equal((await HandymanContractsV263.get('contract-1')).logo,blob));
+  const lang=await HandymanSupportV263.setLanguage('fa','v263-lab');
+  record('Language and preference metadata saved atomically',lang.language==='fa'&&lang.preferenceVersion==='v263-lab');
+  await HandymanSupportV263.appendDiagnostic({id:'diag-1',event:'media-lab',blob,at:new Date('2026-11-08T12:00:00Z')});
+  const diag=await HandymanSupportV263.load('diagnostics');
+  record('Diagnostics preserve Blob and Date',diag.length===1&&await equal(diag[0].blob,blob)&&diag[0].at instanceof Date);
+  const workspace={archive:[{id:'report-1',pdf:blob}],notifications:[{id:'notice-1',seen:false}],settings:{includeReceipts:true,logo:blob},workflow:{step:'review',updated:new Date('2026-11-08T12:00:00Z')}};
+  await HandymanSupportV263.saveReportWorkspace(workspace);
+  const wRead=await HandymanSupportV263.loadReportWorkspace();
+  record('Report workspace atomic round-trip incl. media/date',await equal(wRead,workspace));
+  await HandymanSupportV263.save('recovery',{backupId:'backup-1',blob,verified:true});
+  await HandymanSupportV263.save('factoryResetRecovery',{state:'protected',snapshot:{blob}});
+  record('Recovery metadata round-trip', (await HandymanSupportV263.load('recovery')).backupId==='backup-1'&&await equal((await HandymanSupportV263.load('factoryResetRecovery')).snapshot.blob,blob));
+  const backup=await HandymanAppStorageV263.backup();
+  record('Backup manifest covers every registered domain',backup&&Array.isArray(backup.records)&&Array.isArray(backup.domains)&&HandymanAppStorageV263.domains.every(name=>backup.domains.includes(name)),String(backup&&backup.domains&&backup.domains.length)+' domains; '+String(backup&&backup.records&&backup.records.length)+' stored records');
+  const before=await HandymanStorageV263.health();
+  record('Final health check succeeds without reset lock',before.ok===true&&before.resetLocked===false);
+ }catch(e){const msg=(e&&e.message)||String(e)||'Unknown error';record('Unexpected test exception',false,msg+' | name='+(e&&e.name||'')+' | stack='+((e&&e.stack)||''));}
+ const passed=results.filter(x=>x.ok).length,total=results.length;
+ status.textContent=passed===total?'PASS '+passed+'/'+total:'FAIL '+passed+'/'+total;
+ const report={ok:passed===total,build:'THA-263-MEDIA-INTEGRATION-LAB-5',database:'tha_v263_media_integration_lab_idb',checkedAt:new Date().toISOString(),passed,total,results};
+ const out=document.createElement('button');out.textContent='Copy report';out.style.marginTop='12px';out.onclick=async()=>{try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));out.textContent='Copied'}catch(e){out.textContent='Copy unavailable — select report text'}};if(!document.getElementById('copyReport')){out.id='copyReport';document.querySelector('main').appendChild(out)}
+ log.textContent+='\n\nJSON REPORT\n'+JSON.stringify(report,null,2);
+}
+$('run').addEventListener('click',run);
+})();
+</script></body></html>

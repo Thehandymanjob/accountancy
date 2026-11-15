@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>THA v263 Domain Integration Lab</title>
+<style>body{margin:0;padding:16px;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,sans-serif}main{max-width:780px;margin:auto}.card{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:16px;margin:12px 0}button{border:0;border-radius:8px;padding:12px 16px;background:#142b4a;color:white;font-weight:700}button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101828;color:#e7edf7;padding:12px;border-radius:8px;font-size:12px}.muted{color:#657286;font-size:13px}</style></head><body><main>
+<section class="card"><h2>v263 Domain Integration Lab</h2><p class="muted">Synthetic data only. Dedicated IndexedDB database: tha_v263_domain_integration_20261109_idb. Tests atomic accounting, project and contract mutations, Blob media, and snapshot restore. No LocalStorage, legacy import, old database or production access.</p><button id="run">Run domain integration tests</button> <button id="copy" disabled>Copy report</button><p id="status">Ready.</p></section>
+<section class="card"><h3>Machine-readable report</h3><pre id="report">Not run.</pre></section></main>
+<script src="./storage-idb-v263-domain-integration-engine.js?build=domain1"></script>
+<script src="./app-storage-v263-v4.js?build=domain1"></script>
+<script src="./v263-projects-controller.js?build=domain1"></script>
+<script src="./v263-project-accounting-transfer-atomic-v2.js?build=domain1"></script>
+<script src="./v263-contracts-controller-atomic.js?build=domain1"></script>
+<script>
+'use strict';const $=id=>document.getElementById(id),DB="tha_v263_domain_integration_20261109_idb";
+const report={build:"THA-263-DOMAIN-INTEGRATION-LAB-1",database:DB,mode:"indexeddb-only",legacyImport:false,productionTouched:false,localStorageAccess:false,oldDatabaseOpened:false,checks:{},observations:{},errors:{},testedAt:null};
+const check=(n,v,d)=>{report.checks[n]=!!v;if(d!==undefined)report.observations[n]=d;};
+async function run(){ $("run").disabled=true;$("status").textContent="Running isolated integration tests…";
+try{
+ const init=await HandymanAppStorageV263.initialize();check("dedicatedDatabase",init.ok&&init.database===DB,init);
+ const pid="domain-project-"+Date.now(),sid="domain-extra-"+Date.now();
+ await HandymanProjectsV263.addProject({id:pid,name:"Synthetic Domain Project",status:"open",subprojects:[],income:[],expenses:[]});
+ await HandymanProjectsV263.addSubproject(pid,{id:sid,name:"Extra Job",price:300,income:[],expenses:[]});
+ const blob=new Blob(["synthetic receipt v263"],{type:"text/plain"});
+ await HandymanProjectsV263.saveLedgerRecord(pid,sid,"expenses",{id:"blob-expense",date:"2026-11-09",amount:22,description:"Synthetic receipt",receiptImage:blob});
+ const blobProject=await HandymanProjectsV263.load(),savedBlob=blobProject.projects.find(p=>p.id===pid).subprojects.find(s=>s.id===sid).expenses[0].receiptImage;
+ check("projectMutationAndBlobPersistence",savedBlob instanceof Blob&&savedBlob.size===blob.size&&await savedBlob.text()==="synthetic receipt v263",{isBlob:savedBlob instanceof Blob,size:savedBlob&&savedBlob.size,type:savedBlob&&savedBlob.type});
+ const accountWrites=await Promise.allSettled(Array.from({length:8},(_,i)=>HandymanAppStorageV263.mutate("accounting",state=>{state.entries.push({id:"concurrent-account-"+i,type:"income",amount:i+1});return state;})));
+ const account=await HandymanAppStorageV263.read("accounting"),ids=account.entries.filter(x=>/^concurrent-account-/.test(x.id)).map(x=>x.id).sort();
+ check("concurrentAccountingMutationsNoLostWrites",accountWrites.every(x=>x.status==="fulfilled")&&ids.length===8,{fulfilled:accountWrites.filter(x=>x.status==="fulfilled").length,expected:8,storedIds:ids});
+ const projectWrites=await Promise.allSettled(Array.from({length:6},(_,i)=>HandymanProjectsV263.update(state=>{const p=state.projects.find(x=>x.id===pid);p.concurrentMarkers=Array.isArray(p.concurrentMarkers)?p.concurrentMarkers:[];p.concurrentMarkers.push("p"+i);return state;})));
+ const projectAfter=await HandymanProjectsV263.load(),markers=projectAfter.projects.find(p=>p.id===pid).concurrentMarkers||[];
+ check("concurrentProjectMutationsNoLostWrites",projectWrites.every(x=>x.status==="fulfilled")&&markers.length===6,{fulfilled:projectWrites.filter(x=>x.status==="fulfilled").length,markers});
+ const contractWrites=await Promise.allSettled(Array.from({length:5},(_,i)=>HandymanContractsV263.save({id:"synthetic-contract-"+i,title:"Synthetic contract "+i,body:"Test only",attachment:i===0?blob:null})));
+ const contracts=await HandymanContractsV263.load();
+ check("concurrentContractMutationsNoLostWrites",contractWrites.every(x=>x.status==="fulfilled")&&contracts.contracts.length===5,{fulfilled:contractWrites.filter(x=>x.status==="fulfilled").length,contractCount:contracts.contracts.length});
+ await HandymanProjectAccountingTransferV263.transfer({projectId:pid,subprojectId:sid,collection:"expenses",recordId:"blob-expense",approved:true});
+ const [projectAfterTransfer,accountAfterTransfer]=await Promise.all([HandymanProjectsV263.load(),HandymanAppStorageV263.read("accounting")]);
+ const source=projectAfterTransfer.projects.find(p=>p.id===pid).subprojects.find(s=>s.id===sid).expenses[0];
+ const transfer=accountAfterTransfer.entries.find(x=>x.projectSourceRecordId==="blob-expense"&&x.projectId===pid);
+ check("atomicProjectToAccountingTransfer",!!source.transferredToAccounting&&!!transfer&&transfer.amount===22,{sourceRetained:!!source,flag:source.transferredToAccounting===true,accountingEntryPresent:!!transfer,amount:transfer&&transfer.amount});
+ const domains=["accounting","projects","contracts"],snapshot=await HandymanStorageV263.snapshot(domains);
+ await HandymanAppStorageV263.mutate("accounting",state=>{state.entries.push({id:"post-snapshot-marker",type:"expense",amount:999});return state;});
+ await HandymanContractsV263.save({id:"post-snapshot-contract",title:"Must disappear after restore"});
+ const restored=await HandymanStorageV263.restore(snapshot);
+ const [restoredA,restoredP,restoredC]=await Promise.all([HandymanAppStorageV263.read("accounting"),HandymanProjectsV263.load(),HandymanContractsV263.load()]);
+ const restoredBlob=restoredP.projects.find(p=>p.id===pid).subprojects.find(s=>s.id===sid).expenses[0].receiptImage;
+ const restoreOk=!restoredA.entries.some(x=>x.id==="post-snapshot-marker")&&!restoredC.contracts.some(x=>x.id==="post-snapshot-contract")&&restoredC.contracts.length===5&&restoredBlob instanceof Blob&&await restoredBlob.text()==="synthetic receipt v263";
+ check("multiDomainSnapshotRestoreIncludingBlob",restored.ok===true&&restoreOk,{restoreResult:restored.ok===true,accountingMarkerRemoved:!restoredA.entries.some(x=>x.id==="post-snapshot-marker"),contractMarkerRemoved:!restoredC.contracts.some(x=>x.id==="post-snapshot-contract"),contractCount:restoredC.contracts.length,blobRestored:restoredBlob instanceof Blob,blobText:restoredBlob instanceof Blob?await restoredBlob.text():null});
+ const health=await HandymanStorageV263.health();check("isolatedDatabaseHealth",health.ok&&health.database===DB,{database:health.database,totalRecords:health.totalRecords,counts:health.counts});
+ check("noLegacyOrProductionAccess",report.legacyImport===false&&report.productionTouched===false&&report.localStorageAccess===false&&report.oldDatabaseOpened===false);
+ report.syntheticIds={projectId:pid,subprojectId:sid};
+}catch(e){report.errors.fatal={name:e.name||"Error",message:e.message||String(e)};}
+report.checkCount=Object.keys(report.checks).length;report.allChecksPassed=Object.values(report.checks).every(Boolean);report.ok=report.checkCount===9&&report.allChecksPassed&&!report.errors.fatal;report.testedAt=new Date().toISOString();
+$("report").textContent=JSON.stringify(report,null,2);$("status").textContent=report.ok?"All domain integration checks passed.":"One or more integration checks failed; send the report."; $("copy").disabled=false;$("run").disabled=false;}
+$("run").addEventListener("click",run);$("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("report").textContent);$("status").textContent="Report copied.";}catch(e){$("status").textContent="Clipboard unavailable; select report text manually.";}});</script></body></html>

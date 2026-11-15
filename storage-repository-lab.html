@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THA v250 IndexedDB Repository Lab</title>
+<style>
+:root{color-scheme:light dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{max-width:850px;margin:32px auto;padding:0 16px;line-height:1.5}
+button{padding:12px 18px;border:0;border-radius:8px;font-weight:650;cursor:pointer}
+button:disabled{opacity:.55;cursor:wait}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;border:1px solid #8888;border-radius:10px;min-height:90px}
+.note{padding:12px;border-left:4px solid #b58a25;background:#b58a2515}
+</style>
+</head>
+<body>
+<h1>IndexedDB Storage Repository — v250 isolated lab</h1>
+<p class="note"><strong>Test-only page.</strong> It does not load the accountancy application, read or write LocalStorage, import your backup, or change production. Running the self-test creates/uses only the dedicated database <code>the_handyman_accountancy_v250_idb</code> and writes synthetic test records.</p>
+<p>Use this page only on the test site. The test is manual and starts only when you press the button.</p>
+<p><strong>Lab build:</strong> <code>lab-selftest-20261107-05</code> · <strong>Expected self-test build:</strong> <code>repo-selftest-20261107-05</code></p>
+<button id="run" type="button">Run repository self-test</button>
+<button id="health" type="button">Check database health</button>
+<pre id="result" aria-live="polite">No test has been run.</pre>
+<script src="storage-repository.js?v=repo-selftest-20261107-05"></script>
+<script>
+(function(){
+ "use strict";
+ const run=document.getElementById("run"),health=document.getElementById("health"),out=document.getElementById("result");
+ const api=window.HandymanStorageRepository;
+ const LAB_BUILD="lab-selftest-20261107-05";
+ const EXPECTED_BUILD="repo-selftest-20261107-05";
+ const EXPECTED_CHECKS=["ready","roundTrip","atomicBatch","atomicMultiDomainMutation","abortRollback","concurrentWrites","concurrentCounterReservation","snapshotRestore","restoreRemovesStaleRecords","restorePreservesOtherDomains","emptySnapshotRestore","cleanup"];
+ const show=value=>{out.textContent=JSON.stringify(value,null,2)};
+ if(!api){out.textContent="ERROR: Storage repository module did not load.";run.disabled=true;health.disabled=true;return}
+ out.textContent=JSON.stringify({status:"READY — no test run yet",labBuild:LAB_BUILD,loadedRepositoryBuild:api.selfTestBuild||"UNKNOWN",expectedRepositoryBuild:EXPECTED_BUILD,buildMatches:api.selfTestBuild===EXPECTED_BUILD,expectedChecks:EXPECTED_CHECKS,repositoryExpectedChecks:api.expectedChecks||null},null,2);
+ run.addEventListener("click",async()=>{
+  run.disabled=true;health.disabled=true;out.textContent="Running isolated synthetic tests…";
+  try{
+   const result=await api.selfTest();
+   const actual=result&&result.checks&&typeof result.checks==="object"?Object.keys(result.checks):[];
+   const missing=EXPECTED_CHECKS.filter(name=>!result.checks||result.checks[name]!==true);
+   const unexpected=actual.filter(name=>!EXPECTED_CHECKS.includes(name));
+   const buildMatches=result.selfTestBuild===EXPECTED_BUILD&&api.selfTestBuild===EXPECTED_BUILD;
+   const complete=missing.length===0&&buildMatches;
+   show({...result,labBuild:LAB_BUILD,loadedRepositoryBuild:api.selfTestBuild||null,reportedRepositoryBuild:result.selfTestBuild||null,buildMatches,expectedChecks:EXPECTED_CHECKS,missingOrFailedChecks:missing,unexpectedChecks:unexpected,reportComplete:complete,ok:result.ok===true&&complete});
+  }catch(e){show({ok:false,labBuild:LAB_BUILD,loadedRepositoryBuild:api.selfTestBuild||null,error:String(e&&e.message||e),reportComplete:false})}
+  finally{run.disabled=false;health.disabled=false}
+ });
+ health.addEventListener("click",async()=>{
+  run.disabled=true;health.disabled=true;out.textContent="Reading repository health…";
+  try{show(await api.health())}catch(e){show({ok:false,error:String(e&&e.message||e)})}
+  finally{run.disabled=false;health.disabled=false}
+ });
+})();
+</script>
+</body>
+</html>

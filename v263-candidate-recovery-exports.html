@@ -1,0 +1,40 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>THA Candidate Recovery Exports</title><style>
+*{box-sizing:border-box}body{margin:0;padding:18px 14px 40px;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;max-width:760px;margin-inline:auto}h1{font-size:22px}.notice,.card{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:14px;margin:12px 0}.notice{background:#fff4d6;border-color:#e7c75f}.card h3{margin:0 0 8px}.meta{font-size:13px;color:#637187;line-height:1.6}button{border:0;border-radius:9px;padding:12px 15px;background:#142b4a;color:white;font-weight:700;font-size:15px;min-height:46px;width:100%}button:disabled{opacity:.45}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101820;color:#e7edf5;padding:12px;border-radius:8px;font-size:12px;direction:ltr;text-align:left}.status{font-weight:700}.good{color:#176b35}.bad{color:#a52d39}
+</style></head><body><h1>استخراج نسخه‌های موجود برای بازیابی</h1>
+<p class="notice"><b>فقط خواندنی و بدون انتقال:</b> این ابزار نسخه‌های کاندیدا را از کلیدهای قدیمی جداگانه استخراج می‌کند. هیچ داده‌ای حذف یا تغییر نمی‌کند و هیچ دو دامنه‌ای در یک فایل قرار نمی‌گیرند. فعلاً هیچ‌کدام را وارد v263 نکن.</p>
+<div class="card"><div id="status" class="status">در حال شناسایی نسخه‌ها…</div><pre id="summary">در حال بررسی</pre></div><div id="items"></div>
+<script>
+(()=>{"use strict";
+const candidates=[
+{domain:"projects",key:"tha_v212_migration_projects_v1",label:"Projects — v212 migration snapshot"},
+{domain:"projects",key:"tha_restore_test_v1_projects_v1",label:"Projects — restore-test snapshot"},
+{domain:"projects",key:"handyman_projects_workspace_v1",label:"Projects — handyman workspace"},
+{domain:"accounting",key:"tha_v212_migration_accounting_v1",label:"Accounting — v212 migration snapshot"},
+{domain:"accounting",key:"tha_restore_test_v1_accounting_v1",label:"Accounting — restore-test snapshot"},
+{domain:"accounting",key:"handyman_accounting_v2",label:"Accounting — legacy handyman"},
+{domain:"accounting",key:"tha_test226_accounting_v1",label:"Accounting — test226 current key"},
+{domain:"contracts",key:"tha_v212_migration_contracts_v1",label:"Contracts — v212 migration snapshot"},
+{domain:"contracts",key:"tha_restore_test_v1_contracts_v1",label:"Contracts — restore-test snapshot"},
+{domain:"contracts",key:"tha_v206_contracts_v1",label:"Contracts — v206 snapshot"},
+{domain:"invoiceSequence",key:"tha_v212_migration_invoice_sequence_v1",label:"Invoice sequence — v212 snapshot"},
+{domain:"invoiceSequence",key:"tha_restore_test_v1_invoice_sequence_v1",label:"Invoice sequence — restore-test snapshot"},
+{domain:"invoiceSequence",key:"tha_v206_invoice_sequence_v1",label:"Invoice sequence — v206 snapshot"},
+{domain:"invoiceSequence",key:"tha_test226_invoice_sequence_v1",label:"Invoice sequence — test226 current key"}
+];
+const $=id=>document.getElementById(id),found=[];
+function valid(d,v){if(d==="projects")return !!v&&typeof v==="object"&&!Array.isArray(v)&&Array.isArray(v.projects)&&Array.isArray(v.workers);if(d==="accounting")return !!v&&typeof v==="object"&&!Array.isArray(v)&&Array.isArray(v.entries)&&Array.isArray(v.customers)&&Array.isArray(v.invoices);if(d==="contracts")return Array.isArray(v);return ["number","string"].includes(typeof v)}
+function counts(d,v){if(d==="projects")return {projects:v.projects.length,workers:v.workers.length,partners:(v.partners||[]).length,contractors:(v.contractors||[]).length,companies:(v.companies||[]).length,companyJobs:(v.companyJobs||[]).length,profileFields:Object.keys(v.profile||{}).length};if(d==="accounting")return {entries:v.entries.length,customers:v.customers.length,invoices:v.invoices.length};if(d==="contracts")return {contracts:v.length};return {sequence:v}}
+async function sha(s){if(!crypto.subtle)throw Error("SHA-256 unavailable");const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+function download(blob,name){const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000)}
+function filename(x){return "THA-candidate-"+x.domain+"-"+x.key+"-"+new Date().toISOString().slice(0,10)+".json"}
+async function run(){
+ const summary={tool:"THA-CANDIDATE-DOMAIN-EXPORT-1",readOnly:true,origin:location.origin,productionModified:false,localStorageChanged:false,found:{projects:0,accounting:0,contracts:0,invoiceSequence:0},candidates:[]};
+ for(const x of candidates){let raw=null,v=null,ok=false;try{raw=localStorage.getItem(x.key);if(raw!==null){v=JSON.parse(raw);ok=valid(x.domain,v)}}catch(e){}
+ const item={...x,exists:raw!==null,valid:ok,raw:ok?raw:null,data:ok?v:null,bytes:raw===null?0:new Blob([raw]).size,counts:ok?counts(x.domain,v):null};found.push(item);if(ok)summary.found[x.domain]++;summary.candidates.push({domain:x.domain,key:x.key,exists:item.exists,valid:ok,bytes:item.bytes,counts:item.counts});}
+ $("status").textContent="شناسایی تمام شد · "+found.filter(x=>x.valid).length+" نسخهٔ معتبر پیدا شد";$("status").className="status good";$("summary").textContent=JSON.stringify(summary,null,2);
+ for(const x of found){const el=document.createElement("div");el.className="card";const h=document.createElement("h3");h.textContent=x.label;el.appendChild(h);const m=document.createElement("p");m.className="meta";m.textContent=x.exists?(x.valid?"معتبر · "+x.bytes.toLocaleString()+" بایت · "+JSON.stringify(x.counts):"داده پیدا شد اما ساختار آن با این دامنه مطابقت ندارد"):"در این محل داده‌ای پیدا نشد";el.appendChild(m);const b=document.createElement("button");b.textContent="ساخت فایل مستقل";b.disabled=!x.valid;b.addEventListener("click",()=>exportOne(x,b));el.appendChild(b);$("items").appendChild(el);}
+}
+async function exportOne(x,b){b.disabled=true;try{const payload={format:"tha-v263-legacy-domain-import-v1",sourceApp:"The Handyman Accountancy",domain:x.domain,sourceKey:x.key,createdAt:new Date().toISOString(),data:x.data};const canonical=JSON.stringify(payload),hash=await sha(canonical),pkg={format:"tha-v263-legacy-domain-package-v1",algorithm:"SHA-256",sha256:hash,payload};const blob=new Blob([JSON.stringify(pkg)],{type:"application/json"});const check=JSON.parse(await blob.text());if(check.sha256!==hash||check.payload.domain!==x.domain||check.payload.sourceKey!==x.key)throw Error("Package verification failed");download(blob,filename(x));b.textContent="فایل ساخته شد ✓";}catch(e){alert("خطا: "+String(e.message||e));b.disabled=false;}}
+run();
+})();
+</script></body></html>

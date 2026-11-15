@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THA v250 — Guarded Backup Import</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172b45;background:#f3f6fa}
+body{margin:0;padding:16px;max-width:900px;margin-inline:auto}
+main{background:white;border:1px solid #dce4ee;border-radius:14px;padding:20px}
+h1{font-size:22px;margin:0 0 10px}p{line-height:1.5;color:#53657a}
+.notice{padding:13px;border-radius:10px;background:#fff5dc;border:1px solid #e6cb87;color:#624d1d;margin:14px 0}
+input[type=file],input[type=text]{display:block;box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:9px;margin:10px 0}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#174d83;color:white;font-weight:800;margin:8px 0}
+button.secondary{background:#e8edf4;color:#172b45}button.danger{background:#9b2c2c}
+button:disabled{opacity:.45}
+label{display:flex;gap:10px;align-items:flex-start;margin:12px 0;color:#334155}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101d2c;color:#e8f1fb;padding:14px;border-radius:10px;font-size:12px;min-height:120px}
+.small{font-size:13px;color:#63748a}
+</style></head>
+<body><main>
+<h1>THA v250 — Guarded Backup Import</h1>
+<button id="copyLink" class="secondary" type="button">Copy this page link</button>
+<p id="copyStatus" class="small" aria-live="polite">You can copy the page link or the JSON result below.</p>
+<p>This page prepares and, only after explicit confirmation, imports the exact <strong>New_new(1).json</strong> backup into the v250 IndexedDB typed domains.</p>
+<div class="notice"><strong>Storage scope warning:</strong> GitHub Pages paths <code>/accountancy/</code> and <code>/accountancy-test/</code> share the same browser origin. LocalStorage and IndexedDB are therefore shared across both paths. Do not treat the test path as an isolated browser-storage environment. The earlier 40-key inventory and current 29-key inventory are still being reconciled; import remains blocked until that discrepancy is explained.</div><div class="notice"><strong>Safety:</strong> Prepare does not write business records. Before any import, this lab snapshots existing typed domains and requires you to download that snapshot. Apply writes three records atomically and verifies their canonical SHA-256 hashes. LocalStorage is not modified and the application is not cut over.</div>
+<p><strong>Step 1 — Select the authoritative backup</strong></p>
+<input id="file" type="file" accept=".json,application/json">
+<button id="inspectLegacy" class="secondary" type="button">Inspect legacy records (read-only)</button>
+<button id="exportLegacy" class="secondary" type="button">Download current legacy snapshot (read-only)</button>
+<button id="compareSource" class="secondary" type="button">Compare LocalStorage key names (read-only)</button>
+<button id="prepare">Prepare migration (read-only)</button>
+<button id="snapshot" class="secondary" disabled>Download pre-import IndexedDB snapshot</button>
+<p id="preview" class="small" aria-live="polite"></p>
+<div id="confirmArea" hidden>
+<p><strong>Step 2 — Explicit import confirmation</strong></p>
+<label><input id="saved" type="checkbox"> I have downloaded and saved the pre-import snapshot to my device.</label>
+<p class="small">Enter this exact phrase to authorize the atomic typed-domain write:</p>
+<pre id="phrase"></pre>
+<input id="phraseInput" type="text" autocomplete="off" placeholder="Type the confirmation phrase">
+<button id="apply" class="danger" disabled>Apply migration to IndexedDB</button>
+</div>
+<pre id="out">Ready. No data has been imported.</pre>
+<button id="copyOutput" class="secondary" type="button">Copy JSON result</button>
+<p class="small">Destination records: accounting/main, projects/main, contracts/main. Existing target records cause the import to stop rather than overwrite. Every legacy record present at preparation must remain byte-for-byte unchanged through Apply. The historical 40-key inventory is currently under reconciliation. No production data is intentionally modified.</p>
+</main>
+<script src="storage-repository.js?v=v250-legacy-snapshot-check-20261107"></script>
+<script src="storage-v250-backup-audit.js?v=new-backup-20261107"></script>
+<script src="storage-v250-backup-import.js?v=guarded-import-v1"></script>
+<script>
+(()=> {
+ const $=id=>document.getElementById(id);
+ let state=null;
+ const show=value=>{$("out").textContent=JSON.stringify(value,null,2)};
+ const copyText=async(value,label)=>{
+  try{
+   if(navigator.clipboard&&window.isSecureContext){
+    await navigator.clipboard.writeText(value);
+   }else{
+    const field=document.createElement("textarea");
+    field.value=value;field.setAttribute("readonly","");
+    field.style.position="fixed";field.style.opacity="0";
+    document.body.appendChild(field);field.select();
+    const copied=document.execCommand("copy");field.remove();
+    if(!copied)throw new Error("Clipboard copy is not available in this browser.");
+   }
+   $("copyStatus").textContent=label+" copied to clipboard.";
+  }catch(error){
+   $("copyStatus").textContent="Could not copy automatically. Please select and copy manually. "+String(error&&error.message||error);
+  }
+ };
+ $("copyLink").onclick=()=>copyText(window.location.href,"Page link");
+ $("copyOutput").onclick=()=>copyText($("out").textContent,"JSON result");
+ const updateApply=()=>{$("apply").disabled=!state||!$("saved").checked||$("phraseInput").value!==state.confirmationPhrase};
+ $("inspectLegacy").onclick=async()=>{
+  $("inspectLegacy").disabled=true;
+  try{
+   await HandymanStorageRepository.ready();
+   const [health,snapshot]=await Promise.all([
+    HandymanStorageRepository.health(),
+    HandymanStorageRepository.snapshot(["legacy"])
+   ]);
+   const keys=snapshot.records.map(row=>row.key).sort();
+   show({
+    ok:true,database:health.database,
+    healthLegacyCount:health.counts&&health.counts.legacy||0,
+    snapshotLegacyCount:snapshot.records.length,
+    difference:(health.counts&&health.counts.legacy||0)-snapshot.records.length,
+    snapshotKeys:keys,
+    localStorageAccessed:false,businessDataWritten:false,appCutover:false
+   });
+   $("preview").textContent="Read-only legacy inspection completed. No business records were changed.";
+  }catch(error){
+   show({ok:false,error:String(error&&error.message||error),localStorageAccessed:false,businessDataWritten:false,appCutover:false});
+  }finally{$("inspectLegacy").disabled=false;}
+ };
+ $("exportLegacy").onclick=async()=>{
+  $("exportLegacy").disabled=true;
+  try{
+   await HandymanStorageRepository.ready();
+   const snapshot=await HandymanStorageRepository.snapshot(["legacy"]);
+   const json=JSON.stringify(snapshot,null,2);
+   const blob=new Blob([json],{type:"application/json"});
+   const url=URL.createObjectURL(blob);
+   const link=document.createElement("a");
+   link.href=url;
+   link.download="THA-v250-current-legacy-snapshot.json";
+   document.body.appendChild(link);link.click();link.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),1000);
+   show({ok:true,downloadStarted:true,database:snapshot.database,createdAt:snapshot.createdAt,domainCount:snapshot.domains.length,domains:snapshot.domains,recordCount:snapshot.records.length,rawValuesIncluded:true,localStorageAccessed:false,indexedDBWritten:false,businessDataWritten:false,appCutover:false});
+   $("preview").textContent="Current legacy snapshot download requested. This exports IndexedDB legacy records only; it does not change browser storage.";
+  }catch(error){
+   show({ok:false,error:String(error&&error.message||error),localStorageAccessed:false,indexedDBWritten:false,appCutover:false});
+  }finally{$("exportLegacy").disabled=false;}
+ };
+ $("compareSource").onclick=async()=>{
+  $("compareSource").disabled=true;
+  try{
+   await HandymanStorageRepository.ready();
+   const snapshot=await HandymanStorageRepository.snapshot(["legacy"]);
+   const legacyKeys=snapshot.records.map(row=>row.key).sort();
+   const sourceKeys=[];
+   for(let i=0;i<window.localStorage.length;i++){
+    const key=window.localStorage.key(i);
+    if(key!==null)sourceKeys.push(key);
+   }
+   sourceKeys.sort();
+   const legacySet=new Set(legacyKeys),sourceSet=new Set(sourceKeys);
+   show({
+    ok:true,
+    origin:window.location.origin,
+    pagePath:window.location.pathname,
+    storageScope:"Origin-wide: all paths on this origin share LocalStorage and IndexedDB databases with matching names.",
+    database:HandymanStorageRepository.databaseName,
+    currentLocalStorageKeyCount:sourceKeys.length,
+    currentLegacyKeyCount:legacyKeys.length,
+    sourceKeys,
+    legacyKeys,
+    sourceMissingFromLegacy:sourceKeys.filter(key=>!legacySet.has(key)),
+    legacyNotInCurrentSource:legacyKeys.filter(key=>!sourceSet.has(key)),
+    localStorageValuesRead:false,
+    localStorageWritten:false,
+    indexedDBWritten:false,
+    businessDataWritten:false,
+    appCutover:false
+   });
+   $("preview").textContent="Read-only key-name comparison completed. LocalStorage values were not read.";
+  }catch(error){
+   show({ok:false,error:String(error&&error.message||error),localStorageValuesRead:false,localStorageWritten:false,indexedDBWritten:false,appCutover:false});
+  }finally{$("compareSource").disabled=false;}
+ };
+ $("prepare").onclick=async()=>{
+  $("prepare").disabled=true;$("snapshot").disabled=true;$("confirmArea").hidden=true;
+  $("preview").textContent="Checking backup and current v250 records…";
+  try{
+   state=await HandymanV250BackupImporter.prepare($("file").files[0]);
+   $("phrase").textContent=state.confirmationPhrase;
+   $("confirmArea").hidden=false;$("snapshot").disabled=false;
+   $("saved").checked=false;$("phraseInput").value="";updateApply();
+   $("preview").textContent="Preparation complete. No typed business records have been written.";
+   show({prepared:true,summary:state.summary,expectedPayloadHashes:state.expectedPayloadHashes,preImportSnapshotRecords:state.preImportSnapshot.records.length,writesPerformed:false});
+  }catch(e){state=null;$("preview").textContent="Preparation stopped; no typed-domain writes were performed.";show({ok:false,error:String(e&&e.message||e),writesPerformed:false,localStorageChanged:false,appCutover:false});}
+  finally{$("prepare").disabled=false;}
+ };
+ $("snapshot").onclick=()=>{
+  if(!state)return;
+  const blob=new Blob([JSON.stringify(state.preImportSnapshot,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="THA_v250_pre_import_snapshot.json";a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  $("preview").textContent="Snapshot download requested. Save it, then tick the confirmation box.";
+ };
+ $("saved").onchange=updateApply;$("phraseInput").oninput=updateApply;
+ $("apply").onclick=async()=>{
+  if(!state)return;
+  $("apply").disabled=true;$("prepare").disabled=true;
+  try{
+   const result=await HandymanV250BackupImporter.apply({phrase:$("phraseInput").value,ackSnapshotDownloaded:$("saved").checked});
+   show(result);
+   $("preview").textContent=result.ok?"Migration completed and all read-back checks passed. App cutover has NOT been performed.":"Migration did not complete; inspect rollback status immediately.";
+   if(result.ok)state=null;
+  }catch(e){show({ok:false,error:String(e&&e.message||e),writesPerformed:false,localStorageChanged:false,appCutover:false});$("preview").textContent="Import was stopped before writing. Review the error.";}
+  finally{$("prepare").disabled=false;updateApply();}
+ };
+})();
+</script>
+</body></html>

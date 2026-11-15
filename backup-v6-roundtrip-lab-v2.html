@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THA v6 IndexedDB Round-trip Lab</title>
+<script src="storage-foundation-roundtrip-v6.js?v=1"></script>
+<style>
+body{font:16px -apple-system,BlinkMacSystemFont,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#172b45}main{border:1px solid #dce4ee;border-radius:14px;padding:18px}button{padding:11px 14px;margin:6px;border:0;border-radius:8px;background:#174d83;color:white;font-weight:700}button:disabled{opacity:.4}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101d2c;color:#e8f1fb;padding:14px;border-radius:8px}.warning{padding:12px;background:#fff5df;border:1px solid #e8cf91;border-radius:8px}
+</style></head><body><main>
+<h1>IndexedDB v6 Round-trip Lab</h1>
+<p class="warning"><b>Test only.</b> Uses isolated database <code>the_handyman_accountancy_roundtrip_v6</code>. Does not read or write LocalStorage, does not change the live app, and does not access production storage. Destination stores must be empty.</p>
+<p>Select the original complete v6 JSON backup:</p><input id="file" type="file" accept=".json,application/json">
+<p><button id="inspect">Inspect backup (read-only)</button><button id="stage" disabled>Stage into isolated v6 test IndexedDB</button><button id="audit">Audit persisted data (read-only)</button><button id="cleanup" disabled>Remove this test copy</button></p>
+<p><button id="copy" type="button">Copy result</button><span id="copyStatus" aria-live="polite"></span></p>
+<button id="diagnose" type="button">Inspect existing test DB (read-only)</button><button id="foundationCheck" type="button">Check Foundation / Adapter (read-only)</button><button id="adapterSource" type="button">Inspect Adapter DB contract (read-only)</button><pre id="out">Ready. No operation has run.</pre>
+</main>
+<script>
+(async()=>{
+ const out=document.getElementById('out'),$=id=>document.getElementById(id);
+ try{
+  const r=await fetch('backup-v6-roundtrip.js.gz?v=2');if(!r.ok)throw Error('Adapter download failed: '+r.status);
+  let source=await new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).text();
+  const oldDbContract='const DB_NAME = "the_handyman_accountancy_test226";';
+  const newDbContract='const DB_NAME = "the_handyman_accountancy_roundtrip_v6";';
+  if(source.split(oldDbContract).length!==2)throw Error('Adapter DB contract did not match the single expected legacy constant; refusing to patch.');
+  source=source.replace(oldDbContract,newDbContract);
+  (0,eval)(source);
+ }catch(e){out.textContent='Adapter load error: '+e.message;return;}
+ let raw=null,inspected=false,staged=false;
+ const show=x=>out.textContent=JSON.stringify(x,null,2);
+ $('diagnose').onclick=async()=>{
+  let db;
+  try{
+   const dbName='the_handyman_accountancy_roundtrip_v6';
+   if(typeof indexedDB.databases==='function'){
+    const known=await indexedDB.databases();
+    if(!known.some(item=>item.name===dbName)){
+     show({ok:true,readOnly:true,database:dbName,databaseExists:false,allStoresEmpty:true,counts:{},
+      note:'The isolated database does not exist yet. No database was created and no records were changed.'});
+     return;
+    }
+   }
+   let upgradeAttempted=false;
+   const request=indexedDB.open(dbName,4);
+   request.onupgradeneeded=()=>{upgradeAttempted=true;request.transaction.abort();};
+   db=await new Promise((resolve,reject)=>{
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>{
+     if(upgradeAttempted){resolve(null);return;}
+     reject(request.error||Error('IndexedDB open failed'));
+    };
+    request.onblocked=()=>reject(Error('IndexedDB open blocked'));
+   });
+   if(!db){
+    show({ok:true,readOnly:true,database:dbName,databaseExists:false,allStoresEmpty:true,counts:{},
+     note:'The isolated database was not present. The read-only probe aborted its attempted creation; no records were written.'});
+    return;
+   }
+   const names=Array.from(db.objectStoreNames);
+   const rows={};
+   for(const name of names){
+    const tx=db.transaction([name],'readonly');
+    rows[name]=await new Promise((resolve,reject)=>{
+     const q=tx.objectStore(name).getAll();
+     q.onsuccess=()=>resolve(q.result||[]);
+     q.onerror=()=>reject(q.error||Error('Read failed: '+name));
+    });
+   }
+   const marker='__tha_v6_roundtrip__:';
+   const summary=Object.fromEntries(Object.entries(rows).map(([name,list])=>[name,{
+    count:list.length,
+    ids:list.slice(0,30).map(row=>String(row&&row.id!==undefined?row.id:'(no id)'))
+   }]));
+   const manifests=(rows.recordOrder||[]).filter(row=>String(row.id||'').startsWith(marker));
+   const snapshots=(rows.legacySnapshots||[]).filter(row=>String(row.id||'').startsWith(marker));
+   show({ok:true,readOnly:true,database:db.name,version:db.version,stores:summary,
+    roundTripManifestFound:manifests.some(row=>row.id===marker+'manifest'),
+    roundTripSnapshotFound:snapshots.some(row=>row.id===marker+'raw-backup'),
+    note:'Read-only inspection. No records were changed.'});
+  }catch(e){show({ok:false,readOnly:true,error:e.message});}
+  finally{if(db)db.close();}
+ };
+
+ $('foundationCheck').onclick=()=>{
+  const f=window.HandymanStorageFoundation;
+  const a=window.HandymanBackupV6RoundTrip;
+  const source=fn=>{try{return typeof fn==='function'?String(fn).slice(0,12000):null;}catch(e){return 'source unavailable: '+e.message;}};
+  show({
+   ok:!!f&&!!a,readOnly:true,
+   foundationLoaded:!!f,foundationDatabase:f&&f.databaseName||null,
+   foundationSchemaVersion:f&&f.schemaVersion||null,
+   foundationStores:f&&f.stores||null,
+   adapterLoaded:!!a,adapterMethods:a?Object.keys(a):[],
+   validateSource:source(a&&a.validate),
+   makePlanSource:source(a&&a.makePlan),
+   stageSource:source(a&&a.stage),
+   note:'Function source inspection only; no database opened, no records changed, LocalStorage untouched.'
+  });
+ };
+ $('adapterSource').onclick=async()=>{
+  try{
+   const response=await fetch('backup-v6-roundtrip.js.gz?v=2',{cache:'no-store'});
+   if(!response.ok)throw Error('Adapter download failed: '+response.status);
+   const source=await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).text();
+   const patterns=[/function\s+dbApi\s*\([^)]*\)\s*\{[\s\S]{0,5000}?\n\s*\}/,/const\s+dbApi\s*=\s*(?:async\s*)?\([^)]*\)\s*=>[\s\S]{0,4000}?;/,/let\s+dbApi\s*=\s*[\s\S]{0,4000}?;/];
+   const oldDbContract='const DB_NAME = "the_handyman_accountancy_test226";';
+   const newDbContract='const DB_NAME = "the_handyman_accountancy_roundtrip_v6";';
+   const patchCount=source.split(oldDbContract).length-1;
+   const patchedSource=patchCount===1?source.replace(oldDbContract,newDbContract):source;
+   const patchedDbName=(patchedSource.match(/const DB_NAME = "([^"]+)";/)||[])[1]||null;
+   const snippets=patterns.map(re=>{const m=source.match(re);return m?m[0]:null;}).filter(Boolean);
+   const lines=source.split('\n').map((line,i)=>({line:i+1,text:line})).filter(x=>/DB_NAME|DB_VERSION|DATABASE_NAME|SCHEMA_VERSION|schema-v4|not loaded|dbApi|HandymanStorageFoundation|databaseName|root\s*=|globalThis|window/.test(x.text));
+   const foundationRefs=[...source.matchAll(/HandymanStorageFoundation|databaseName|schemaVersion/g)].map(m=>({term:m[0],at:m.index,context:source.slice(Math.max(0,m.index-180),Math.min(source.length,m.index+260))})).slice(0,40);
+   show({ok:true,readOnly:true,sourceBytes:source.length,rawAdapterDbName:(source.match(/const DB_NAME = "([^"]+)";/)||[])[1]||null,patchCount,patchedAdapterDbName:patchedDbName,patchWouldSucceed:patchCount===1,patchedDbApiSnippet:(patchedSource.match(/function\\s+dbApi[\\s\\S]{0,500}/)||[])[0]||null,dbApiSnippets:snippets,contractLines:lines.slice(0,160),foundationRefs,globalChecks:{windowHasFoundation:!!window.HandymanStorageFoundation,globalThisHasFoundation:!!globalThis.HandymanStorageFoundation,windowEqualsGlobalThis:window===globalThis,foundationDatabase:window.HandymanStorageFoundation&&window.HandymanStorageFoundation.databaseName,foundationSchemaVersion:window.HandymanStorageFoundation&&window.HandymanStorageFoundation.schemaVersion,foundationOpenDatabaseType:typeof(window.HandymanStorageFoundation&&window.HandymanStorageFoundation.openDatabase)},note:'Adapter source decompressed and inspected only. No database opened or modified; LocalStorage untouched.'});
+  }catch(e){show({ok:false,readOnly:true,error:e.message});}
+ };
+ $('copy').onclick=async()=>{
+  const value=out.textContent;
+  try{
+   if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value);}
+   else{
+    const t=document.createElement('textarea');t.value=value;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.select();
+    if(!document.execCommand('copy'))throw Error('Clipboard copy is not supported by this browser.');
+    t.remove();
+   }
+   $('copyStatus').textContent=' Copied.';
+  }catch(e){$('copyStatus').textContent=' Copy failed: '+e.message;}
+ };
+ $('inspect').onclick=async()=>{
+  try{const f=$('file').files[0];if(!f)throw Error('Select a backup JSON first.');raw=await f.text();
+   const p=JSON.parse(raw),r=await HandymanBackupV6RoundTrip.inspectPayload(p,raw);inspected=true;$('stage').disabled=false;
+   show({ok:true,sourceBytes:r.sourceBytes,sourceSha256:r.sourceSha256,imageCount:r.imageHashes.length,normalizedCounts:r.normalizedCounts,localStorageAccessed:false,indexedDBChanged:false,appCutover:false});
+  }catch(e){show({ok:false,error:e.message});}
+ };
+ $('stage').onclick=async()=>{if(!inspected||!confirm('Stage into the NEW isolated v6 TEST IndexedDB only?'))return;try{const r=await HandymanBackupV6RoundTrip.stage(raw);staged=true;$('audit').disabled=false;$('cleanup').disabled=false;show(r);}catch(e){show({ok:false,error:e.message,stack:e&&e.stack?String(e.stack):null,foundation:{loaded:!!window.HandymanStorageFoundation,database:window.HandymanStorageFoundation&&window.HandymanStorageFoundation.databaseName,schemaVersion:window.HandymanStorageFoundation&&window.HandymanStorageFoundation.schemaVersion},localStorageChanged:false,appCutover:false});}};
+ $('audit').onclick=async()=>{try{show(await HandymanBackupV6RoundTrip.audit());}catch(e){show({ok:false,error:e.message});}};
+ $('cleanup').onclick=async()=>{if(!confirm('Delete only records owned by this test manifest?'))return;try{const r=await HandymanBackupV6RoundTrip.cleanup();show(r);if(r.ok){staged=false;$('audit').disabled=true;$('cleanup').disabled=true;}}catch(e){show({ok:false,error:e.message});}};
+})();
+</script></body></html>

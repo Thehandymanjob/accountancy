@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>THA v263 IndexedDB Foundation Test</title>
+<style>
+:root{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{margin:0;padding:24px;max-width:760px;margin-inline:auto;background:#f3f4f6;color:#17202b}
+main{background:#fff;border-radius:18px;padding:22px;box-shadow:0 8px 30px #0001}
+h1{font-size:1.5rem}p{line-height:1.5;color:#526071}
+button{background:#2858e8;color:#fff;border:0;border-radius:12px;padding:16px 20px;font-size:1rem;font-weight:700;width:100%}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101827;color:#e7edf7;border-radius:12px;padding:16px;min-height:120px}
+.note{font-size:.9rem;color:#8a3e12}
+</style>
+<script src="storage-idb-v263.js?build=THA-263-IDB-ONLY-FOUNDATION-3&fresh=20261108b"></script>
+</head>
+<body>
+<main>
+<h1>THA v263 — IndexedDB Foundation Test (Build 3)</h1>
+<p>This page tests only the new, separate v263 IndexedDB database. It does not load the accounting app, read legacy records, access LocalStorage, or modify the v262 databases.</p>
+<p><strong>Database:</strong> the_handyman_accountancy_v263_idb</p>
+<button id="run" type="button">Run IndexedDB self-test</button>
+<h2>Test report</h2>
+<pre id="report">Not run yet.</pre>
+<p class="note">This is a storage-engine test only. A PASS does not mean the complete application has been migrated or is ready for release.</p>
+</main>
+<script>
+const button=document.getElementById("run"),report=document.getElementById("report");
+button.addEventListener("click",async()=>{
+ button.disabled=true;button.textContent="Testing…";report.textContent="Starting…";
+ try{
+  if(!window.HandymanStorageV263)throw new Error("v263 IndexedDB module did not load.");
+  const result=await window.HandymanStorageV263.selfTest();
+  report.textContent=JSON.stringify(result,null,2);
+  report.dataset.result=result.ok?"pass":"fail";
+ }catch(error){report.textContent=String(error&&error.message||error);report.dataset.result="fail";}
+ finally{button.disabled=false;button.textContent="Run IndexedDB self-test";}
+});
+</script>
+</body>
+</html>

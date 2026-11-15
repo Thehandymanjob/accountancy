@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>THA v263 Projects-Only Lab</title>
+<style>
+body{font:16px -apple-system,BlinkMacSystemFont,Arial,sans-serif;max-width:850px;margin:24px auto;padding:0 16px;color:#172235}
+h1{font-size:23px}button{background:#142b4a;color:#fff;border:0;border-radius:8px;padding:14px 18px;font-size:16px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f5f9;border:1px solid #dce2ea;border-radius:10px;padding:12px;min-height:160px}
+.muted{color:#657286}
+</style></head><body>
+<h1>THA v263 — Projects-Only Independence Lab</h1>
+<p class="muted">Dedicated IndexedDB database · projects domain only · no accounting controller, no accounting domain, no transfer service, no legacy storage.</p>
+<p><button id="run">Run projects-only tests</button></p>
+<pre id="out">Ready. Tap Run projects-only tests.</pre>
+<script src="storage-idb-v263-projects-only-engine.js"></script>
+<script src="app-storage-v263-projects-only.js"></script>
+<script src="v263-projects-controller.js"></script>
+<script>
+(function(){
+ "use strict";
+ const $=id=>document.getElementById(id),checks=[];
+ function check(name,ok,detail){checks.push({check:name,ok:!!ok,detail:String(detail||"")});}
+ async function expectReject(fn,re){try{await fn();return {rejected:false,message:"unexpected success"};}catch(e){return {rejected:re?re.test(String(e.message||e)):true,message:String(e.message||e)};}}
+ async function run(){
+  checks.length=0;$("run").disabled=true;$("out").textContent="Running projects-only tests…";
+  const report={title:"THA v263 Projects-Only Independence Report",build:"THA-263-PROJECTS-ONLY-LAB-2",createdAt:new Date().toISOString(),database:"tha_v263_projects_only_lab_20261109_idb",syntheticDataOnly:true,legacyStorageAccess:false,productionAccess:false,accountingDomainAvailable:false,transferServiceLoaded:false,checks};
+  try{
+   const init=await HandymanProjectsV263.initialize();
+   const storageInfo=await HandymanAppStorageV263.initialize();
+   check("Projects-only initialization",!!init&&Array.isArray(init.projects)&&Array.isArray(init.workers)&&storageInfo.mode==="projects-only"&&storageInfo.accountingDomain===false,"projects="+(init.projects?.length??"missing")+"; mode="+storageInfo.mode+"; accountingDomain="+storageInfo.accountingDomain);   check("Only projects domain is exposed",HandymanAppStorageV263.domains.length===1&&HandymanAppStorageV263.domains[0]==="projects","domains="+HandymanAppStorageV263.domains.join(","));
+   check("No accounting or transfer controller is loaded",!window.HandymanAccountingV263&&!window.HandymanInvoiceWorkflowV263&&!window.HandymanProjectAccountingTransferV263,"accountingController="+!!window.HandymanAccountingV263+"; invoiceWorkflow="+!!window.HandymanInvoiceWorkflowV263+"; transferService="+!!window.HandymanProjectAccountingTransferV263);
+   const token="projects-only-"+Date.now(),projectId=token+"-project",photo=new Blob(["synthetic project photo"],{type:"image/jpeg"}),receipt=new Blob(["synthetic receipt image"],{type:"image/jpeg"});
+   await HandymanProjectsV263.addProject({id:projectId,name:"Synthetic Main Project",status:"active",photo,receipts:[{id:token+"-receipt",image:receipt}],income:[],expenses:[],subprojects:[],customField:{keep:true}});
+   let state=await HandymanProjectsV263.load(),p=state.projects.find(x=>x.id===projectId);
+   check("Project and media Blob persistence",!!p&&p.photo instanceof Blob&&p.receipts[0].image instanceof Blob&&p.customField.keep,"photo="+(p?.photo instanceof Blob)+"; receipt="+(p?.receipts[0].image instanceof Blob));
+   const subs=Array.from({length:8},(_,i)=>({id:token+"-sub-"+i,name:"Synthetic Extra Job "+i,income:[],expenses:[]}));
+   const subResults=await Promise.all(subs.map(s=>HandymanProjectsV263.addSubproject(projectId,s)));
+   state=await HandymanProjectsV263.load();p=state.projects.find(x=>x.id===projectId);
+   check("Eight concurrent sub-project additions retained",subResults.length===8&&p.subprojects.length===8&&p.hasSubprojects===true,"requested=8; stored="+p.subprojects.length);
+   const subId=subs[0].id,subIncome={id:token+"-income",date:"2026-11-09",amount:300,description:"Synthetic Extra Job income"};
+   await HandymanProjectsV263.saveLedgerRecord(projectId,subId,"income",subIncome);
+   await HandymanProjectsV263.saveLedgerRecord(projectId,subId,"expenses",{id:token+"-expense",date:"2026-11-09",amount:40,description:"Synthetic materials"});
+   state=await HandymanProjectsV263.load();p=state.projects.find(x=>x.id===projectId);const sub=p.subprojects.find(x=>x.id===subId);
+   check("Project and sub-project P&L records stay inside project state",sub.income.length===1&&sub.expenses.length===1&&sub.income[0].amount===300&&sub.expenses[0].amount===40,"subproject income=300; expenses=40; separate project-local ledger");
+   const rejectAccounting=await expectReject(()=>HandymanAppStorageV263.read("accounting"),/rejects non-project domain/i);
+   const rejectWrite=await expectReject(()=>HandymanAppStorageV263.write("accounting",{entries:[]}),/rejects non-project domain/i);
+   check("Adapter refuses all accounting-domain reads and writes",rejectAccounting.rejected&&rejectWrite.rejected,"readRejected="+rejectAccounting.rejected+"; writeRejected="+rejectWrite.rejected);
+   await HandymanProjectsV263.updateProject(projectId,{status:"complete",completedAt:"2026-11-09T17:00:00.000Z"});
+   state=await HandymanProjectsV263.load();p=state.projects.find(x=>x.id===projectId);
+   check("Project completion changes only project state",p.status==="complete"&&p.subprojects.length===8&&p.subprojects.find(x=>x.id===subId).income[0].amount===300,"status="+p.status+"; subprojects="+p.subprojects.length+"; project-local income=300");
+   const backup=await HandymanAppStorageV263.backup();
+   check("Backup contains projects domain only",backup.domains.length===1&&backup.domains[0]==="projects"&&backup.records.every(x=>x.domain==="projects"),"domains="+backup.domains.join(",")+"; records="+backup.records.length);
+   await HandymanProjectsV263.updateProject(projectId,{customPostBackupMarker:true});
+   const restored=await HandymanAppStorageV263.restore(backup);
+   state=await HandymanProjectsV263.load();p=state.projects.find(x=>x.id===projectId);
+   check("Projects-only restore removes post-backup marker and preserves Blob",restored.ok===true&&!p.customPostBackupMarker&&p.photo instanceof Blob&&p.receipts[0].image instanceof Blob&&p.subprojects.length===8,"restored="+restored.restored+"; markerRemoved="+!p.customPostBackupMarker+"; photoBlob="+(p.photo instanceof Blob));
+   const foreignPackage={...backup,domains:["projects","accounting"]};
+   const rejectForeign=await expectReject(()=>HandymanAppStorageV263.restore(foreignPackage),/projects-domain backup/i);
+   check("Restore rejects any package containing accounting domain",rejectForeign.rejected,"rejected="+rejectForeign.rejected+"; message="+rejectForeign.message);
+   const health=await HandymanAppStorageV263.health();
+   check("Final projects-only database health",health.ok&&health.database===report.database&&health.accountingDomain===false,"healthy="+health.ok+"; database="+health.database+"; accountingDomain="+health.accountingDomain);
+   report.ok=checks.every(x=>x.ok);report.totalChecks=checks.length;report.passed=checks.filter(x=>x.ok).length;report.failed=checks.filter(x=>!x.ok).length;report.health=health;
+  }catch(e){report.ok=false;report.errorName=String(e&&e.name||"Error");report.errorMessage=String(e&&e.message||e);report.errorStack=String(e&&e.stack||"");report.totalChecks=checks.length;report.passed=checks.filter(x=>x.ok).length;report.failed=Math.max(1,checks.filter(x=>!x.ok).length);}
+  $("out").textContent=JSON.stringify(report,null,2);$("run").disabled=false;
+ }
+ $("run").addEventListener("click",run);
+})();
+</script></body></html>

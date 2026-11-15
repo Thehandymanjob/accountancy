@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Recovery Integration Lab</title>
+<style>body{font:16px system-ui;margin:0;padding:18px;background:#f3f6fb;color:#172235}main{max-width:900px;margin:auto;background:white;padding:20px;border-radius:14px}button{padding:12px 18px;border:0;border-radius:9px;background:#174f91;color:white;font-weight:700}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101827;color:#d8e5f5;padding:14px;border-radius:10px;min-height:150px}.muted{color:#526276}#status{font-weight:700}</style></head><body><main>
+<h1>v263 — Backup / Restore / Factory Reset Integration Lab</h1>
+<p><strong>Isolated test only.</strong> Uses a fresh independent IndexedDB database: <code>tha_v263_recovery_integration_lab_v1_idb</code>. It does not access the production database, application LocalStorage, or production app.</p>
+<p class="muted">Tests portable backup integrity, media serialization, stale-backup reset protection, lock-first clear, blocked writes, and exact restore/unlock. All data is synthetic.</p>
+<button id="run">Run full recovery test</button> <span id="status">Not run</span><pre id="log">Waiting…</pre>
+</main>
+<script src="storage-idb-v263-recovery-lab-engine-v1.js"></script>
+<script src="app-storage-v263-v4.js"></script>
+<script src="v263-recovery.js"></script>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),log=$('log'),status=$('status');let results=[];
+function record(name,ok,detail){results.push({name,ok:!!ok,detail:detail||''});log.textContent=results.map((x,i)=>(x.ok?'PASS':'FAIL')+' '+(i+1)+'. '+x.name+(x.detail?' — '+x.detail:'')).join('\\n');}
+const equal=(a,b)=>HandymanStorageV263.valuesEqual(a,b);
+const jsonClone=x=>JSON.parse(JSON.stringify(x));
+async function run(){
+ results=[];log.textContent='Starting…';status.textContent='Running';
+ let recovery,backupFile,expectedState;
+ try{
+  const init=await HandymanAppStorageV263.initialize();
+  const health=await HandymanAppStorageV263.health();
+  record('Fresh isolated database initialized and empty',init.ok&&init.database==='tha_v263_recovery_integration_lab_v1_idb'&&health.totalRecords===0&&!health.resetLocked,init.database+'; records='+health.totalRecords);
+  recovery=HandymanRecoveryV263.create();
+  const png=new Uint8Array([137,80,78,71,13,10,26,10,1,2,3,4]);
+  const blob=new Blob([png],{type:'image/png'});
+  const file=new File([png],'receipt-proof.png',{type:'image/png',lastModified:1731067200000});
+  const state={
+   accounting:{entries:[{id:'e1',amount:125.5,receiptData:'data:image/png;base64,iVBORw0KGgo=',receiptBlob:blob,receiptFile:file}],customers:[{id:'c1',name:'Synthetic Customer'}],invoices:[{id:'i1',number:801,attachment:blob}],customExpenseCategories:['Lab'],settings:{businessName:'Recovery Lab',logo:blob}},
+   projects:{projects:[{id:'p1',name:'Synthetic Project',photo:blob,subprojects:[{id:'sp1',name:'Extra Job',photoFile:file,expenses:[{id:'se1',amount:22,receipt:blob}]}]}],workers:[],partners:[],contractors:[],companies:[],companyJobs:[],profile:{logo:file},current:'p1',guide:'fa'},
+   contracts:{contracts:[{id:'ct1',html:'test',attachment:{blob,file}}]},
+   sequences:801,preferences:'fa',preference_meta:'recovery-lab-1',
+   diagnostics:[{id:'d1',at:new Date('2026-11-08T12:00:00Z'),blob}],
+   reports:[{id:'r1',pdf:blob}],reportNotifications:[{id:'rn1',seen:false}],
+   reportSettings:{includeReceipts:true,logo:blob},reportWorkflow:{step:'review',at:new Date('2026-11-08T12:00:00Z')},
+   notifications:[{id:'n1',file}],recovery:{marker:'pre-reset'},factoryResetRecovery:{marker:'protected'}
+  };
+  await HandymanAppStorageV263.writeMany(state);
+  expectedState=(await HandymanAppStorageV263.readAll()).state;
+  const seedHealth=await HandymanAppStorageV263.health();
+  record('Synthetic records seeded across all 14 adapter domains',seedHealth.totalRecords===14&&Object.keys(expectedState).length===14,'records='+seedHealth.totalRecords);
+  const created=await recovery.createBackup();
+  backupFile=new File([created.blob],created.filename,{type:created.blob.type,lastModified:Date.now()});
+  const inspected=await recovery.inspectFile(backupFile);
+  record('Portable backup created and SHA-256 verified',created.ok&&inspected.ok&&inspected.records===seedHealth.totalRecords,'records='+inspected.records+'; domains='+inspected.domains);
+  const pkg=JSON.parse(await backupFile.text());
+  const altered=jsonClone(pkg);altered.payload.records[0].key+='-tampered';
+  const tampered=new File([JSON.stringify(altered)],'tampered.json',{type:'application/json'});
+  let tamperRejected=false;try{await recovery.inspectFile(tampered);}catch(e){tamperRejected=/integrity|identity|digest/i.test(e.message);}
+  record('Tampered backup is rejected before any write',tamperRejected);
+  await HandymanAppStorageV263.write('accounting',{entries:[{id:'changed',amount:999}],customers:[],invoices:[],customExpenseCategories:[],settings:{}});
+  let staleResetRejected=false;try{await recovery.resetFromBackupFile(backupFile);}catch(e){staleResetRejected=/not an exact snapshot|fresh backup/i.test(e.message);}
+  const afterReject=await HandymanAppStorageV263.health();
+  record('Stale backup cannot authorize Factory Reset',staleResetRejected&&afterReject.totalRecords===14&&!afterReject.resetLocked,'records remain='+afterReject.totalRecords);
+  const restored=await recovery.restoreFromFile(backupFile);
+  const afterRestore=(await HandymanAppStorageV263.readAll()).state;
+  record('Restore returns exact full dataset and unlocks',restored.ok&&restored.verified&&await equal(afterRestore,expectedState)&&!(await HandymanAppStorageV263.health()).resetLocked,'restored='+restored.restored);
+  const mediaOk=afterRestore.accounting.entries[0].receiptFile instanceof File&&afterRestore.projects.projects[0].subprojects[0].photoFile instanceof File&&afterRestore.contracts.contracts[0].attachment.blob instanceof Blob&&afterRestore.diagnostics[0].at instanceof Date;
+  record('Restored receipts, project photos, contract files and report media retain types',mediaOk);
+  const fresh=await recovery.createBackup();
+  const freshFile=new File([fresh.blob],fresh.filename,{type:fresh.blob.type,lastModified:Date.now()});
+  const reset=await recovery.resetFromBackupFile(freshFile);
+  const clearedHealth=await HandymanAppStorageV263.health();
+  record('Factory Reset locks first, verifies exact snapshot, then clears',reset.ok&&reset.remainingRecords===0&&reset.resetLocked&&clearedHealth.totalRecords===0&&clearedHealth.resetLocked,'cleared='+reset.clearedRecords+'; locked='+clearedHealth.resetLocked);
+  let writeBlocked=false;try{await HandymanAppStorageV263.write('accounting',{entries:[],customers:[],invoices:[],customExpenseCategories:[],settings:{}});}catch(e){writeBlocked=true;}
+  record('Ordinary application writes are blocked while reset lock is active',writeBlocked&&(await HandymanAppStorageV263.health()).totalRecords===0);
+  const recoveryResult=await recovery.restoreFromFile(freshFile);
+  const finalState=(await HandymanAppStorageV263.readAll()).state;
+  const finalHealth=await HandymanAppStorageV263.health();
+  record('Selecting verified backup restores all data and releases reset lock',recoveryResult.ok&&recoveryResult.verified&&await equal(finalState,expectedState)&&finalHealth.totalRecords===14&&!finalHealth.resetLocked,'records='+finalHealth.totalRecords+'; locked='+finalHealth.resetLocked);
+  record('Final restored media and binary integrity check',finalState.accounting.entries[0].receiptBlob instanceof Blob&&finalState.accounting.entries[0].receiptFile instanceof File&&finalState.projects.profile.logo instanceof File&&finalState.reportSettings.logo instanceof Blob);
+ }catch(e){record('Unexpected test exception',false,(e&&e.message||String(e))+' | '+(e&&e.stack||''));}
+ const passed=results.filter(x=>x.ok).length,total=results.length;
+ status.textContent=passed===total?'PASS '+passed+'/'+total:'FAIL '+passed+'/'+total;
+ const report={ok:passed===total,build:'THA-263-RECOVERY-INTEGRATION-LAB-1',database:'tha_v263_recovery_integration_lab_v1_idb',checkedAt:new Date().toISOString(),passed,total,results};
+ const copy=document.createElement('button');copy.textContent='Copy report';copy.style.marginTop='12px';copy.onclick=async()=>{try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));copy.textContent='Copied';}catch(e){copy.textContent='Select report text below';}};document.querySelector('main').appendChild(copy);
+ log.textContent+='\\n\\nJSON REPORT\\n'+JSON.stringify(report,null,2);
+}
+$('run').addEventListener('click',run);
+})();
+</script></body></html>

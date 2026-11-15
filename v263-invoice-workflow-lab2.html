@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>THA v263 Canonical Invoice Workflow Lab 2</title>
+<style>body{margin:0;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,sans-serif}main{max-width:760px;margin:auto;padding:16px}.card{background:white;border:1px solid #dce2ea;border-radius:12px;padding:14px;margin:12px 0}button{border:0;border-radius:8px;padding:12px 16px;background:#142b4a;color:white;font-weight:700}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101828;color:#e7edf7;padding:12px;border-radius:8px;font-size:12px}.muted{color:#657286;font-size:13px}</style></head>
+<body><main><section class="card"><h2>v263 Canonical Invoice Workflow Lab 2</h2><p class="muted">Synthetic records only · isolated IndexedDB app-shell lab database · no LocalStorage · no production writes. Run after the original invoice lab has seeded its synthetic customer.</p><button id="run">Run canonical workflow tests</button> <button id="copy">Copy report</button><p id="status">Ready.</p></section><section class="card"><h3>Test report</h3><pre id="report">Not run.</pre></section></main>
+<script src="./storage-idb-v263-app-shell-lab.js?v=263app2"></script>
+<script src="./app-storage-v263-v4.js?v=263app2"></script>
+<script src="./v263-accounting-controller-diagnostic-v2.js?v=263app2"></script>
+<script src="./v263-invoice-workflow-v263.js?v=263workflow7"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+async function run(){
+ const checks={},errors={};let invoiceId=null,number=null,customer=null;
+ const result={build:"THA-263-CANONICAL-INVOICE-WORKFLOW-LAB-2",database:"tha_v263_app_shell_lab_20261109_idb",mode:"indexeddb-only",legacyImport:false,productionTouched:false,localStorageAccess:false,checks,errors,testedAt:new Date().toISOString()};
+ const check=async(name,fn)=>{try{checks[name]=await fn();}catch(e){checks[name]=false;errors[name]={name:e.name||"Error",message:e.message||String(e)}}};
+ try{
+  await check("bootstrap",async()=>{const x=await HandymanAppStorageV263.initialize();return x.ok===true&&x.database===result.database});
+  const state=await HandymanAccountingV263.load();
+  customer=state.customers.find(c=>String(c.id).startsWith("lab-customer-"));
+  if(!customer)throw new Error("Synthetic lab customer not found. Run the original v263 invoice lab first; no real customer will be created.");
+  await check("saveInvoiceCreatesCustomerAtomically",async()=>{
+   const customerId="lab-customer-created-"+Date.now(),created={id:customerId,name:"Synthetic New Customer "+Date.now(),phone:"",address:"",workAddress:"",email:""};
+   const x=await HandymanInvoiceWorkflowV263.saveInvoice({id:"v263-customer-save-"+Date.now(),customerId,customerName:created.name,date:"2026-11-09",status:"issued",items:[{description:"Customer creation test",price:10}],qty:1,unitPrice:10,vat:"none"},null,created);
+   const s=await HandymanAccountingV263.load();return s.customers.some(c=>c.id===customerId)&&s.invoices.some(i=>i.id===x.id&&i.customerId===customerId);
+  });
+  await check("duplicateCustomerMatchedWithoutCreating",async()=>{
+   const before=await HandymanAccountingV263.load(),beforeCount=before.customers.length;
+   const duplicate={...customer,id:"lab-customer-duplicate-"+Date.now()};
+   const invoiceId="v263-customer-match-"+Date.now();
+   const x=await HandymanInvoiceWorkflowV263.saveInvoice({id:invoiceId,customerId:duplicate.id,customerName:duplicate.name,date:"2026-11-09",status:"issued",items:[{description:"Customer matching test",price:11}],qty:1,unitPrice:11,vat:"none"},null,duplicate);
+   const after=await HandymanAccountingV263.load(),saved=after.invoices.find(i=>i.id===x.id);
+   return after.customers.length===beforeCount&&saved&&saved.customerId===customer.id&&!after.customers.some(c=>c.id===duplicate.id);
+  });
+  await check("manualInvoiceNumberAdvancesSequence",async()=>{
+   const high=900000+Math.floor(Date.now()%90000),manualId="v263-manual-number-"+Date.now();
+   await HandymanInvoiceWorkflowV263.saveInvoice({id:manualId,number:high,customerId:customer.id,customerName:customer.name,date:"2026-11-09",status:"issued",items:[{description:"Manual number test",price:12}],qty:1,unitPrice:12,vat:"none"});
+   const automaticId="v263-auto-after-manual-"+Date.now();
+   const automatic=await HandymanInvoiceWorkflowV263.saveInvoice({id:automaticId,customerId:customer.id,customerName:customer.name,date:"2026-11-09",status:"issued",items:[{description:"Automatic number test",price:13}],qty:1,unitPrice:13,vat:"none"});
+   return Number(automatic.number)>high;
+  });
+  await check("draftInvoiceCannotBeMarkedPaid",async()=>{
+   const draftId="v263-draft-payment-"+Date.now();
+   await HandymanInvoiceWorkflowV263.saveInvoice({id:draftId,customerId:customer.id,customerName:customer.name,date:"2026-11-09",status:"draft",items:[{description:"Draft payment test",price:25}],qty:1,unitPrice:25,vat:"none"});
+   let rejected=false;try{await HandymanInvoiceWorkflowV263.markPaid(draftId,{date:"2026-11-09",method:"cash",amount:25})}catch(e){rejected=/draft invoices cannot be marked paid/i.test(e.message)}
+   const s=await HandymanAccountingV263.load();return rejected&&s.invoices.find(i=>i.id===draftId).paymentStatus==="unpaid"&&!s.entries.some(e=>e.invoiceId===draftId);
+  });
+  const id="v263-workflow-lab2-"+Date.now();
+  const base={id,customerId:customer.id,customerName:customer.name,date:"2026-11-09",status:"issued",paymentStatus:"unpaid",items:[{description:"Synthetic workflow test",price:300}],qty:1,unitPrice:300,vat:"none",description:"Synthetic workflow lifecycle"};
+  await check("unrelatedIncomeWithSameReferenceIsPreserved",async()=>{
+   const id="v263-unrelated-income-"+Date.now();
+   const x=await HandymanInvoiceWorkflowV263.saveInvoice({id,customerId:customer.id,customerName:customer.name,date:"2026-11-09",status:"issued",items:[{description:"Reference collision test",price:17}],qty:1,unitPrice:17,vat:"none"});
+   const unrelatedId="manual-income-same-ref-"+Date.now();
+   await HandymanAccountingV263.update(state=>{state.entries.push({id:unrelatedId,type:"income",date:"2026-11-09",amount:17,method:"cash",category:"Other income",reference:"Invoice "+x.number,notes:"Manual income entry without invoice link"});return state;});
+   await HandymanInvoiceWorkflowV263.markPaid(id,{date:"2026-11-09",method:"cash",amount:17});
+   await HandymanInvoiceWorkflowV263.markUnpaid(id);
+   const s=await HandymanAccountingV263.load();
+   const kept=s.entries.find(e=>e.id===unrelatedId);
+   return !!kept&&kept.amount===17&&kept.reference==="Invoice "+x.number&&!s.entries.some(e=>e.invoiceId===id);
+  });
+  await check("saveIssuedUnpaid",async()=>{const x=await HandymanInvoiceWorkflowV263.saveInvoice(base);invoiceId=x.id;number=x.number;const s=await HandymanAccountingV263.load();const i=s.invoices.find(z=>z.id===invoiceId);return !!i&&i.status==="issued"&&i.paymentStatus==="unpaid"&&!s.entries.some(e=>e.invoiceId===invoiceId)});
+  await check("partialPaymentRejected",async()=>{let rejected=false;try{await HandymanInvoiceWorkflowV263.markPaid(invoiceId,{date:"2026-11-09",method:"bank",amount:100})}catch(e){rejected=/full payment only/i.test(e.message)}const s=await HandymanAccountingV263.load();return rejected&&!s.entries.some(e=>e.invoiceId===invoiceId)&&s.invoices.find(i=>i.id===invoiceId).paymentStatus==="unpaid"});
+  await check("markPaidCreatesOneFullIncome",async()=>{await HandymanInvoiceWorkflowV263.markPaid(invoiceId,{date:"2026-11-09",method:"bank",amount:300});const s=await HandymanAccountingV263.load();const matches=s.entries.filter(e=>e.type==="income"&&e.invoiceId===invoiceId);return matches.length===1&&matches[0].amount===300&&matches[0].date==="2026-11-09"&&matches[0].method==="bank"});
+  await check("repeatMarkPaidDoesNotDuplicate",async()=>{await HandymanInvoiceWorkflowV263.markPaid(invoiceId,{date:"2026-11-09",method:"bank",amount:300});const s=await HandymanAccountingV263.load();return s.entries.filter(e=>e.type==="income"&&e.invoiceId===invoiceId).length===1});
+  await check("savePaidInvoiceAsUnpaidRemovesIncome",async()=>{const s=await HandymanAccountingV263.load(),i=s.invoices.find(z=>z.id===invoiceId);await HandymanInvoiceWorkflowV263.saveInvoice({...i,paymentStatus:"unpaid",paymentDate:"",paymentMethod:""});const n=await HandymanAccountingV263.load(),saved=n.invoices.find(z=>z.id===invoiceId);return saved.paymentStatus==="unpaid"&&!saved.paymentDate&&!saved.paymentMethod&&!n.entries.some(e=>e.invoiceId===invoiceId)});
+  await check("markPaidThenUnpaidClearsFields",async()=>{await HandymanInvoiceWorkflowV263.markPaid(invoiceId,{date:"2026-11-09",method:"cash",amount:300});await HandymanInvoiceWorkflowV263.markUnpaid(invoiceId);const s=await HandymanAccountingV263.load(),i=s.invoices.find(z=>z.id===invoiceId);return i.paymentStatus==="unpaid"&&!i.paymentDate&&!i.paymentMethod&&!s.entries.some(e=>e.invoiceId===invoiceId)});
+  await check("softDeleteRemovesIncomeButRetainsNumber",async()=>{await HandymanInvoiceWorkflowV263.markPaid(invoiceId,{date:"2026-11-09",method:"bank",amount:300});await HandymanInvoiceWorkflowV263.softDelete(invoiceId);const s=await HandymanAccountingV263.load(),i=s.invoices.find(z=>z.id===invoiceId);return !!i&&i.deleted===true&&!!i.deletedAt&&Number(i.number)===Number(number)&&i.paymentStatus==="unpaid"&&!i.paymentDate&&!i.paymentMethod&&!s.entries.some(e=>e.invoiceId===invoiceId)});
+  await check("deletedInvoiceCannotBeEdited",async()=>{let rejected=false;const s=await HandymanAccountingV263.load(),i=s.invoices.find(z=>z.id===invoiceId);try{await HandymanInvoiceWorkflowV263.saveInvoice({...i,description:"should not save"})}catch(e){rejected=/deleted invoices cannot be edited/i.test(e.message)}const n=await HandymanAccountingV263.load();return rejected&&n.invoices.find(z=>z.id===invoiceId).description==="Synthetic workflow lifecycle"});
+  const finalState=await HandymanAccountingV263.load();result.invoiceId=invoiceId;result.reservedNumber=number;result.counts={invoices:finalState.invoices.length,entries:finalState.entries.length,customers:finalState.customers.length};
+ }catch(e){result.fatalError={name:e.name||"Error",message:e.message||String(e)}}
+ result.ok=Object.keys(checks).length===14&&Object.values(checks).every(Boolean)&&!result.fatalError;
+ result.checkedAt=new Date().toISOString();$("report").textContent=JSON.stringify(result,null,2);$("status").textContent=result.ok?"All canonical invoice workflow checks passed.":"One or more checks failed; see report.";return result;
+}
+$("run").addEventListener("click",run);
+$("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("report").textContent);$("status").textContent="Report copied."}catch(e){$("status").textContent="Clipboard unavailable; select report text manually."}});
+</script></body></html>

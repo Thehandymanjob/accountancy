@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>THA v263 Business Profile Consumer Integration Lab</title>
+<style>body{font:16px -apple-system,BlinkMacSystemFont,Arial,sans-serif;max-width:850px;margin:24px auto;padding:0 16px;color:#172235}h1{font-size:23px}button{background:#142b4a;color:#fff;border:0;border-radius:8px;padding:14px 18px;font-size:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f5f9;border:1px solid #dce2ea;border-radius:10px;padding:12px;min-height:160px}.muted{color:#657286}</style></head><body>
+<h1>THA v263 — Business Profile Consumer Integration Lab</h1>
+<p class="muted">Synthetic data only · shared read-only profile bridge · seven branded consumers · dedicated IndexedDB profile database · no Projects, Accounting, LocalStorage or production access.</p>
+<p><button id="run">Run consumer integration tests</button></p><pre id="out">Ready. Tap Run consumer integration tests.</pre>
+<script src="storage-idb-v263-business-profile-engine.js"></script><script src="app-storage-v263-business-profile-lab.js"></script><script src="v263-business-profile-controller.js"></script><script src="v263-business-profile-consumers.js"></script>
+<script>
+(function(){
+ "use strict";const $=id=>document.getElementById(id),checks=[];
+ function check(name,ok,detail){checks.push({check:name,ok:!!ok,detail:String(detail||"")});}
+ async function rejects(fn,re){try{await fn();return false}catch(e){return !re||re.test(String(e.message||e))}}
+ async function run(){checks.length=0;$("run").disabled=true;$("out").textContent="Running consumer integration tests…";
+ const report={title:"THA v263 Business Profile Consumer Integration Report",build:"THA-263-BUSINESS-PROFILE-CONSUMERS-1",database:"tha_v263_business_profile_lab_20261109_idb",syntheticDataOnly:true,legacyStorageAccess:false,productionAccess:false,checks};
+ try{
+  await HandymanBusinessProfileV263.save({businessName:"Synthetic Builder Ltd",ownerName:"Synthetic Owner",phone:"07000000000",email:"profile@example.invalid",address:"Synthetic Address",logo:"data:image/png;base64,c3ludGhldGljLWxvZ28=",paymentDetails:"Synthetic bank details",customField:{preserve:true}});
+  const consumers=["launcher","contracts","invoices","accountingReports","projectReceipts","projectReports","exports"];
+  const views=await HandymanBusinessProfileConsumersV263.readMany(consumers);
+  check("All seven document/UI consumers load the same profile",views.length===7&&views.every(x=>x.businessName==="Synthetic Builder Ltd"&&x.logo==="data:image/png;base64,c3ludGhldGljLWxvZ28="&&x.phone==="07000000000"&&x.email==="profile@example.invalid"),"consumers="+views.map(x=>x.consumer).join(","));
+  check("Launcher branding receives current logo and business name",views.find(x=>x.consumer==="launcher")?.logo==="data:image/png;base64,c3ludGhldGljLWxvZ28="&&views.find(x=>x.consumer==="launcher")?.businessName==="Synthetic Builder Ltd","launcher profile source=business_profile");
+  check("Contract print receives logo and business contact details",["logo","businessName","ownerName","phone","email","address"].every(k=>!!views.find(x=>x.consumer==="contracts")?.[k]),"contract fields available");
+  check("Invoice print receives profile logo and payment details",views.find(x=>x.consumer==="invoices")?.logo&&views.find(x=>x.consumer==="invoices")?.paymentDetails==="Synthetic bank details","invoice branding/payment fields available");
+  check("Accounting report print receives logo without reading Projects",views.find(x=>x.consumer==="accountingReports")?.logo&&views.find(x=>x.consumer==="accountingReports")?.consumer==="accountingReports","neutral profile consumer");
+  check("Project receipt and project report receive same profile",["projectReceipts","projectReports"].every(k=>views.find(x=>x.consumer===k)?.logo===views[0].logo),"both project outputs use shared profile");
+  await HandymanBusinessProfileV263.update({businessName:"Updated Synthetic Builder",phone:"07111111111",logo:"data:image/png;base64,bmV3LWxvZ28="});
+  const refreshed=await HandymanBusinessProfileConsumersV263.readMany(consumers);
+  check("All consumers see profile changes on their next read",refreshed.every(x=>x.businessName==="Updated Synthetic Builder"&&x.phone==="07111111111"&&x.logo==="data:image/png;base64,bmV3LWxvZ28="),"updated consumers="+refreshed.length);
+  check("Consumer bridge rejects unknown consumers",await rejects(()=>HandymanBusinessProfileConsumersV263.readFor("projectsDatabase"),/Unknown Business Profile consumer/),"unknown consumer rejected");
+  const forbidden=["projects","accounting","contractsDatabase","localStorage","legacyProfile"];
+  check("Consumer bridge exposes no write or cross-domain APIs",!["save","update","restore","readProjects","readAccounting"].some(k=>typeof HandymanBusinessProfileConsumersV263[k]==="function"),"read-only API="+Object.keys(HandymanBusinessProfileConsumersV263).join(","));
+  check("Profile domain remains the only persisted domain",HandymanAppStorageV263.domains.length===1&&HandymanAppStorageV263.domains[0]==="businessProfile","domains="+HandymanAppStorageV263.domains.join(","));
+  const health=await HandymanAppStorageV263.health();check("Database remains healthy after consumer reads",health.ok&&health.counts.business_profile===1,"healthy="+health.ok+"; counts="+JSON.stringify(health.counts));
+  report.ok=checks.every(x=>x.ok);report.totalChecks=checks.length;report.passed=checks.filter(x=>x.ok).length;report.failed=checks.filter(x=>!x.ok).length;report.health=health;
+ }catch(e){report.ok=false;report.errorName=String(e&&e.name||"Error");report.errorMessage=String(e&&e.message||e);report.errorStack=String(e&&e.stack||"");report.totalChecks=checks.length;report.passed=checks.filter(x=>x.ok).length;report.failed=Math.max(1,checks.filter(x=>!x.ok).length);}
+ $("out").textContent=JSON.stringify(report,null,2);$("run").disabled=false;
+ }$("run").addEventListener("click",run);
+})();
+</script></body></html>

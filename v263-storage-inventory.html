@@ -1,0 +1,17 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>THA Storage Inventory</title><style>
+*{box-sizing:border-box}body{margin:0;padding:20px 14px 40px;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;max-width:760px;margin-inline:auto}h1{font-size:22px}.notice,.card{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:14px;margin:12px 0}.notice{background:#fff4d6;border-color:#e7c75f}button{border:0;border-radius:9px;padding:13px 16px;background:#142b4a;color:#fff;font-weight:700;font-size:16px;width:100%;min-height:48px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101820;color:#e7edf5;padding:12px;border-radius:8px;font-size:12px;direction:ltr;text-align:left}.small{font-size:13px;color:#657286}.status{font-weight:700}
+</style></head><body><h1>بررسی محل ذخیره‌سازی اطلاعات</h1>
+<p class="notice"><b>کاملاً فقط‌خواندنی:</b> این ابزار فقط نام کلیدها، اندازه و شکل کلی داده‌ها را بررسی می‌کند. نام مشتریان، مبالغ، متن رسیدها، تصاویر و محتوای قراردادها نمایش داده نمی‌شوند. هیچ چیزی ذخیره، حذف یا جابه‌جا نمی‌شود.</p>
+<div class="card"><div id="status" class="status">آمادهٔ بررسی</div><p class="small">فقط Safari و همین دامنه بررسی می‌شود.</p><button id="scan">شروع بررسی ذخیره‌سازی</button><pre id="report">هنوز بررسی اجرا نشده است.</pre></div>
+<script>
+(()=>{"use strict";const $=id=>document.getElementById(id);
+function countShape(v){if(Array.isArray(v))return {arrayLength:v.length};if(!v||typeof v!=="object")return {type:typeof v};const out={topLevelKeys:Object.keys(v).slice(0,60)};for(const k of Object.keys(v)){const x=v[k];if(Array.isArray(x))out[k+"Count"]=x.length;else if(x&&typeof x==="object"&&!Array.isArray(x))for(const [k2,x2] of Object.entries(x))if(Array.isArray(x2))out[k+"."+k2+"Count"]=x2.length;}return out}
+function classify(v,key){const s=(key+" "+(v&&typeof v==="object"&&!Array.isArray(v)?Object.keys(v).join(" "):"")).toLowerCase();const p=/project|subproject|worker|contractor|companyjob|receipt|profile/.test(s);const c=/contract|agreement/.test(s);const a=/account|invoice|customer|entry|expense|income/.test(s);return {possibleProjects:p,possibleContracts:c,possibleAccounting:a}}
+$("scan").addEventListener("click",()=>{
+ const report={tool:"THA-LOCAL-STORAGE-INVENTORY-1",readOnly:true,origin:location.origin,checkedAt:new Date().toISOString(),storageLength:null,keys:[],note:"No record values, names, amounts, image data or contract text are included."};
+ try{const n=localStorage.length;report.storageLength=n;for(let i=0;i<n;i++){const key=localStorage.key(i);if(!key)continue;const raw=localStorage.getItem(key);let parsed=null,parseOK=false;try{parsed=JSON.parse(raw);parseOK=true}catch(e){}report.keys.push({key,bytes:new Blob([raw||""]).size,parseOK,shape:parseOK?countShape(parsed):{type:"non-JSON"},classification:parseOK?classify(parsed,key):classify({},key)});}
+ report.keys.sort((a,b)=>b.bytes-a.bytes);$("status").textContent="بررسی کامل شد · "+n+" کلید پیدا شد";$("report").textContent=JSON.stringify(report,null,2);
+ }catch(e){$("status").textContent="خطا در دسترسی";report.error=String(e.message||e);$("report").textContent=JSON.stringify(report,null,2)}
+});
+})();
+</script></body></html>

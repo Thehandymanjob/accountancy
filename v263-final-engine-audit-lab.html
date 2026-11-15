@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Final Engine Audit</title>
+<style>body{font:16px system-ui;margin:18px;line-height:1.5}button{padding:13px 18px;font-size:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:12px;border-radius:8px}.note{background:#fff5d8;padding:10px;border-radius:8px}</style></head>
+<body><h1>THA v263 — Final Engine Audit</h1>
+<p class="note"><b>Isolation:</b> This audit uses only <code>tha_v263_final_engine_audit_idb</code>. It does not open the application database, LocalStorage, or SessionStorage. It checks the hardened engine APIs and destructive-operation guards.</p>
+<button id="run">Run final engine audit</button><pre id="out">Ready.</pre>
+<script src="./storage-idb-v263-final-audit-lab.js?build=1"></script>
+<script>
+(async()=>{
+const e=window.HandymanStorageV263Audit,out=document.getElementById("out"),btn=document.getElementById("run");
+const result={database:e.databaseName,build:e.build,checks:{},errors:[]};
+const log=()=>out.textContent=JSON.stringify(result,null,2);
+const assert=(k,v)=>{result.checks[k]=!!v;log();if(!v)throw new Error("FAILED: "+k)};
+const blocked=async p=>{try{await p;return false}catch(x){return /abort|transaction/i.test(String(x&&x.message||x))}};
+btn.onclick=async()=>{
+btn.disabled=true;result.checks={};result.errors=[];result.ok=null;log();
+try{
+const ready=await e.ready();assert("Engine opens isolated IndexedDB and reports expected build",ready.ok&&ready.database==="tha_v263_final_engine_audit_idb"&&ready.build==="THA-263-FINAL-ENGINE-AUDIT-1");
+const health0=await e.health();assert("Health reports reset lock state",typeof health0.resetLocked==="boolean"&&health0.resetLocked===false);
+const self=await e.selfTest();assert("Engine self-test passes",self.ok&&Object.values(self.checks).every(Boolean));
+assert("Unsafe one-call destructive reset API is absent",typeof e.beginResetAndClear==="undefined");
+await e.put("audit","seed",{value:1});const backup=await e.snapshot(["audit"]);
+assert("Snapshot captures seeded data",backup.records.length===1&&backup.records[0].value.value===1);
+const lock=await e.beginResetLock();assert("Reset lock activates and is persistent",lock.ok&&(await e.health()).resetLocked===true);
+assert("All standard write APIs are blocked while locked",await blocked(e.put("audit","blocked",{x:1}))&&await blocked(e.remove("audit","seed"))&&await blocked(e.transact([{domain:"audit",key:"batch",value:1}]))&&await blocked(e.mutateMany([{domain:"audit",key:"seed"}],rows=>[{value:2}]))&&await blocked(e.reserveCounter("audit","counter",0)));
+assert("Locked clear clears records without releasing lock",(await e.clearWhileResetLocked()).ok&&(await e.health()).totalRecords===0&&(await e.health()).resetLocked===true);
+await e.restore(backup);
+assert("Explicit restore restores exact data and releases lock",(await e.get("audit","seed")).value===1&&(await e.health()).resetLocked===false);
+assert("Writes resume only after restore",await e.put("audit","after-restore",{ok:true}).then(x=>x.ok));
+await e.beginResetLock();await e.clearWhileResetLocked();
+assert("Final cleanup leaves empty database locked",(await e.health()).totalRecords===0&&(await e.health()).resetLocked===true);
+result.ok=Object.values(result.checks).every(Boolean);
+}catch(x){result.errors.push(String(x&&x.message||x)+"\n"+String(x&&x.stack||""));result.ok=false}
+finally{log();btn.disabled=false}
+};
+})();
+</script></body></html>

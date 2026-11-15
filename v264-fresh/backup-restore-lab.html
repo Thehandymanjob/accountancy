@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>THA v264 — Retired Combined Backup Lab</title>
+<style>
+body{font:16px -apple-system,BlinkMacSystemFont,sans-serif;background:#f3f5f8;color:#172235;margin:0;padding:20px}
+main{max-width:760px;margin:auto}
+section{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:20px}
+.warning{background:#fff4d6;border:1px solid #e7c86d;border-radius:8px;padding:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<main>
+<section>
+<h1>THA v264 — Combined Backup Lab Retired</h1>
+<p class="warning"><strong>Do not run this legacy test.</strong> It tested one combined Accounting + Projects backup and a global reset. That workflow is prohibited by the current architecture and has been retired.</p>
+<p>The active v264 application now uses separate, domain-scoped backup and restore files. Accounting (including invoice numbering) and Projects (including Company Contracts &amp; Jobs) must always be backed up and restored independently.</p>
+<p>Use the domain-specific Backup &amp; Restore controls in <code>v264-app/index.html</code>. This page intentionally performs no storage access and makes no changes.</p>
+</section>
+</main>
+</body>
+</html>

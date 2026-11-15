@@ -1,0 +1,34 @@
+<!-- Exact legacy Projects page markup, extracted from v250 commit faa6f8a3d5f2d8d9f02c9382e129986854a4fc72.
+     Reference-only. Contains no scripts and is not loaded by the current workspace.
+     Keep legacy IDs/classes intact during parity mapping. -->
+<div id="projects-legacy-reference">
+<div id="prPage-project-hub" class="pr-page pr-hidden"><div class="pr-card pr-accounting-notice"><h3>Important — Accounting and Financial Reports</h3><p>Income, expenses and profit/loss figures in this section are managed separately from the main Accounting section and are not automatically transferred to Accounting. To include them in your main accounting records, enter the relevant transactions manually through <strong>Accounting → Add Entry</strong>. Check existing entries first to avoid duplicates.</p></div><div class="pr-card"><h2>Projects</h2><p class="pr-muted">Manage your independent projects, such as roof work and 29 Ruthin Garden.</p><div class="pr-list">
+   <button type="button" class="pr-project-card pr-card" onclick="prPage('new')"><span style="font-size:32px">➕</span><div class="pr-project-body"><h3>New Project</h3><p class="pr-muted">Create an independent project</p></div></button>
+   <button type="button" class="pr-project-card pr-card" onclick="prPage('list')"><span style="font-size:32px">▦</span><div class="pr-project-body"><h3>Projects List</h3><p class="pr-muted">Search, open and manage existing projects</p></div></button>
+   
+  </div></div></div>
+
+<div id="prPage-new" class="pr-page pr-hidden">
+   <div class="pr-card"><h2>Project details</h2><input id="prEditId" type="hidden"><div class="pr-grid">
+    <div class="pr-field"><label>Project name *</label><input id="prName" placeholder="e.g. Project 97 Tonypandy" required></div>
+    <div class="pr-field"><label>Customer / owner</label><input id="prCustomer" placeholder="Customer name"></div>
+    <div class="pr-field"><label>Site address</label><input id="prAddress" placeholder="Project address"></div>
+    <div class="pr-field"><label>Phone</label><input id="prPhone" type="tel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="pr-field full"><p class="pr-muted">The parent project total is calculated automatically from its sub-project agreed prices. Enter the price on each sub-project instead.</p></div>
+    <div class="pr-field full"><label for="prHasPartner">Does this project have a partner?</label><select id="prHasPartner" onchange="prTogglePartnerFields()"><option value="no">No</option><option value="yes">Yes</option></select></div><div id="prPartnerFields" class="pr-field full" hidden><label>Project profit sharing</label><div id="prPartnerShares" class="pr-share-editor"></div><div class="pr-share-actions"><button type="button" onclick="prAddPartnerShareRow()">＋ Add Partner</button><span id="prShareTotal" class="pr-share-total">Your share: 50% · Partners: 50%</span></div><small class="pr-muted">Select the partner and set your share percentages. All shares must total 100% before saving.</small></div>
+    <div class="pr-field"><label>Contract type</label><select id="prContract"><option value="labour-materials">Labour + Materials</option><option value="labour-only">Labour Only</option></select></div>
+    <div class="pr-field full"><label>Project photo (optional)</label><input id="prPhoto" type="file" accept="image/*,.png,.jpg,.jpeg,.webp,.heic,.heif"><div class="pr-muted">PNG, JPG or WebP; up to 1 MB. Recommended 600 × 400 px. Image will be fitted without distortion.</div><img id="prPhotoPreview" class="pr-logo-preview" alt="Project photo preview" hidden></div>
+    <div class="pr-field full"><label>Notes</label><textarea id="prNotes" rows="2"></textarea></div>
+   </div><div class="pr-actions"><button class="pr-primary" onclick="prSaveProject()">Save Project</button><button onclick="prResetProject()">Clear Form</button></div><p id="prProjectSaveStatus" class="pr-muted" role="status" aria-live="polite"></p></div>
+  </div>
+
+<div id="prPage-list" class="pr-page pr-hidden"><div class="pr-card"><div class="pr-grid"><div class="pr-field"><label>Search projects</label><input id="prSearch" oninput="listPages.projects=1;prRenderProjects()" placeholder="Project, customer or address"></div><div class="pr-field"><label>Filter</label><select id="prFilter" onchange="listPages.projects=1;prRenderProjects()"><option value="all">All projects</option><option value="open">Open</option><option value="complete">Completed</option></select></div></div></div><div id="prProjectList" class="pr-list"></div></div>
+
+<div id="prPage-detail" class="pr-page pr-hidden"><div class="pr-detail-hero"><img id="prDetailPhoto" alt="Project photo"><div><h2 id="prDetailName"></h2><div id="prDetailMeta" class="pr-muted"></div><div id="prDetailContract" class="pr-pill" style="display:inline-block;margin-top:8px"></div></div></div><div class="pr-detail-actions pr-detail-actions-compact"><button onclick="prEditCurrent()">Edit</button><button class="pr-primary" id="prCompleteToggle" onclick="prToggleProjectCompletion()">Complete</button><button class="pr-danger" onclick="prDeleteCurrent()">Delete</button><button type="button" class="pr-primary" id="prDetailProfitReportButton" onclick="prOpenCurrentProjectProfitReport()">📊 Report</button></div><div class="pr-stats" id="prStats"></div><div id="prSubprojectArea"></div><div class="pr-stats" aria-hidden="true"></div><div class="pr-subnav" id="prDetailSubnav"><button class="active" data-pr-sub="summary" onclick="prDetailTab('summary')">Summary</button><button data-pr-sub="income" onclick="prDetailTab('income')">Income</button><button data-pr-sub="expenses" onclick="prDetailTab('expenses')">Expenses</button><button data-pr-sub="wages" onclick="prDetailTab('wages')">Worker Wages</button><button data-pr-sub="tools" onclick="prDetailTab('tools')">Tools</button><button data-pr-sub="food" onclick="prDetailTab('food')">Food & Other</button><button data-pr-sub="report" onclick="prDetailTab('report')">Reports</button></div><div id="prDetailContent"></div></div>
+
+<div id="prPage-profit" class="pr-page pr-hidden">
+   <div class="pr-card"><h2>Project Profit &amp; Loss</h2><p class="pr-muted">Select a saved project to view its recorded income, costs and current result. Projects with sub-projects include records from the parent project and all sub-projects.</p><div class="pr-grid"><div class="pr-field full"><label for="prProfitProjectSelect">Select project</label><select id="prProfitProjectSelect"><option value="">Choose a project</option></select></div></div><div class="pr-actions"><button class="pr-primary" onclick="prOpenProfitReport()">View Financial Report →</button></div><div id="prProfitEmpty" class="pr-muted" style="margin-top:12px"></div></div>
+  </div>
+
+<div id="prPage-profit-report" class="pr-page pr-hidden"><div id="prProfitReportContent"></div></div>
+</div>

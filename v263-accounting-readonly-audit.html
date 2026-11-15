@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Read-only Accounting Audit</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:18px 14px 40px;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;max-width:760px;margin-inline:auto}h1{font-size:22px}.card{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:16px;margin:12px 0}.notice{background:#fff4d6;border-color:#e7c75f}button{border:0;border-radius:9px;padding:14px;background:#142b4a;color:white;font-weight:700;font-size:16px;width:100%;margin-top:8px}.status{font-weight:700}.good{color:#176b35}.bad{color:#a52d39}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101820;color:#e7edf5;padding:12px;border-radius:8px;font-size:12px;direction:ltr;text-align:left}
+</style></head><body>
+<h1>بررسی فقط‌خواندنی حسابداری v263</h1>
+<div class="card notice"><b>حالت فقط‌خواندنی:</b> این صفحه فقط اطلاعات را از دیتابیس مستقل v263 می‌خواند. هیچ رکوردی ایجاد، ویرایش یا حذف نمی‌شود و LocalStorage نیز خوانده نمی‌شود.</div>
+<div class="card"><div id="status" class="status">آمادهٔ بررسی</div><button id="run">شروع بررسی فقط‌خواندنی</button><pre id="result">هنوز اجرا نشده</pre></div>
+<script src="./storage-idb-v263.js"></script><script src="./v263-strict-domain-boundary.js"></script>
+<script>
+(()=>{"use strict";
+const $=id=>document.getElementById(id);
+const excludedId="project-v1-pr-1792258756429-z8fug9-pr-1792263742588-vlbgug-pr-1793445826791-s5mz7z";
+$("run").addEventListener("click",async()=>{
+ const b=$("run"),s=$("status"),o=$("result");b.disabled=true;s.textContent="در حال خواندن دیتابیس…";s.className="status";
+ try{
+  const engine=window.HandymanStorageV263,boundary=window.HandymanV263DomainBoundary;
+  if(!engine||!boundary)throw Error("فایل‌های موتور یا مرز دامنه بارگذاری نشده‌اند.");
+  const ready=await engine.ready();
+  if(!ready||ready.ok!==true)throw Error("آماده‌سازی IndexedDB تأیید نشد.");
+  const accountScope=boundary.createScope("accountingState");
+  const sequenceScope=boundary.createScope("invoiceSequence");
+  const accounting=await accountScope.get("accounting","state");
+  const sequence=await sequenceScope.get("sequences","invoice-number");
+  const isObject=!!accounting&&typeof accounting==="object"&&!Array.isArray(accounting);
+  const entries=isObject&&Array.isArray(accounting.entries)?accounting.entries:null;
+  const targetFound=entries?entries.some(x=>x&&x.id===excludedId):null;
+  const auditRows=isObject&&accounting.migrationAudit&&Array.isArray(accounting.migrationAudit.excludedExperimentalEntries)?accounting.migrationAudit.excludedExperimentalEntries:[];
+  const auditFound=auditRows.some(x=>x&&x.id===excludedId);
+  const report={
+   ok:true,mode:"READ_ONLY",database:ready.database,build:ready.build,
+   accounting:{recordExists:accounting!==null,recordType:accounting===null?"null":Array.isArray(accounting)?"array":typeof accounting,hasEntriesArray:!!entries,entryCount:entries?entries.length:null,customerCount:isObject&&Array.isArray(accounting.customers)?accounting.customers.length:null,invoiceCount:isObject&&Array.isArray(accounting.invoices)?accounting.invoices.length:null,experimentalOnePoundRecordPresent:targetFound,auditMetadataPresent:!!(isObject&&accounting.migrationAudit),excludedRecordAuditFound:auditFound,auditRecordCount:auditRows.length},
+   invoiceSequence:{recordExists:sequence!==null,lastInvoiceNumber:typeof sequence==="number"?sequence:null,nextInvoiceNumber:typeof sequence==="number"?sequence+1:null},
+   writesPerformed:false,localStorageAccess:false
+  };
+  s.textContent="بررسی کامل شد؛ هیچ داده‌ای تغییر نکرد.";s.className="status good";o.textContent=JSON.stringify(report,null,2);
+ }catch(e){s.textContent="بررسی متوقف شد: "+e.message;s.className="status bad";o.textContent=JSON.stringify({ok:false,mode:"READ_ONLY",error:e.message,writesPerformed:false,localStorageAccess:false},null,2);}
+ finally{b.disabled=false;}
+});
+})();
+</script></body></html>

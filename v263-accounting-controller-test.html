@@ -1,0 +1,41 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Accounting Controller Test</title>
+<style>body{font:16px -apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f3f5f8;color:#172235;margin:0;padding:18px}main{max-width:760px;margin:auto;background:#fff;border:1px solid #dce2ea;border-radius:14px;padding:18px}button{padding:13px 18px;border:0;border-radius:9px;background:#142b4a;color:#fff;font-weight:700;font-size:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101b2b;color:#eaf0f8;padding:14px;border-radius:10px;min-height:150px;font-size:12px}.note{line-height:1.5;color:#58677b}</style>
+<script src="storage-idb-v263.js?v=THA-263-IDB-ONLY-FOUNDATION-3"></script><script src="app-storage-v263.js?v=THA-263-APP-ADAPTER-2"></script><script src="v263-accounting-controller.js?v=THA-263-ACCOUNTING-1"></script></head>
+<body><main><h1>v263 Accounting Controller — isolated test</h1><p class="note">Tests asynchronous accounting state operations and atomic invoice numbering. A complete snapshot is restored afterward. No LocalStorage access occurs.</p><button id="run">Run accounting test</button><pre id="out">Ready.</pre></main>
+<script>
+(function(){
+ const button=document.getElementById("run"),out=document.getElementById("out");
+ const names=window.HandymanAppStorageV263.domains;
+ const checks={engineReady:false,controllerReady:false,emptyInitialState:false,addEntry:false,updateEntry:false,deleteEntry:false,saveCustomer:false,protectLinkedCustomer:false,atomicInvoiceNumber:false,backupRestore:false};
+ const report={ok:false,build:"THA-263-ACCOUNTING-1",checks,errors:[],noLocalStorageAccess:true};
+ const log=()=>out.textContent=JSON.stringify(report,null,2);
+ button.addEventListener("click",async()=>{
+  button.disabled=true;let snapshot=null;
+  try{
+   await window.HandymanAppStorageV263.initialize();checks.engineReady=true;
+   snapshot=await window.HandymanStorageV263.snapshot(names);
+   const initial=await window.HandymanAccountingV263.initialize();checks.controllerReady=true;
+   checks.emptyInitialState=initial.entries.length===0&&initial.customers.length===0&&initial.invoices.length===0;
+   if(!checks.emptyInitialState)throw new Error("The v263 accounting domain is not empty; test stopped without overwriting existing records.");
+   await window.HandymanAccountingV263.addEntry({id:"v263-controller-test-entry",type:"income",amount:25,date:"2026-11-08"});
+   let state=await window.HandymanAccountingV263.load();checks.addEntry=state.entries.length===1&&state.entries[0].amount===25;
+   await window.HandymanAccountingV263.updateEntry("v263-controller-test-entry",{amount:35});
+   state=await window.HandymanAccountingV263.load();checks.updateEntry=state.entries.length===1&&state.entries[0].amount===35;
+   await window.HandymanAccountingV263.deleteEntry("v263-controller-test-entry");
+   state=await window.HandymanAccountingV263.load();checks.deleteEntry=state.entries.length===0;
+   await window.HandymanAccountingV263.saveCustomer({id:"v263-controller-test-customer",name:"Controller Test"});
+   state=await window.HandymanAccountingV263.load();checks.saveCustomer=state.customers.length===1;
+   await window.HandymanAccountingV263.update(s=>{s.invoices.push({id:"v263-controller-test-invoice",customerId:"v263-controller-test-customer",number:1});return s;});
+   let protectedDelete=false;try{await window.HandymanAccountingV263.deleteCustomer("v263-controller-test-customer")}catch(e){protectedDelete=/linked to invoices/.test(String(e.message||e))}
+   checks.protectLinkedCustomer=protectedDelete;
+   const nums=await Promise.all(Array.from({length:5},()=>window.HandymanAccountingV263.reserveInvoiceNumber(0)));
+   checks.atomicInvoiceNumber=new Set(nums).size===5&&nums.every(n=>Number.isInteger(n)&&n>0);
+  }catch(e){report.errors.push(String(e&&e.message||e))}
+  finally{
+   if(snapshot){try{const restored=await window.HandymanStorageV263.restore(snapshot);const after=await window.HandymanStorageV263.snapshot(names);checks.backupRestore=restored.ok===true&&JSON.stringify(after.records.map(x=>({id:x.id,value:x.value})))===JSON.stringify(snapshot.records.map(x=>({id:x.id,value:x.value})));if(!checks.backupRestore)report.errors.push("Original domain snapshot could not be verified after restore.")}catch(e){report.errors.push("Snapshot restore failed: "+String(e&&e.message||e))}}
+   else report.errors.push("No snapshot was captured; no domain writes were attempted.");
+   report.ok=Object.values(checks).every(Boolean)&&report.errors.length===0;log();button.disabled=false;
+  }
+ });
+})();
+</script></body></html>

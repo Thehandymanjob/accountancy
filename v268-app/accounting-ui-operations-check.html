@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v264 Operations Check</title>
+<style>body{font:15px -apple-system,BlinkMacSystemFont,Arial,sans-serif;margin:0;padding:18px;background:#f4f6f9;color:#172235}main{max-width:760px;margin:auto;background:#fff;padding:20px;border-radius:14px}button{padding:13px 18px;background:#f4ca4e;border:0;border-radius:8px;font-weight:700}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101b2c;color:#eaf0f8;padding:14px;border-radius:8px;min-height:140px}</style></head>
+<body><main><h1>THA v264 — Accounting Operations Check</h1>
+<p>Isolated IndexedDB test. Creates synthetic customer, expense and invoice records, verifies operations, then removes all synthetic records. No production database or app UI is used.</p>
+<button id="run">Run operations checks</button><pre id="out">Waiting…</pre></main>
+<script src="../v264-fresh/storage-idb-v264.js?v=264g"></script>
+<script src="../v264-fresh/v264-strict-domain-boundary.js?v=264e"></script>
+<script src="../v264-fresh/app-storage-v264.js?v=264e"></script>
+<script src="../v264-fresh/v264-accounting-controller-accounting-v2.js?v=264d"></script>
+<script src="../v264-fresh/v264-invoice-workflow-v263.js?v=264g"></script>
+<script src="accounting-ui-idb-bridge.js?v=3"></script>
+<script src="accounting-ui-operations-v264.js?v=2"></script>
+<script>
+document.getElementById('run').addEventListener('click',async()=>{
+ const out=document.getElementById('out'),r={};let phase='setup',storageCalls=[],originals={};
+ const uid='ops264-'+Date.now(),cid=uid+'-customer',eid=uid+'-expense',iid=uid+'-invoice';
+ const date='2026-11-10';
+ const methods=['getItem','setItem','removeItem','clear','key'];
+ try{
+  for(const n of methods){originals[n]=Storage.prototype[n];Storage.prototype[n]=function(){if(this===window.localStorage)storageCalls.push(n);return originals[n].apply(this,arguments)}}
+  phase='bootstrap';const b=await HandymanAccountingUIBridgeV264.initialize();r.bootstrap=b.ok&&b.mode==='indexeddb-only'&&b.legacyImport===false;
+  const ops=HandymanAccountingUIOperationsV264,wf=HandymanInvoiceWorkflowV264;
+  phase='save customer';let x=await ops.saveCustomer({id:cid,name:'Synthetic Operations Customer',phone:'',address:'',email:''});
+  r.customerCreate=x.verified&&x.state.customers.some(c=>c.id===cid);
+  phase='update customer';x=await ops.saveCustomer({id:cid,name:'Synthetic Operations Customer Updated',phone:'',address:'',email:''});
+  r.customerUpdate=x.verified&&x.state.customers.some(c=>c.id===cid&&c.name==='Synthetic Operations Customer Updated');
+  phase='save expense with receipt';x=await ops.saveEntry({id:eid,type:'expense',date,amount:18.75,method:'bank',category:'Synthetic materials',reference:'Operations test',receiptImage:new Blob(['operations-receipt'],{type:'text/plain'})});
+  const expense=x.state.entries.find(e=>e.id===eid);
+  r.entryCreate=!!expense&&expense.amount===18.75;
+  r.receiptBlob=expense?.receiptImage instanceof Blob&&await expense.receiptImage.text()==='operations-receipt';
+  phase='update expense';x=await ops.saveEntry({id:eid,type:'expense',date,amount:21.5,method:'cash',category:'Synthetic materials updated',reference:'Operations test updated'});
+  r.entryUpdate=x.verified&&x.state.entries.filter(e=>e.id===eid).length===1&&x.state.entries.find(e=>e.id===eid).amount===21.5;
+  phase='delete expense';x=await ops.deleteEntry(eid);r.entryDelete=x.verified&&!x.state.entries.some(e=>e.id===eid);
+  phase='save unpaid invoice';const invoice={id:iid,customerId:cid,number:0,status:'issued',paymentStatus:'unpaid',date,items:[{description:'Synthetic test service',price:125}],vat:'none',deleted:false};
+  x=await ops.saveInvoice(invoice,null,null);r.invoiceCreate=x.verified&&x.invoice.id===iid&&x.invoice.paymentStatus==='unpaid';
+  phase='customer delete protection';let blocked=false;try{await ops.deleteCustomer(cid)}catch(e){blocked=/linked to a saved invoice/i.test(String(e.message||e))}
+  const afterBlock=await HandymanAccountingUIBridgeV264.load();
+  r.linkedCustomerDeletionBlocked=blocked&&afterBlock.customers.some(c=>c.id===cid)&&afterBlock.invoices.some(i=>i.id===iid);
+  phase='mark invoice paid';await ops.markInvoicePaid(iid,{date,method:'bank',amount:125});let state=await HandymanAccountingUIBridgeV264.load();
+  r.invoicePaid=state.invoices.some(i=>i.id===iid&&i.paymentStatus==='paid')&&state.entries.some(e=>e.invoiceId===iid&&e.amount===125);
+  phase='mark invoice unpaid';await ops.markInvoiceUnpaid(iid);state=await HandymanAccountingUIBridgeV264.load();
+  r.invoiceUnpaid=state.invoices.some(i=>i.id===iid&&i.paymentStatus==='unpaid')&&!state.entries.some(e=>e.invoiceId===iid);
+  phase='soft delete invoice';await ops.softDeleteInvoice(iid);state=await HandymanAccountingUIBridgeV264.load();
+  r.invoiceSoftDelete=state.invoices.some(i=>i.id===iid&&i.deleted===true)&&!state.entries.some(e=>e.invoiceId===iid);
+  phase='synthetic cleanup';const cleanup=await HandymanAccountingUIBridgeV264.mutate(s=>{s.entries=s.entries.filter(e=>e.id!==eid&&e.invoiceId!==iid&&e.id!=='invoice-income-'+iid);s.invoices=s.invoices.filter(i=>i.id!==iid);s.customers=s.customers.filter(c=>c.id!==cid);return s});
+  const finalState=await HandymanAccountingUIBridgeV264.load();
+  r.syntheticCleanup=cleanup.verified&&!finalState.entries.some(e=>e.id===eid||e.invoiceId===iid||e.id==='invoice-income-'+iid)&&!finalState.invoices.some(i=>i.id===iid)&&!finalState.customers.some(c=>c.id===cid);
+  phase='database health';r.health=(await HandymanStorageV264.health()).ok;
+  r.noLegacyStorageAccess=storageCalls.length===0;
+  r.overall=Object.entries(r).filter(([k])=>k!=='overall').every(([,v])=>v===true);
+ }catch(e){r.failedAt=phase;r.errorName=String(e?.name||'Error');r.errorMessage=String(e?.message||e);r.errorStack=String(e?.stack||'');r.overall=false;
+  try{await HandymanAccountingUIBridgeV264.mutate(s=>{s.entries=s.entries.filter(e=>e.id!==eid&&e.invoiceId!==iid&&e.id!=='invoice-income-'+iid);s.invoices=s.invoices.filter(i=>i.id!==iid);s.customers=s.customers.filter(c=>c.id!==cid);return s});r.cleanupAfterFailure=true}catch(cleanError){r.cleanupAfterFailure=false;r.cleanupError=String(cleanError?.message||cleanError)}
+ }finally{for(const n of methods)if(originals[n])Storage.prototype[n]=originals[n]}
+ out.textContent=JSON.stringify(r,null,2);
+});
+</script></body></html>

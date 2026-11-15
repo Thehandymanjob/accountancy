@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>THA v262 Portable Backup Restore Lab</title>
+<style>
+:root{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{max-width:760px;margin:0 auto;padding:22px 16px 48px;line-height:1.5}
+h1{font-size:1.35rem}p{margin:.6rem 0}
+.notice{padding:12px;border:1px solid #b7791f;border-radius:10px;background:rgba(183,121,31,.1)}
+button{display:block;width:100%;padding:14px;margin:12px 0;border:0;border-radius:10px;font-size:1rem;font-weight:650}
+#run{background:#176b45;color:white}#cleanup{background:#555;color:white}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border-radius:10px;background:rgba(127,127,127,.14);min-height:110px}
+.small{font-size:.9rem;opacity:.8}
+</style>
+</head>
+<body>
+<h1>THA v262 — Portable Backup / Restore Lab</h1>
+<div class="notice"><strong>Isolated test only.</strong> This page uses a separate IndexedDB database (<code>the_handyman_accountancy_restore_lab_v262</code>) and a separate LocalStorage prefix (<code>tha_restore_lab_</code>). It does not read, change, or delete the app's real accountancy data.</div>
+<p>This test seeds sample records in every IndexedDB store, including Blob, File, ArrayBuffer, TypedArray, Date and Undefined values. It exports a portable backup, deliberately changes the lab data, restores the backup, and checks that the original values return.</p>
+<button id="run">Run synthetic round-trip test</button>
+<label for="backupFile">Select the actual v262 JSON backup</label>
+<input id="backupFile" type="file" accept=".json,application/json" style="display:block;width:100%;margin:10px 0">
+<button id="runActual">Test actual backup in isolated lab</button>
+<button id="cleanup">Delete isolated lab data</button>
+<p class="small">Do not run this page as a substitute for a real backup. It tests the restore mechanism against synthetic data only.</p>
+<pre id="result">Ready. No test has been run.</pre>
+<script src="portable-backup-restore-lab-v262.js"></script>
+<script>
+(function(){
+"use strict";
+const H=window.HandymanStorageFoundation, out=document.getElementById("result");
+const prefix="tha_restore_lab_";
+const sentinelKey="unrelated_origin_key_v262";
+const log=value=>{out.textContent=typeof value==="string"?value:JSON.stringify(value,null,2)};
+function txDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error("Transaction failed"));tx.onabort=()=>reject(tx.error||new Error("Transaction aborted"));});}
+async function clearStores(){const db=await H.openDatabase();try{const names=H.stores,tx=db.transaction(names,"readwrite"),done=txDone(tx);for(const n of names)tx.objectStore(n).clear();await done;}finally{db.close();}}
+async function deleteLab(){await clearStores();for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith(prefix))localStorage.removeItem(k);}return {ok:true,database:H.databaseName,prefix,remainingLocalKeys:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>k&&k.startsWith(prefix)).length};}
+async function seed(){
+ await clearStores();
+ for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith(prefix))localStorage.removeItem(k);}
+ localStorage.setItem(prefix+"accounting_v1",JSON.stringify({entries:[{id:"sample-income",amount:123.45}],customers:[{id:"sample-customer"}]}));
+ localStorage.setItem(prefix+"media_v1","data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/pS8AAAAASUVORK5CYII=");
+ localStorage.setItem(sentinelKey,"keep-this-unrelated-key");
+ const db=await H.openDatabase();
+ try{
+  const names=H.stores,tx=db.transaction(names,"readwrite"),done=txDone(tx);
+  for(const name of names){
+   if(name==="kv")tx.objectStore(name).put({key:"lab-kv-record",value:"original-kv",byteLength:12,updatedAt:"2026-11-08T00:00:00.000Z"});
+   else tx.objectStore(name).put({id:"lab-"+name,marker:"original-"+name,sequence:1});
+  }
+  const binary=new Uint8Array([0,1,2,127,128,255]);
+  const file=typeof File!=="undefined"?new File([binary],"lab-proof.bin",{type:"application/octet-stream",lastModified:1700000000000}):new Blob([binary],{type:"application/octet-stream"});
+  tx.objectStore("appState").put({id:"lab-media-roundtrip",value:{
+   blob:new Blob(["blob-round-trip"],{type:"text/plain"}),
+   file,
+   arrayBuffer:new Uint8Array([9,8,7,6]).buffer,
+   typedArray:new Uint16Array([1000,2000,65530]),
+   date:new Date("2026-11-08T12:34:56.000Z"),
+   nested:[null,"text",42,undefined,{flag:true}]
+  }});
+  await done;
+ }finally{db.close();}
+}
+async function readCounts(){const db=await H.openDatabase();try{const names=H.stores,tx=db.transaction(names,"readonly"),done=txDone(tx),promises=names.map(n=>new Promise((resolve,reject)=>{const r=tx.objectStore(n).count();r.onsuccess=()=>resolve([n,r.result]);r.onerror=()=>reject(r.error);}));const rows=await Promise.all(promises);await done;return Object.fromEntries(rows);}finally{db.close();}}
+document.getElementById("run").addEventListener("click",async()=>{
+ const button=document.getElementById("run");button.disabled=true;log("Running isolated test…");
+ try{
+  await seed();
+  const backup=await H.exportPortableBackup();
+  if(backup.format!=="the-handyman-portable-complete-backup")throw new Error("Unexpected export format");
+  if(backup.localStorage.records.length<2)throw new Error("Lab LocalStorage records were not exported");
+  await clearStores();
+  localStorage.setItem(prefix+"accounting_v1","deliberately changed");
+  localStorage.removeItem(prefix+"media_v1");
+  const db=await H.openDatabase();
+  try{const tx=db.transaction(H.stores,"readwrite"),done=txDone(tx);for(const name of H.stores){if(name==="kv")tx.objectStore(name).put({key:"lab-kv-record",value:"changed"});else tx.objectStore(name).put({id:"lab-"+name,marker:"changed",sequence:99});}await done;}finally{db.close();}
+  const restored=await H.restorePortableBackup(backup);
+  if(!restored.ok)throw new Error("Restore did not report success");
+  if(localStorage.getItem(prefix+"accounting_v1")!==JSON.stringify({entries:[{id:"sample-income",amount:123.45}],customers:[{id:"sample-customer"}]}))throw new Error("LocalStorage content did not round-trip");
+  if(!localStorage.getItem(prefix+"media_v1"))throw new Error("LocalStorage media key did not round-trip");
+  if(localStorage.getItem(sentinelKey)!=="keep-this-unrelated-key")throw new Error("Unrelated LocalStorage sentinel changed");
+  const beforeBad=await readCounts();
+  let rejected=false;try{await H.restorePortableBackup({...backup,formatVersion:999});}catch(e){rejected=true;}
+  if(!rejected)throw new Error("Invalid package was not rejected");
+  const afterBad=await readCounts();
+  if(JSON.stringify(beforeBad)!==JSON.stringify(afterBad))throw new Error("Invalid package changed IndexedDB data");
+  if(localStorage.getItem(prefix+"accounting_v1")!=="{\"entries\":[{\"id\":\"sample-income\",\"amount\":123.45}],\"customers\":[{\"id\":\"sample-customer\"}]}")throw new Error("Invalid package changed LocalStorage data");
+  log({overall:"PASS",database:H.databaseName,localStorageRoundTrip:"PASS",unrelatedKeyPreserved:"PASS",allIndexedDBStores:restored.indexedDBCounts,fullRecordVerification:"PASS (internal restore check)",binaryTypes:"Blob / File / ArrayBuffer / TypedArray / Date / Undefined included",invalidPackageRejectedWithoutMutation:"PASS",exportMedia:backup.media,cleanup:"Use Delete isolated lab data when finished."});
+ }catch(e){log({overall:"FAIL",error:String(e&&e.message||e),warning:"Only the isolated lab database/prefix are involved. Do not run a test on the live app data."});}
+ finally{button.disabled=false;}
+});
+document.getElementById("runActual").addEventListener("click",async()=>{
+ const button=document.getElementById("runActual"),file=document.getElementById("backupFile").files[0];
+ if(!file){log("Select the JSON backup file first.");return;}
+ button.disabled=true;log("Reading backup and preparing isolated restore…");
+ try{
+  const raw=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error||new Error("Could not read selected file"));reader.readAsText(file);});
+  const original=JSON.parse(raw);
+  if(!original||original.format!=="the-handyman-portable-complete-backup"||original.formatVersion!==1)throw new Error("This is not a supported v262 portable complete backup.");
+  const isolated={...original,source:{...original.source,database:H.databaseName},indexedDB:{...original.indexedDB,database:H.databaseName},localStorage:{...original.localStorage,records:original.localStorage.records.map((item,index)=>({...item,key:prefix+"import_"+index+"_"+encodeURIComponent(item.key)}))}};
+  isolated.localStorage.count=isolated.localStorage.records.length;
+  await clearStores();
+  for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith(prefix))localStorage.removeItem(k);}
+  const sentinelBefore=localStorage.getItem(sentinelKey);
+  const result=await H.restorePortableBackup(isolated);
+  if(!result.ok)throw new Error("Isolated restore did not report success.");
+  for(const item of isolated.localStorage.records){
+   const actual=localStorage.getItem(item.key);
+   if(item.present?actual!==item.value:actual!==null)throw new Error("Imported LocalStorage value mismatch: "+item.key);
+  }
+  if(localStorage.getItem(sentinelKey)!==sentinelBefore)throw new Error("Unrelated origin key changed.");
+  const counts=await readCounts();
+  log({overall:"PASS",test:"Actual user backup restored into isolated lab database",sourceDatabase:original.source.database,targetDatabase:H.databaseName,backupFileBytes:file.size,localStorageRecordsVerified:isolated.localStorage.records.length,indexedDBStoreCounts:counts,fullIndexedDBRecordContent:"PASS (verified inside restore method)",binaryMediaMetadata:original.media||null,unrelatedOriginData:"PRESERVED",productionDatabaseTouched:false,productionLocalStoragePrefixesTouched:false,cleanup:"Use Delete isolated lab data when finished."});
+ }catch(e){log({overall:"FAIL",error:String(e&&e.message||e),note:"Only the isolated lab database and tha_restore_lab_ prefix are used. The live app database is not targeted."});}
+ finally{button.disabled=false;}
+});
+document.getElementById("cleanup").addEventListener("click",async()=>{const b=document.getElementById("cleanup");b.disabled=true;try{log(await deleteLab());}catch(e){log({cleanup:"FAILED",error:String(e&&e.message||e)});}finally{b.disabled=false;}});
+if(!H)log("ERROR: isolated storage foundation did not load.");
+else log({ready:true,database:H.databaseName,stores:H.stores.length,localStoragePrefix:prefix});
+})();
+</script>
+</body>
+</html>

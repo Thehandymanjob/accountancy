@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#142b4a"><title>THA v263 — Legacy Export</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:20px 14px 40px;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;max-width:760px;margin-inline:auto}h1{font-size:22px}p{line-height:1.6}.notice{background:#fff4d6;border:1px solid #e7c75f;padding:12px;border-radius:10px}.card{background:white;border:1px solid #dce2ea;border-radius:12px;padding:14px;margin:12px 0}.row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.status{font-weight:700}.good{color:#176b35}.bad{color:#a52d39}button{border:0;border-radius:9px;padding:12px 15px;background:#142b4a;color:white;font-weight:700;font-size:15px;min-height:46px}button:disabled{opacity:.4}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101820;color:#e7edf5;padding:12px;border-radius:8px;font-size:12px;direction:ltr;text-align:left}.small{font-size:13px;color:#657286}
+</style></head><body>
+<h1>پشتیبان‌گیری امن برای انتقال به v263</h1>
+<p class="notice"><b>فقط خواندنی:</b> این صفحه اطلاعات ذخیره‌شده در همین دامنه را می‌خواند و برای هر بخش فایل جداگانه می‌سازد. هیچ رکوردی را تغییر نمی‌دهد، پاک نمی‌کند یا به دیتابیس جدید منتقل نمی‌کند.</p>
+<div class="card"><div id="status" class="status">در حال بررسی ذخیره‌سازی…</div><pre id="report">در انتظار بررسی</pre></div>
+<div id="sections"></div>
+<p class="small">فایل‌ها را در Files یا iCloud Drive نگه دارید. برای انتقال کامل، هر چهار فایل را نگه دارید. فایل پروژه‌ها شامل فیلد پروفایل قدیمی و داده‌های تصویری موجود در همان رکوردها نیز هست.</p>
+<script>
+(()=>{"use strict";
+const KEYS=[
+{name:"accounting",key:"tha_test226_accounting_v1",label:"حسابداری",validate:v=>v&&typeof v==="object"&&!Array.isArray(v)&&Array.isArray(v.entries)&&Array.isArray(v.customers)&&Array.isArray(v.invoices),counts:v=>({entries:v.entries.length,customers:v.customers.length,invoices:v.invoices.length})},
+{name:"projects",key:"tha_test226_projects_v1",label:"پروژه‌ها، زیرپروژه‌ها، پروفایل و تصاویر",validate:v=>v&&typeof v==="object"&&!Array.isArray(v)&&Array.isArray(v.projects)&&Array.isArray(v.workers),counts:v=>({projects:v.projects.length,workers:v.workers.length,partners:(v.partners||[]).length,contractors:(v.contractors||[]).length,companies:(v.companies||[]).length,companyJobs:(v.companyJobs||[]).length,profileFields:Object.keys(v.profile||{}).length})},
+{name:"contracts",key:"tha_test226_contracts_v1",label:"قراردادها",validate:v=>Array.isArray(v),counts:v=>({contracts:v.length})},
+{name:"invoiceSequence",key:"tha_test226_invoice_sequence_v1",label:"شماره‌گذاری فاکتورها",validate:v=>typeof v==="string"||typeof v==="number"||v===null,counts:v=>({value:v})}
+];
+const $=id=>document.getElementById(id),found={};
+function fileName(n){return "THA-v262-legacy-"+n+"-"+new Date().toISOString().slice(0,10)+".json"}
+async function digest(text){if(!crypto.subtle)throw Error("مرورگر SHA-256 را پشتیبانی نمی‌کند.");const bytes=new TextEncoder().encode(text),hash=await crypto.subtle.digest("SHA-256",bytes);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
+async function inspect(){
+ const report={tool:"THA-263-LEGACY-EXPORT-1",readOnly:true,sourceOrigin:location.origin,sourcePath:location.pathname,productionModified:false,localStorageChanged:false,sections:{}};
+ try{
+  if(!localStorage)throw Error("LocalStorage در این صفحه در دسترس نیست.");
+  for(const d of KEYS){
+   const raw=localStorage.getItem(d.key);
+   if(raw===null){found[d.name]={...d,exists:false};report.sections[d.name]={exists:false};continue}
+   let parsed;try{parsed=JSON.parse(raw)}catch(e){found[d.name]={...d,exists:true,valid:false,raw};report.sections[d.name]={exists:true,valid:false,error:"JSON parse failed",bytes:raw.length};continue}
+   const valid=d.validate(parsed);found[d.name]={...d,exists:true,valid,raw,parsed};
+   report.sections[d.name]={exists:true,valid,bytes:new Blob([raw]).size,counts:valid?d.counts(parsed):null};
+  }
+  $("status").textContent="بررسی تمام شد؛ اطلاعات فقط خوانده شد";$("status").className="status good";
+ }catch(e){$("status").textContent="خطا در دسترسی به ذخیره‌سازی";$("status").className="status bad";report.error=String(e.message||e)}
+ $("report").textContent=JSON.stringify(report,null,2);
+ $("sections").innerHTML="";
+ for(const d of KEYS){
+  const x=found[d.name],el=document.createElement("div");el.className="card";
+  const heading=document.createElement("h3");heading.textContent=d.label;el.appendChild(heading);
+  const info=document.createElement("p");info.textContent=!x||!x.exists?"در این محل داده‌ای پیدا نشد.":!x.valid?"ساختار داده معتبر نیست؛ خروجی متوقف شد.":"داده پیدا شد؛ آمادهٔ ساخت فایل مستقل.";el.appendChild(info);
+  const btn=document.createElement("button");btn.textContent="ساخت فایل پشتیبان مستقل";btn.disabled=!(x&&x.exists&&x.valid);btn.addEventListener("click",()=>exportOne(d.name));el.appendChild(btn);
+  $("sections").appendChild(el);
+ }
+}
+async function exportOne(name){
+ const x=found[name];if(!x||!x.exists||!x.valid)return;
+ const btn=[...$("sections").querySelectorAll("button")].find(b=>b.parentElement.querySelector("h3")?.textContent===x.label);
+ if(btn)btn.disabled=true;
+ try{
+  const payload={format:"tha-v263-legacy-domain-import-v1",sourceApp:"The Handyman Accountancy",sourceVersion:"262",domain:name,sourceKey:x.key,createdAt:new Date().toISOString(),data:x.parsed};
+  const canonical=JSON.stringify(payload),sha256=await digest(canonical),pkg={format:"tha-v263-legacy-domain-package-v1",algorithm:"SHA-256",sha256,payload};
+  const blob=new Blob([JSON.stringify(pkg)],{type:"application/json"});
+  const check=JSON.parse(await blob.text());if(check.sha256!==sha256||check.payload.domain!==name)throw Error("تأیید فایل خروجی ناموفق بود.");
+  download(blob,fileName(name));if(btn)btn.textContent="فایل ساخته شد ✓";
+ }catch(e){alert("ساخت فایل ناموفق بود: "+String(e.message||e));if(btn)btn.disabled=false}
+}
+inspect();
+})();
+</script></body></html>

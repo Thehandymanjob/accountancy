@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#142b4a">
+<title>The Handyman – Update Repair</title>
+<style>
+body{font:16px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;background:#f3f5f9;color:#172b4d;margin:0;padding:22px}
+main{max-width:680px;margin:28px auto;background:#fff;border:1px solid #d8e1ee;border-radius:18px;padding:22px;box-shadow:0 8px 30px #142b4a12}
+h1{font-size:23px;margin:0 0 10px}p{color:#59677d}.status{padding:14px;background:#f2f5f9;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+button{background:#f6c744;border:1px solid #d6a51b;border-radius:12px;padding:14px 18px;font-weight:800;font-size:17px;color:#172b4d;margin-top:14px;width:100%}button:disabled{opacity:.5}
+.small{font-size:13px;color:#68778e}
+</style>
+</head>
+<body><main>
+<h1>Software Update Recovery</h1>
+<p>This independent recovery page checks the already-downloaded update in Safari's app cache. It does not clear browser data, LocalStorage, IndexedDB, or existing app records.</p>
+<div id="status" class="status" role="status">Checking browser cache…</div>
+<button id="repair" disabled>Activate verified update</button>
+<p class="small">If the verified update cache is missing or incomplete, this page will stop without changing the active app.</p>
+</main>
+<script>
+(async()=>{
+'use strict';
+const $=id=>document.getElementById(id),say=t=>$('status').textContent=t;
+const BASE=new URL('./',location.href);
+const POINTER='tha-test226-active-pointer-v1';
+const POINTER_URL=new URL('__tha_test226_active_cache__',BASE).toString();
+const ROLLBACK_URL=new URL('__tha_test226_pending_activation__',BASE).toString();
+const CHANNEL='https://raw.githubusercontent.com/Thehandymanjob/accountancy-test/main/update-channel.json';
+const RAW='https://raw.githubusercontent.com/Thehandymanjob/accountancy-test/';
+let targetName='',manifest=null,previousName='';
+async function digest(buffer){const h=await crypto.subtle.digest('SHA-256',buffer);return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+async function getJSON(url){const r=await fetch(url,{cache:'no-store',mode:'cors',credentials:'omit'});if(!r.ok)throw Error('HTTP '+r.status+' while reading '+url);return r.json()}
+try{
+ if(!('caches'in window)||!('serviceWorker'in navigator))throw Error('This browser does not support the required offline cache APIs.');
+ const ch=await getJSON(CHANNEL);
+ if(ch.app!=='The Handyman Accountancy'||ch.channel!=='test'||ch.sourceBranch!=='main')throw Error('The test update channel is invalid.');
+ manifest=await getJSON(RAW+ch.sourceBranch+'/version.json?repair='+Date.now());
+ if(String(manifest.version)!==String(ch.version)||manifest.buildId!==ch.buildId)throw Error('The published manifest does not match the update channel.');
+ targetName='tha-test226-app-v'+String(manifest.version).replace(/[^\w.-]/g,'_')+'-'+String(manifest.buildId).replace(/[^\w.-]/g,'_');
+ const allNames=await caches.keys();
+ const appNames=allNames.filter(n=>n.startsWith('tha-test226-app-v'));
+ const details=[];
+ for(const n of appNames){
+  let version='unknown',hasIndex=false,hasManifest=false;
+  try{const ca=await caches.open(n);const ir=await ca.match(new URL('index.html',BASE));hasIndex=!!ir;const vr=await ca.match(new URL('version.json',BASE));hasManifest=!!vr;if(vr){const j=await vr.json();version=String(j.version||'unknown')+' / '+String(j.buildId||'');}}
+  catch(err){version='read error: '+String(err&&err.message||err);}
+  details.push(n+' | manifest '+version+' | index '+hasIndex);
+ }
+ const pc=await caches.open(POINTER),pr=await pc.match(POINTER_URL);
+ const pointerWasMissing=!pr;
+ if(pr){previousName=(await pr.json()).cacheName;}
+ else{previousName=appNames.find(n=>n.includes('-v235-'))||appNames.find(n=>n.includes('-v226'));}
+ if(!previousName||previousName===targetName||!await caches.has(previousName))throw Error('No valid fallback cache found. Available caches: '+appNames.join(', '));
+ if(!await caches.has(targetName))throw Error('The downloaded version '+manifest.version+' cache is not present in Safari.');
+ const fallbackCache=await caches.open(previousName),fallbackManifestResponse=await fallbackCache.match(new URL('version.json',BASE)),fallbackIndex=await fallbackCache.match(new URL('index.html',BASE));
+ if(!fallbackManifestResponse||!fallbackIndex)throw Error('Fallback cache '+previousName+' is incomplete; no pointer has been created.');
+ const fallbackManifest=await fallbackManifestResponse.json();
+ if(!fallbackManifest.version||!fallbackManifest.buildId)throw Error('Fallback cache manifest is invalid; no pointer has been created.');
+ const cache=await caches.open(targetName),names=[...new Set(['index.html','version.json',...Object.keys(manifest.files||{})])];
+ const verified=[];
+ for(const name of names){
+  const url=new URL(name,BASE),response=await cache.match(url);
+  if(!response)throw Error('The downloaded cache is incomplete: '+name+' is missing.');
+  const expected=name==='version.json'?null:manifest.files[name]?.sha256;
+  if(name==='version.json'){
+   const saved=await response.clone().json();
+   if(String(saved.version)!==String(manifest.version)||saved.buildId!==manifest.buildId)throw Error('Cached version.json does not match the target release.');
+   const raw=await fetch(RAW+ch.sourceBranch+'/version.json?hash='+Date.now(),{cache:'no-store',mode:'cors',credentials:'omit'});
+   const buf=await raw.arrayBuffer();
+   if(await digest(buf)!==ch.manifestSha256)throw Error('Published manifest integrity check failed.');
+   if(await digest(await response.arrayBuffer())!==ch.manifestSha256)throw Error('Cached version.json failed its integrity check.');
+  }else{
+   if(!/^[a-f0-9]{64}$/i.test(String(expected||'')))throw Error('No valid SHA-256 is published for '+name+'.');
+   if(await digest(await response.arrayBuffer())!==String(expected).toLowerCase())throw Error('Cached file integrity check failed: '+name+'.');
+  }
+  verified.push(name);
+ }
+ $('repair').disabled=false;
+ say('Ready to activate version '+manifest.version+'.\\nFallback cache: '+previousName+' (v'+fallbackManifest.version+').\\nPointer repair required: '+pointerWasMissing+'\\nVerified files: '+verified.join(', ')+'\\nNo app data has been changed.');
+ $('repair').onclick=async()=>{
+  $('repair').disabled=true;say('Saving rollback protection and switching to version '+manifest.version+'…');
+  try{
+   if(pointerWasMissing){await pc.put(POINTER_URL,new Response(JSON.stringify({cacheName:previousName}),{headers:{'Content-Type':'application/json'}}));const initial=await pc.match(POINTER_URL),initialValue=initial?await initial.json():null;if(!initialValue||initialValue.cacheName!==previousName)throw Error('Could not safely establish the verified fallback pointer.');}
+  const rollback={previousCache:previousName,nextCache:targetName,version:String(manifest.version),buildId:String(manifest.buildId),attempts:0,startedAt:Date.now()};
+   await pc.put(ROLLBACK_URL,new Response(JSON.stringify(rollback),{headers:{'Content-Type':'application/json'}}));
+   const check=await pc.match(ROLLBACK_URL);if(!check)throw Error('Rollback marker could not be verified.');
+   const saved=await check.json();if(saved.previousCache!==previousName||saved.nextCache!==targetName)throw Error('Rollback marker verification failed.');
+   await pc.put(POINTER_URL,new Response(JSON.stringify({cacheName:targetName}),{headers:{'Content-Type':'application/json'}}));
+   const active=await pc.match(POINTER_URL),activeData=active?await active.json():null;
+   if(!activeData||activeData.cacheName!==targetName)throw Error('The new active-cache pointer could not be verified.');
+   const u=new URL('./',location.href);u.searchParams.set('tha-installed-version',String(manifest.version));u.searchParams.set('tha-installed-build',String(manifest.buildId));u.searchParams.set('tha-recovery-install','1');
+   say('Cache pointer verified. Opening the updated app…');location.replace(u.toString());
+  }catch(e){try{await pc.put(POINTER_URL,new Response(JSON.stringify({cacheName:previousName})));}catch(_){}$('repair').disabled=false;say('Recovery stopped: '+(e.message||e)+'. The previous app cache remains selected. Do not clear Safari data.');}
+ };
+}catch(e){say('Recovery check stopped: '+(e.message||e)+'\\nNo app data was changed.');}
+})();
+</script>
+</body></html>

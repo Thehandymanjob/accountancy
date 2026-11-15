@@ -1,0 +1,83 @@
+{
+  "manifestType": "tha-v250-backup-migration-dry-run-v1",
+  "generatedAt": "2026-11-07T16:30:00Z",
+  "source": {
+    "fileName": "New_new(1).json",
+    "backupType": "complete-user-data",
+    "version": 6,
+    "exportedAt": "2026-11-07T08:35:24.557Z",
+    "fileBytes": 1898878,
+    "sha256": "07b6170db9169e3b59d0b4527b88e26d589bd18c178ec9a1b1975b55f403db90"
+  },
+  "destinations": [
+    {
+      "source": "data",
+      "destination": {
+        "domain": "accounting",
+        "key": "main"
+      },
+      "recordCount": 1,
+      "nestedCounts": {
+        "entries": 22,
+        "incomeEntries": 8,
+        "expenseEntries": 14,
+        "customers": 1,
+        "invoices": 2,
+        "customExpenseCategories": 1,
+        "thirdPartyTransactions": 0
+      },
+      "canonicalBytes": 6207,
+      "canonicalSha256": "777b89709fa808996067255863ca1389805169160ee212c92d7636fac0687be6",
+      "preserveSourceValueExactly": true
+    },
+    {
+      "source": "projects",
+      "destination": {
+        "domain": "projects",
+        "key": "main"
+      },
+      "recordCount": 1,
+      "nestedCounts": {
+        "projects": 1,
+        "workers": 1,
+        "partners": 1,
+        "contractors": 1,
+        "companies": 1,
+        "companyJobs": 0,
+        "subprojects": 7
+      },
+      "canonicalBytes": 1892516,
+      "canonicalSha256": "83ab3d3061dc055d376c4cc406541fa9cb1613192f559a1da767abcefd68d85d",
+      "preserveSourceValueExactly": true
+    },
+    {
+      "source": "contracts",
+      "destination": {
+        "domain": "contracts",
+        "key": "main"
+      },
+      "recordCount": 1,
+      "nestedCounts": {
+        "contracts": 0
+      },
+      "canonicalBytes": 2,
+      "canonicalSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "preserveSourceValueExactly": true
+    }
+  ],
+  "preservationRules": [
+    "Do not correct, deduplicate, merge, normalize, or drop source values.",
+    "Keep all 40 existing LocalStorage legacy keys staged in v250 legacy domain.",
+    "Do not delete or overwrite LocalStorage.",
+    "Do not import data from test snapshots or any other backup.",
+    "Do not lower existing invoice or income numbering high-water marks.",
+    "Keep production accountancy/main untouched."
+  ],
+  "execution": {
+    "typedDomainWritesPerformed": false,
+    "indexedDbSnapshotCreated": false,
+    "localStorageChanged": false,
+    "appCutover": false,
+    "approvalRequiredBeforeApply": true
+  }
+}

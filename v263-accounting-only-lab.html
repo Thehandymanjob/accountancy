@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>THA v263 Accounting-Only Independence Lab</title>
+<style>body{font:16px -apple-system,BlinkMacSystemFont,Arial,sans-serif;max-width:850px;margin:24px auto;padding:0 16px;color:#172235}h1{font-size:23px}button{background:#142b4a;color:#fff;border:0;border-radius:8px;padding:14px 18px;font-size:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f5f9;border:1px solid #dce2ea;border-radius:10px;padding:12px;min-height:160px}.muted{color:#657286}</style></head><body>
+<h1>THA v263 — Accounting-Only Independence Lab</h1>
+<p class="muted">Fresh dedicated IndexedDB database · accounting domain only · no Projects controller/domain · no legacy storage or production access.</p>
+<p><button id="run">Run accounting-only tests</button></p><pre id="out">Ready. Tap Run accounting-only tests.</pre>
+<script src="storage-idb-v263-accounting-only-engine.js"></script>
+<script src="app-storage-v263-accounting-only.js"></script>
+<script src="v263-accounting-controller.js"></script>
+<script src="v263-invoice-workflow-v263.js"></script>
+<script>
+(function(){
+ "use strict";
+ const $=id=>document.getElementById(id),checks=[];
+ function check(name,ok,detail){checks.push({check:name,ok:!!ok,detail:String(detail||"")});}
+ async function expectReject(fn,re){try{await fn();return {rejected:false,message:"unexpected success"};}catch(e){return {rejected:re?re.test(String(e.message||e)):true,message:String(e.message||e)};}}
+ async function run(){
+  checks.length=0;$("run").disabled=true;$("out").textContent="Running accounting-only tests…";
+  const report={title:"THA v263 Accounting-Only Independence Report",build:"THA-263-ACCOUNTING-ONLY-LAB-1",createdAt:new Date().toISOString(),database:"tha_v263_accounting_only_lab_20261109_idb",syntheticDataOnly:true,legacyStorageAccess:false,productionAccess:false,projectsDomainAvailable:false,projectsControllerLoaded:false,checks};
+  try{
+   const info=await HandymanAppStorageV263.initialize();await HandymanAccountingV263.initialize();
+   check("Accounting-only initialization",info.mode==="accounting-only"&&info.projectsDomain===false,"mode="+info.mode+"; projectsDomain="+info.projectsDomain);
+   check("Only accounting domain is exposed",HandymanAppStorageV263.domains.length===1&&HandymanAppStorageV263.domains[0]==="accounting","domains="+HandymanAppStorageV263.domains.join(","));
+   check("No Projects controller or cross-domain service is loaded",!window.HandymanProjectsV263&&!window.HandymanProjectAccountingTransferV263,"projectsController="+!!window.HandymanProjectsV263+"; transferService="+!!window.HandymanProjectAccountingTransferV263);
+   const token="acct-only-"+Date.now(),customerId=token+"-customer",invoiceId=token+"-invoice";
+   await HandymanAccountingV263.saveCustomer({id:customerId,name:"Synthetic Accounting Customer",customField:{keep:true}});
+   await HandymanAccountingV263.addEntry({id:token+"-expense",type:"expense",date:"2026-11-09",amount:42,method:"cash",category:"Synthetic materials",attachment:new Blob(["synthetic accounting receipt"],{type:"text/plain"}),customAudit:{preserve:true}});
+   let state=await HandymanAccountingV263.load(),entry=state.entries.find(x=>x.id===token+"-expense");
+   check("Accounting customer, expense and receipt Blob persist",state.customers.some(x=>x.id===customerId&&x.customField.keep)&&entry?.attachment instanceof Blob&&(await entry.attachment.text())==="synthetic accounting receipt"&&entry.customAudit.preserve,"customer=true; receiptBlob="+(entry?.attachment instanceof Blob)+"; metadata="+!!entry?.customAudit?.preserve);
+   const nums=await Promise.all(Array.from({length:10},()=>HandymanAccountingV263.reserveInvoiceNumber()));
+   const sorted=nums.slice().sort((a,b)=>a-b),unique=new Set(nums).size===10,contiguous=sorted.every((n,i)=>i===0||n===sorted[i-1]+1);
+   check("Ten concurrent invoice-number reservations are unique and contiguous",unique&&contiguous,"numbers="+sorted.join(","));
+   const attachment=new Blob(["synthetic invoice attachment"],{type:"text/plain"});
+   const saved=await HandymanInvoiceWorkflowV263.saveInvoice({id:invoiceId,customerId,number:null,date:"2026-11-09",status:"draft",paymentStatus:"unpaid",items:[{description:"Synthetic work",price:300}],attachment,customMetadata:{keep:"yes"}});
+   state=await HandymanAccountingV263.load();let invoice=state.invoices.find(x=>x.id===invoiceId);
+   check("Invoice, sequence, attachment and custom metadata persist",!!invoice&&invoice.number===saved.number&&invoice.attachment instanceof Blob&&(await invoice.attachment.text())==="synthetic invoice attachment"&&invoice.customMetadata.keep==="yes","number="+invoice?.number+"; attachmentBlob="+(invoice?.attachment instanceof Blob)+"; metadata="+invoice?.customMetadata?.keep);
+   await HandymanInvoiceWorkflowV263.markPaid(invoiceId,{date:"2026-11-09",method:"bank",amount:300});
+   state=await HandymanAccountingV263.load();
+   check("Invoice payment and linked income remain inside Accounting",state.invoices.find(x=>x.id===invoiceId).paymentStatus==="paid"&&state.entries.filter(x=>x.invoiceId===invoiceId).length===1,"paid=true; linkedIncome="+state.entries.filter(x=>x.invoiceId===invoiceId).length);
+   const rejectProjectsRead=await expectReject(()=>HandymanAppStorageV263.read("projects"),/rejects non-accounting domain/i);
+   const rejectProjectsWrite=await expectReject(()=>HandymanAppStorageV263.write("projects",{projects:[]}),/rejects non-accounting domain/i);
+   check("Adapter refuses all Projects-domain reads and writes",rejectProjectsRead.rejected&&rejectProjectsWrite.rejected,"readRejected="+rejectProjectsRead.rejected+"; writeRejected="+rejectProjectsWrite.rejected);
+   const backup=await HandymanAppStorageV263.backup();
+   check("Backup contains Accounting domain only",backup.domains.length===1&&backup.domains[0]==="accounting"&&backup.records.every(x=>x.domain==="accounting"),"domains="+backup.domains.join(",")+"; records="+backup.records.length);
+   await HandymanAccountingV263.addEntry({id:token+"-after-backup",type:"expense",date:"2026-11-09",amount:999,method:"cash",category:"Post backup marker"});
+   const restored=await HandymanAppStorageV263.restore(backup);state=await HandymanAccountingV263.load();entry=state.entries.find(x=>x.id===token+"-expense");invoice=state.invoices.find(x=>x.id===invoiceId);
+   check("Accounting-only restore removes later marker and preserves records/Blob",restored.ok&&!state.entries.some(x=>x.id===token+"-after-backup")&&!!state.customers.find(x=>x.id===customerId)&&entry?.attachment instanceof Blob&&invoice?.attachment instanceof Blob&&invoice.paymentStatus==="paid","restored="+restored.restored+"; markerRemoved="+!state.entries.some(x=>x.id===token+"-after-backup")+"; receiptBlob="+(entry?.attachment instanceof Blob)+"; invoiceBlob="+(invoice?.attachment instanceof Blob));
+   const foreign={...backup,domains:["accounting","projects"]};
+   const rejectForeign=await expectReject(()=>HandymanAppStorageV263.restore(foreign),/accounting-domain backup/i);
+   check("Restore rejects any package containing Projects domain",rejectForeign.rejected,"rejected="+rejectForeign.rejected+"; message="+rejectForeign.message);
+   const health=await HandymanAppStorageV263.health();
+   check("Final accounting-only database health",health.ok&&health.database===report.database&&health.projectsDomain===false&&Object.keys(health.counts).every(x=>x==="accounting")&&!health.resetLocked,"healthy="+health.ok+"; counts="+JSON.stringify(health.counts)+"; projectsDomain="+health.projectsDomain);
+   report.ok=checks.every(x=>x.ok);report.totalChecks=checks.length;report.passed=checks.filter(x=>x.ok).length;report.failed=checks.filter(x=>!x.ok).length;report.health=health;
+  }catch(e){report.ok=false;report.errorName=String(e&&e.name||"Error");report.errorMessage=String(e&&e.message||e);report.errorStack=String(e&&e.stack||"");report.totalChecks=checks.length;report.passed=checks.filter(x=>x.ok).length;report.failed=Math.max(1,checks.filter(x=>!x.ok).length);}
+  $("out").textContent=JSON.stringify(report,null,2);$("run").disabled=false;
+ }
+ $("run").addEventListener("click",run);
+})();
+</script></body></html>

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#171717">
+<title>The Handyman — v263 Candidate</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#111;color:#f4f4f4}
+body{margin:0;padding:24px 16px 48px;max-width:760px;margin-inline:auto}
+h1{font-size:23px;margin:0 0 8px}p{color:#bbb;line-height:1.5}
+.panel{background:#1d1d1d;border:1px solid #393939;border-radius:14px;padding:16px;margin:16px 0}
+.status{font-weight:700;margin:8px 0}.good{color:#83d69a}.warn{color:#ffd27a}.bad{color:#ff8d8d}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#e7b923;color:#171717;font-size:16px;font-weight:700;margin-top:10px}
+button:disabled{opacity:.5}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101010;padding:12px;border-radius:8px;font-size:12px;color:#ddd}
+small{color:#aaa}
+</style>
+</head>
+<body>
+<h1>The Handyman Accountancy</h1>
+<p>v263 isolated integration candidate · IndexedDB only · not the production application.</p>
+<div class="panel">
+ <div id="overall" class="status warn">Checking modules…</div>
+ <p id="summary">This page does not import legacy data, modify the production application, or run a migration automatically.</p>
+ <pre id="report">Starting…</pre>
+</div>
+<div class="panel">
+ <h2>Business Profile migration</h2>
+ <p>This checks only the Projects data already inside the new, isolated v263 database. It does not inspect the old app or production LocalStorage. Legacy migration requires a separate verified export/import route.</p>
+ <div id="profileStatus" class="status">Not inspected</div>
+ <button id="inspect">Inspect v263 Projects profile (read-only)</button>
+ <button id="migrate" disabled>Move candidate profile into Business Profile</button>
+ <pre id="profileReport">No profile operation has been run.</pre>
+</div>
+<p><small>Projects and Accounting remain separate. No combined backup or cross-domain transfer is available on this candidate page.</small></p>
+<script src="./storage-idb-v263.js"></script>
+<script src="./v263-strict-domain-boundary.js"></script>
+<script src="./app-storage-v263.js"></script>
+<script src="./v263-accounting-controller.js"></script>
+<script src="./v263-projects-controller.js"></script>
+<script src="./v263-contracts-controller.js"></script>
+<script src="./v263-support-controller.js"></script>
+<script src="./v263-invoices-controller.js"></script>
+<script src="./v263-business-profile-controller.js"></script>
+<script src="./v263-business-profile-consumers.js"></script>
+<script src="./v263-domain-recovery.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const names=["HandymanStorageV263","HandymanV263DomainBoundary","HandymanAppStorageV263","HandymanAccountingV263","HandymanProjectsV263","HandymanContractsV263","HandymanSupportV263","HandymanInvoicesV263","HandymanBusinessProfileV263","HandymanBusinessProfileConsumersV263","HandymanDomainRecoveryV263"];
+const report={candidate:"THA-263-ISOLATED-INTEGRATION-1",mode:"indexeddb-only",legacyImport:false,productionTouched:false,automaticMigration:false,modules:{},startup:null};
+let inspected=false;
+async function start(){
+ try{
+  for(const name of names){report.modules[name]=!!window[name];if(!window[name])throw new Error("Missing module: "+name);}
+  const storage=await HandymanAppStorageV263.initialize();
+  const health=await HandymanAppStorageV263.health();
+  if(!health||health.ok!==true)throw new Error("IndexedDB health check failed.");
+  const [accounting,projects,contracts]=await Promise.all([
+   HandymanAccountingV263.initialize(),HandymanProjectsV263.initialize(),HandymanContractsV263.initialize()
+  ]);
+  await HandymanSupportV263.initialize();
+  const profile=await HandymanBusinessProfileV263.load();
+  const counts={accountingEntries:accounting.entries.length,customers:accounting.customers.length,invoices:accounting.invoices.length,projects:projects.projects.length,workers:projects.workers.length,contracts:contracts.contracts.length,profileHasLogo:!!profile.logo};
+  report.startup={ok:true,database:storage.database,storageMode:storage.mode,health,counts};
+  $("overall").textContent="Modules loaded · IndexedDB ready";
+  $("overall").className="status good";
+  $("summary").textContent="The isolated v263 controllers initialized. This confirms module composition only; it does not mean the old application UI has been converted.";
+  $("report").textContent=JSON.stringify(report,null,2);
+ }catch(e){
+  report.startup={ok:false,error:String(e&&e.message||e)};
+  $("overall").textContent="Startup blocked";
+  $("overall").className="status bad";
+  $("summary").textContent="No migration was run. Review the error below; no legacy data was imported.";
+  $("report").textContent=JSON.stringify(report,null,2);
+  $("inspect").disabled=true;
+ }
+}
+$("inspect").addEventListener("click",async()=>{
+ $("inspect").disabled=true;$("profileStatus").textContent="Inspecting…";
+ try{
+  const result=await HandymanBusinessProfileV263.inspectLegacyProjectsProfile();
+  inspected=true;
+  $("profileStatus").textContent=result.found?"Legacy profile found — migration can be explicitly requested":"No populated legacy profile found";
+  $("profileStatus").className="status "+(result.found?"warn":"good");
+  $("migrate").disabled=!result.found;
+  $("profileReport").textContent=JSON.stringify(result,null,2);
+ }catch(e){
+  $("profileStatus").textContent="Inspection failed";$("profileStatus").className="status bad";
+  $("profileReport").textContent=String(e&&e.message||e);
+ }finally{$("inspect").disabled=false;}
+});
+$("migrate").addEventListener("click",async()=>{
+ if(!inspected||!confirm("This will copy the legacy profile to its separate domain, verify it, then clear only the old Projects profile field. Independent backups are created first. Continue?"))return;
+ $("migrate").disabled=true;$("profileStatus").textContent="Migrating and verifying…";
+ try{
+  const result=await HandymanBusinessProfileV263.migrateLegacyProjectsProfile();
+  $("profileStatus").textContent=result.ok?"Migration completed and verified":"Migration not completed";
+  $("profileStatus").className="status "+(result.ok?"good":"bad");
+  $("profileReport").textContent=JSON.stringify({ok:result.ok,migrated:result.migrated,imported:result.imported,profileFields:Object.keys(result.profile||{}),projectsBackupCreated:!!result.projectsBackup,profileBackupCreated:!!result.profileBackup},null,2);
+ }catch(e){
+  $("profileStatus").textContent="Migration stopped — inspect backups and status";$("profileStatus").className="status bad";
+  $("profileReport").textContent=String(e&&e.message||e);
+  $("migrate").disabled=false;
+ }
+});
+start();
+})();
+</script>
+</body>
+</html>

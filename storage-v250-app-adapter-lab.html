@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#142b4a">
+<title>THA v250 App Storage Adapter Lab</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172235;background:#f3f5f8}
+body{margin:0;padding:20px;max-width:850px;margin-inline:auto}
+h1{font-size:1.35rem}.panel{background:#fff;border:1px solid #dce2ea;border-radius:14px;padding:16px;margin:14px 0}
+button{background:#142b4a;color:#fff;border:0;border-radius:9px;padding:12px 16px;font-weight:650;margin:5px 5px 5px 0}
+button.secondary{background:#e5b63f;color:#172235}button:disabled{opacity:.5}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101b2b;color:#eaf0f8;padding:14px;border-radius:10px;font-size:12px;min-height:120px}
+.note{color:#657286;font-size:.92rem;line-height:1.5}.warning{color:#8c2934;font-weight:650}
+</style>
+</head>
+<body>
+<h1>The Handyman Accountancy — v250 Storage Adapter Lab</h1>
+<p class="note">Isolated test page. It does not load or modify the application index.html. Initialization reads repository health and the three typed-domain records. It does not write business records or access LocalStorage.</p>
+<div class="panel">
+ <h2>1. Read-only initialization</h2>
+ <button id="init">Initialize adapter / inspect records</button>
+ <p id="initStatus" class="note">Not run.</p>
+</div>
+<div class="panel">
+ <h2>2. Repository self-test</h2>
+ <p class="note">Runs the repository's isolated self-test namespace. It creates temporary test records and cleans them up on success. It does not touch accounting, projects, contracts or legacy records.</p>
+ <button id="selftest" class="secondary">Run isolated IndexedDB self-test</button>
+ <p id="testStatus" class="note">Not run.</p>
+</div>
+<div class="panel">
+ <h2>Results</h2>
+ <pre id="output">Waiting for test.</pre>
+</div>
+<script src="storage-repository.js"></script>
+<script src="storage-v250-app-adapter.js"></script>
+<script>
+const out=document.getElementById('output');
+const initButton=document.getElementById('init');
+const testButton=document.getElementById('selftest');
+const print=value=>{out.textContent=JSON.stringify(value,null,2)};
+initButton.addEventListener('click',async()=>{
+ initButton.disabled=true;document.getElementById('initStatus').textContent='Reading IndexedDB…';
+ try{
+  const result=await HandymanV250AppStorage.initialize();
+  const [accounting,projects,contracts,status]=await Promise.all([
+   HandymanV250AppStorage.loadAccounting(),
+   HandymanV250AppStorage.loadProjects(),
+   HandymanV250AppStorage.loadContracts(),
+   HandymanV250AppStorage.status()
+  ]);
+  const summary={
+   initialization:result,
+   businessPayloads:{
+    accounting:accounting===null?{present:false}:{
+     present:true,entries:Array.isArray(accounting.entries)?accounting.entries.length:null,
+     customers:Array.isArray(accounting.customers)?accounting.customers.length:null,
+     invoices:Array.isArray(accounting.invoices)?accounting.invoices.length:null
+    },
+    projects:projects===null?{present:false}:{
+     present:true,projects:Array.isArray(projects.projects)?projects.projects.length:null,
+     workers:Array.isArray(projects.workers)?projects.workers.length:null,
+     partners:Array.isArray(projects.partners)?projects.partners.length:null,
+     contractors:Array.isArray(projects.contractors)?projects.contractors.length:null
+    },
+    contracts:contracts===null?{present:false}:{present:true,count:Array.isArray(contracts)?contracts.length:null}
+   },
+   status,
+   businessDataWritten:false,
+   localStorageAccessed:false,
+   appCutover:false
+  };
+  document.getElementById('initStatus').textContent='Read-only initialization completed.';
+  print(summary);
+ }catch(error){
+  document.getElementById('initStatus').textContent='Initialization failed; no business write was attempted.';
+  print({ok:false,error:String(error&&error.message||error),businessDataWritten:false,localStorageAccessed:false,appCutover:false});
+ }finally{initButton.disabled=false}
+});
+testButton.addEventListener('click',async()=>{
+ testButton.disabled=true;document.getElementById('testStatus').textContent='Running isolated repository checks…';
+ try{
+  const result=await HandymanStorageRepository.selfTest();
+  document.getElementById('testStatus').textContent=result.ok?'Repository self-test passed.':'Repository self-test failed; inspect the details.';
+  print({repositorySelfTest:result,applicationAdapterConnectedToIndex:false,appCutover:false});
+ }catch(error){
+  document.getElementById('testStatus').textContent='Self-test failed.';
+  print({ok:false,error:String(error&&error.message||error),appCutover:false});
+ }finally{testButton.disabled=false}
+});
+</script>
+</body>
+</html>

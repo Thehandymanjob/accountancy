@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>THA v263 Invoice UI Integration Lab</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172235;background:#f3f5f8}
+*{box-sizing:border-box}body{margin:0}main{max-width:900px;margin:auto;padding:16px}
+header,.card{background:#fff;border:1px solid #dce2ea;border-radius:14px;padding:16px;margin:12px 0}
+h1{font-size:22px;margin:0 0 6px}h2{font-size:18px;margin:0 0 12px}
+small,.muted{color:#657286}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+label{display:block;font-size:13px;font-weight:700;margin:8px 0 4px}
+input,select,textarea{width:100%;padding:11px;border:1px solid #cbd4df;border-radius:8px;font:inherit;background:#fff}
+textarea{min-height:60px}button{border:0;border-radius:8px;padding:11px 14px;background:#17365d;color:#fff;font-weight:700;margin:5px 4px 5px 0}
+button.secondary{background:#e8edf4;color:#1c2d44}button.danger{background:#9a2832}
+button:disabled{opacity:.5}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid #e4e9ef;vertical-align:top}
+.status{padding:10px;border-radius:8px;background:#eef3f8;margin-top:10px;white-space:pre-wrap}
+#preview{border:1px solid #d5dce5;padding:20px;background:white;margin-top:12px}
+.item{display:grid;grid-template-columns:1fr 130px;gap:8px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}table{font-size:12px}th,td{padding:7px 3px}.item{grid-template-columns:1fr 100px}}
+@media print{header,.controls,.editor,#listCard,.no-print{display:none!important}body{background:white}main{max-width:none;padding:0}.card{border:0}#preview{border:0;margin:0;padding:0}}
+</style></head>
+<body><main>
+<header>
+<h1>v263 Invoice UI Integration Lab</h1>
+<p class="muted">Isolated IndexedDB database · synthetic test environment · no production data or writes.</p>
+<div id="status" class="status">Starting isolated database…</div>
+</header>
+<section class="card controls">
+<h2>Invoice workspace</h2>
+<div class="row"><button id="newBtn">New invoice</button><button id="refreshBtn" class="secondary">Refresh list</button><button id="auditBtn" class="secondary">Show storage audit</button></div>
+<div id="audit" class="status" hidden></div>
+</section>
+<section class="card editor" id="editor" hidden>
+<h2 id="editorTitle">New invoice</h2>
+<input id="invoiceId" type="hidden">
+<div class="grid">
+<div><label for="number">Invoice number</label><input id="number" type="number" min="1" step="1"></div>
+<div><label for="date">Invoice date</label><input id="date" type="date"></div>
+<div><label for="customerName">Customer / company</label><input id="customerName" autocomplete="off"></div>
+<div><label for="phone">Phone</label><input id="phone" autocomplete="off"></div>
+<div><label for="address">Billing address</label><textarea id="address"></textarea></div>
+<div><label for="workAddress">Work address</label><textarea id="workAddress"></textarea></div>
+</div>
+<label>Work items (up to four)</label>
+<div id="items"></div>
+<div class="grid">
+<div><label for="vat">VAT</label><select id="vat"><option value="none">No VAT</option><option value="20">20%</option><option value="5">5%</option></select></div>
+<div><label for="state">Invoice status</label><select id="state"><option value="draft">Draft</option><option value="issued">Issued</option></select></div>
+</div>
+<label for="description">Work description / notes</label><textarea id="description"></textarea>
+<div class="row"><strong id="total">Total: £0.00</strong></div>
+<div class="row"><button id="saveBtn">Save invoice</button><button id="cancelBtn" class="secondary">Cancel</button></div>
+</section>
+<section class="card" id="listCard">
+<h2>Saved invoices</h2>
+<div style="overflow-x:auto"><table><thead><tr><th>No.</th><th>Date</th><th>Customer</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody id="rows"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
+</section>
+<section class="card" id="previewCard" hidden>
+<div id="preview"></div>
+<div class="row no-print"><button id="printBtn">Print / Save PDF</button><button id="closePreview" class="secondary">Close preview</button></div>
+</section>
+</main>
+<script src="./storage-idb-v263-app-shell-lab.js?v=263ui1"></script>
+<script src="./app-storage-v263-v4.js?v=263ui1"></script>
+<script src="./v263-accounting-controller-diagnostic-v2.js?v=263ui1"></script>
+<script src="./v263-invoice-workflow-v263.js?v=263workflow7"></script>
+<script src="./v263-business-profile-controller.js?v=263ui1"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+let profile={};
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today=()=>new Date().toISOString().slice(0,10);
+const total=i=>HandymanInvoiceWorkflowV263.total(i);
+function setStatus(s){$('status').textContent=s}
+function money(n){return '£'+Number(n||0).toFixed(2)}
+function lineRows(items=[]){$('items').innerHTML=Array.from({length:4},(_,n)=>{const x=items[n]||{};return '<div class="item"><div><label>Description '+(n+1)+'</label><input class="itemDesc" value="'+esc(x.description||'')+'"></div><div><label>Price (£)</label><input class="itemPrice" type="number" min="0" step="0.01" value="'+(x.price==null?'':esc(x.price))+'"></div></div>'}).join('');document.querySelectorAll('.itemPrice,.itemDesc').forEach(x=>x.addEventListener('input',calcTotal))}
+function readItems(){return [...document.querySelectorAll('.itemDesc')].map((x,n)=>({description:x.value.trim(),price:Math.max(0,Number(document.querySelectorAll('.itemPrice')[n].value)||0)})).filter(x=>x.description||x.price>0)}
+function calcTotal(){const i={items:readItems(),vat:$('vat').value};$('total').textContent='Total: '+money(total(i))}
+function resetForm(){ $('invoiceId').value='';$('number').value='';$('date').value=today();$('customerName').value='';$('phone').value='';$('address').value='';$('workAddress').value='';$('vat').value='none';$('state').value='draft';$('description').value='';lineRows([]);$('editorTitle').textContent='New invoice';$('editor').hidden=false;$('previewCard').hidden=true; }
+async function loadState(){return HandymanAccountingV263.load()}
+async function refresh(){const s=await loadState();const active=s.invoices.filter(i=>!i.deletedAt&&!i.deleted).sort((a,b)=>Number(b.number)-Number(a.number));$('rows').innerHTML=active.length?active.map(i=>'<tr><td>'+esc(i.number)+'</td><td>'+esc(i.date)+'</td><td>'+esc(i.customerName)+'</td><td>'+money(total(i))+'</td><td>'+esc(i.status)+' / '+esc(i.paymentStatus||'unpaid')+'</td><td><div class="row"><button data-action="preview" data-id="'+esc(i.id)+'">View</button><button data-action="edit" data-id="'+esc(i.id)+'" class="secondary">Edit</button><button data-action="paid" data-id="'+esc(i.id)+'" class="secondary">Paid</button><button data-action="unpaid" data-id="'+esc(i.id)+'" class="secondary">Unpaid</button><button data-action="delete" data-id="'+esc(i.id)+'" class="danger">Delete</button></div></td></tr>').join(''):'<tr><td colspan="6">No invoices yet.</td></tr>'; }
+async function save(){const id=$('invoiceId').value||'v263-ui-invoice-'+Date.now();const items=readItems();const name=$('customerName').value.trim();if(!name||!$('date').value||!items.length){setStatus('Enter customer, date and at least one work item.');return}
+ const existing=(await loadState()).invoices.find(i=>i.id===id);const customerId=existing?.customerId||'v263-ui-customer-'+Date.now();const customer={id:customerId,name,phone:$('phone').value.trim(),address:$('address').value.trim(),workAddress:$('workAddress').value.trim(),email:''};
+ const invoice={...(existing||{}),id,number:Number($('number').value)||undefined,date:$('date').value,customerId,customerName:name,phone:customer.phone,billingAddress:customer.address,workAddress:customer.workAddress,description:$('description').value.trim(),items,qty:1,unitPrice:items.reduce((n,x)=>n+x.price,0),vat:$('vat').value,status:$('state').value,paymentStatus:'unpaid'};
+ try{const payment=existing&&existing.paymentStatus==='paid'?{date:existing.paymentDate,method:existing.paymentMethod,amount:total(invoice)}:null;const r=await HandymanInvoiceWorkflowV263.saveInvoice(invoice,payment,customer);$('editor').hidden=true;setStatus('Saved and verified in IndexedDB. Invoice '+r.number+'.');await refresh();}catch(e){setStatus('Save failed: '+e.message)}}
+async function edit(id){const s=await loadState(),i=s.invoices.find(x=>String(x.id)===String(id));if(!i)return;resetForm();$('invoiceId').value=i.id;$('number').value=i.number;$('date').value=i.date;$('customerName').value=i.customerName||'';$('phone').value=i.phone||'';$('address').value=i.billingAddress||'';$('workAddress').value=i.workAddress||'';$('vat').value=i.vat||'none';$('state').value=i.status||'draft';$('description').value=i.description||'';lineRows(i.items||[]);$('editorTitle').textContent='Edit invoice '+i.number;calcTotal();}
+async function payment(id,paid){try{const s=await loadState(),i=s.invoices.find(x=>String(x.id)===String(id));if(!i)return;if(paid){if(i.status==='draft'){setStatus('Draft invoices cannot be marked paid. Issue the invoice first.');return}const date=prompt('Payment date (YYYY-MM-DD)',today());if(!date)return;const method=prompt('Payment method: bank or cash','bank');if(!method)return;await HandymanInvoiceWorkflowV263.markPaid(id,{date,method,amount:total(i)});}else await HandymanInvoiceWorkflowV263.markUnpaid(id);setStatus('Payment status updated and verified in IndexedDB.');await refresh();}catch(e){setStatus('Payment update failed: '+e.message)}}
+async function removeInvoice(id){if(!confirm('Move this invoice to deleted records? Its number remains reserved.'))return;try{await HandymanInvoiceWorkflowV263.softDelete(id);setStatus('Invoice moved to deleted records in IndexedDB.');await refresh()}catch(e){setStatus('Delete failed: '+e.message)}}
+async function preview(id){const s=await loadState(),i=s.invoices.find(x=>String(x.id)===String(id));if(!i)return;const lines=(i.items||[]).map(x=>'<tr><td>'+esc(x.description)+'</td><td style="text-align:right">'+money(x.price)+'</td></tr>').join('');$('preview').innerHTML='<div style="display:flex;justify-content:space-between;gap:20px;align-items:flex-start">'+(profile.logo?'<img src="'+esc(profile.logo)+'" style="max-width:130px;max-height:80px;object-fit:contain">':'<strong>'+esc(profile.businessName||'Business')+'</strong>')+'<div style="text-align:right">'+esc(profile.address||'')+'<br>'+esc(profile.phone||'')+'</div></div><hr><h2>INVOICE '+esc(i.number)+'</h2><p><b>Invoice date:</b> '+esc(i.date)+'<br><b>Bill to:</b> '+esc(i.customerName)+'<br>'+esc(i.billingAddress||'')+'<br><b>Work address:</b> '+esc(i.workAddress||'')+'</p><table><tbody>'+lines+'</tbody></table><h2 style="text-align:right">Total: '+money(total(i))+'</h2><p>'+esc(i.description||'')+'</p><p>'+esc(profile.paymentDetails||'')+'</p><p><b>Status:</b> '+esc(i.status)+' / '+esc(i.paymentStatus||'unpaid')+'</p>';$('previewCard').hidden=false;$('editor').hidden=true;$('listCard').hidden=true;}
+$('newBtn').addEventListener('click',async()=>{try{resetForm();$('number').value=await HandymanAccountingV263.reserveInvoiceNumber();}catch(e){setStatus(e.message)}});
+$('refreshBtn').addEventListener('click',()=>refresh().catch(e=>setStatus(e.message)));
+$('saveBtn').addEventListener('click',save);$('cancelBtn').addEventListener('click',()=>{$('editor').hidden=true});
+$('items').addEventListener('input',calcTotal);
+$('rows').addEventListener('click',e=>{const b=e.target.closest('button[data-action]');if(!b)return;const id=b.dataset.id;const a=b.dataset.action;if(a==='edit')edit(id);else if(a==='preview')preview(id);else if(a==='paid')payment(id,true);else if(a==='unpaid')payment(id,false);else if(a==='delete')removeInvoice(id)});
+$('printBtn').addEventListener('click',()=>window.print());$('closePreview').addEventListener('click',()=>{$('previewCard').hidden=true;$('listCard').hidden=false});
+$('auditBtn').addEventListener('click',async()=>{const h=await HandymanStorageV263.health();$('audit').hidden=false;$('audit').textContent=JSON.stringify({database:h.database,mode:'IndexedDB only',domains:HandymanAppStorageV263.domains,legacyImport:false,productionTouched:false},null,2)});
+(async()=>{try{await HandymanAppStorageV263.initialize();profile=await HandymanBusinessProfileV263.load();await refresh();setStatus('Ready. Connected only to isolated IndexedDB: tha_v263_app_shell_lab_20261109_idb.');}catch(e){setStatus('Startup failed: '+e.message)}})();
+</script></body></html>

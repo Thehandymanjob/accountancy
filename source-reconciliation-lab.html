@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THA v250 Source Reconciliation Audit</title>
+<meta name="robots" content="noindex">
+<style>
+body{font:16px -apple-system,BlinkMacSystemFont,sans-serif;max-width:960px;margin:20px auto;padding:0 14px;color:#172b45}main{border:1px solid #dce4ee;border-radius:14px;padding:18px}button{padding:12px 16px;margin:8px 6px 8px 0;border:0;border-radius:8px;background:#174d83;color:white;font-weight:700}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101d2c;color:#e8f1fb;padding:14px;border-radius:8px;font-size:12px}.warning{padding:12px;background:#fff5df;border:1px solid #e8cf91;border-radius:8px;line-height:1.45}
+</style></head><body><main>
+<h1>v250 Source Reconciliation Audit</h1>
+<p class="warning"><b>Read-only.</b> This audit reads candidate LocalStorage sources and the already-existing v250 IndexedDB database. It does not write, import, delete, snapshot, or change application storage mode. It reports structural summaries, record IDs, counts, amounts and hashes; it does not display customer names, addresses, notes, phone numbers, emails or image contents.</p>
+<button id="run">Run source reconciliation (read-only)</button>
+<button id="copy">Copy report</button>
+<pre id="out">Ready. No audit has run.</pre>
+</main>
+<script src="storage-foundation.js"></script>
+<script>
+(()=>{
+"use strict";
+const out=document.getElementById("out"),show=x=>out.textContent=JSON.stringify(x,null,2);
+const keys={
+ accounting:["tha_test226_accounting_v1","tha_restore_test_v1_accounting_v1","tha_v212_migration_accounting_v1","tha_v206_accounting_v1","handyman_accounting_v2","tha_baseline_v167_isolated_20261030"],
+ projects:["tha_test226_projects_v1","tha_restore_test_v1_projects_v1","tha_v212_migration_projects_v1","handyman_projects_workspace_v1"],
+ contracts:["tha_test226_contracts_v1","tha_restore_test_v1_contracts_v1","tha_v212_migration_contracts_v1","tha_v206_contracts_v1"],
+ misc:["tha_test226_invoice_sequence_v1","tha_restore_test_v1_invoice_sequence_v1","tha_v212_migration_invoice_sequence_v1","tha_v206_invoice_sequence_v1","tha_test226_monitor_log_v1","tha_restore_test_v1_monitor_log","tha_v212_migration_monitor_log_v1","tha_test226_report_notifications_v1","tha_restore_test_v1_report_notifications_v1","tha_v212_migration_report_notifications_v1","tha_test226_app_language_v1","tha_restore_test_v1_language","tha_v212_migration_app_language_v1","tha_test226_app_language_pref_version_v1","tha_restore_test_v1_language_pref_version","tha_v212_migration_app_language_pref_version_v1","tha_restore_test_v1_navigation_state","tha_restore_test_v1_report_archive_v1"]
+};
+const canonical=v=>Array.isArray(v)?"["+v.map(canonical).join(",")+"]":v&&typeof v==="object"?"{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+canonical(v[k])).join(",")+"}":JSON.stringify(v);
+const hash=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return("00000000"+(h>>>0).toString(16)).slice(-8)};
+const bytes=s=>new Blob([String(s)]).size;
+const get=(k)=>{const raw=localStorage.getItem(k);if(raw===null)return {present:false};try{return {present:true,raw,value:JSON.parse(raw)}}catch(e){return {present:true,raw,value:raw,validJson:false}}};
+const arr=(v,k)=>Array.isArray(v&&v[k])?v[k]:[];
+const id=x=>x&&x.id!==undefined&&x.id!==null?String(x.id):"";
+const sum=rows=>({count:rows.length,ids:rows.map(id).filter(Boolean),amountTotal:Math.round(rows.reduce((n,x)=>n+(Number(x&&x.amount)||0),0)*100)/100,withAmount:rows.filter(x=>x&&x.amount!==undefined).length});
+const summarizeAccounting=v=>({rootFields:Object.keys(v||{}).sort(),entries:sum(arr(v,"entries")),customers:{count:arr(v,"customers").length,ids:arr(v,"customers").map(id)},invoices:{count:arr(v,"invoices").length,ids:arr(v,"invoices").map(id)},categories:{count:arr(v,"customExpenseCategories").length},settingsFields:Object.keys(v&&v.settings||{}).sort(),thirdParty:sum(arr(v,"thirdPartyTransactions"))});
+function summarizeProjects(v){
+ const projects=Array.isArray(v)?v:arr(v,"projects"),ledgers=["income","expenses","wages","tools","food","materials","contractors","receipts"];
+ const rows=projects.map(p=>{
+  const subs=Array.isArray(p&&p.subprojects)?p.subprojects:Array.isArray(p&&p.subProjects)?p.subProjects:[];
+  const ledger={};for(const k of ledgers)ledger[k]=sum(arr(p,k));
+  return {id:id(p),subprojectIds:subs.map(id),subprojectCount:subs.length,ledger,
+   subprojects:subs.map(s=>({id:id(s),ledger:Object.fromEntries(ledgers.map(k=>[k,sum(arr(s,k))]))}))};
+ });
+ const related={};for(const k of ["workers","partners","contractors","companies","companyJobs"])related[k]={count:arr(v,k).length,ids:arr(v,k).map(id)};
+ const profile=v&&v.profile&&typeof v.profile==="object"?Object.keys(v.profile).sort():[];
+ const photos=[];const scan=(x,d=0)=>{if(!x||typeof x!=="object"||d>10)return;if(Array.isArray(x)){x.forEach(y=>scan(y,d+1));return;}for(const [k,z] of Object.entries(x)){if(typeof z==="string"&&/(photo|image|logo|file)/i.test(k))photos.push({field:k,bytes:bytes(z)});else if(z&&typeof z==="object")scan(z,d+1)}};scan(v);
+ return {rootFields:Object.keys(v||{}).sort(),projectCount:projects.length,projectIds:rows.map(x=>x.id),projects:rows,related,profileFields:profile,photoLikeFieldCount:photos.length,photoLikeBytes:photos.reduce((n,x)=>n+x.bytes,0)};
+}
+async function run(){
+ const sourceReport={};
+ for(const [domain,list] of Object.entries(keys)){
+  sourceReport[domain]={};
+  for(const k of list){const x=get(k);if(!x.present){sourceReport[domain][k]={present:false};continue;}
+   const info={present:true,bytes:bytes(x.raw),digest:hash(x.raw),validJson:x.validJson!==false};
+   if(x.validJson===false){info.valueType="plain-string";sourceReport[domain][k]=info;continue;}
+   if(domain==="accounting")info.structure=summarizeAccounting(x.value);
+   else if(domain==="projects")info.structure=summarizeProjects(x.value);
+   else if(domain==="contracts")info.structure={count:Array.isArray(x.value)?x.value.length:null,ids:Array.isArray(x.value)?x.value.map(id):null};
+   else info.structure=Array.isArray(x.value)?{type:"array",count:x.value.length}:x.value&&typeof x.value==="object"?{type:"object",fields:Object.keys(x.value).sort()}:{type:typeof x.value,value:x.value};
+   sourceReport[domain][k]=info;
+  }
+ }
+ const f=window.HandymanStorageFoundation;
+ if(!f||f.databaseName!=="the_handyman_accountancy_test226"||f.schemaVersion!==4)throw Error("Expected existing v250 test foundation schema-v4 was not loaded.");
+ const db=await f.openDatabase();
+ try{
+  const read=async name=>{const tx=db.transaction([name],"readonly"),req=tx.objectStore(name).getAll();return await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error||Error(name))})};
+  const names=["accountingEntries","customers","invoices","contracts","projects","projectReceipts","projectExpenses","workers","partners","contractors","companies","companyJobs","customExpenseCategories","thirdPartyTransactions","accountingSettings","projectMetadata","recordOrder","legacySnapshots","kv"];
+  const stores={};for(const name of names){const rows=await read(name);stores[name]={count:rows.length,ids:rows.slice(0,100).map(id),fieldSets:rows.slice(0,30).map(r=>({id:id(r),fields:Object.keys(r||{}).sort()}))};}
+  const projectPackageRow=(await read("kv")).find(x=>x.key==="__tha_idb_projects_migration_v1__");
+  let packageSummary=null;if(projectPackageRow){try{packageSummary=summarizeProjects(JSON.parse(projectPackageRow.value))}catch(e){packageSummary={validJson:false}}}
+  const snapshots=(await read("legacySnapshots")).map(x=>({id:id(x),legacyKey:x.legacyKey||null,present:!!x.present,bytes:bytes(x.raw||""),digest:typeof x.raw==="string"?hash(x.raw):null,capturedAt:x.capturedAt||null}));
+  const report={
+   ok:true,readOnly:true,willWrite:false,localStorageChanged:false,indexedDBChanged:false,appCutover:false,
+   origin:location.origin,sourceCandidates:sourceReport,
+   indexedDB:{database:f.databaseName,version:f.schemaVersion,stores,projectsMigrationPackage:packageSummary,legacySnapshots:snapshots},
+   comparisonGuide:"Compare source project IDs/subproject IDs and each ledger ID/amount with typed records. A matching count alone is not proof of equality. Different prefixes may be stale snapshots, restore candidates or separate generations; do not merge automatically.",
+   safety:"Read-only transactions only. No LocalStorage or IndexedDB writes, deletes, imports, exports, snapshots or application cutover."
+  };
+  show(report);
+ }finally{db.close()}
+}
+document.getElementById("run").onclick=()=>{out.textContent="Running read-only reconciliation…";run().catch(e=>show({ok:false,readOnly:true,error:String(e&&e.message||e),localStorageChanged:false,indexedDBChanged:false,appCutover:false}))};
+document.getElementById("copy").onclick=async()=>{try{await navigator.clipboard.writeText(out.textContent);alert("Report copied.")}catch(e){alert("Copy failed. Select and copy the report manually.")}};
+})();
+</script></body></html>

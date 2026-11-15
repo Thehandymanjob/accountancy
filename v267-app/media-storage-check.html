@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>THA v264 — Independent Media Storage Check</title>
+<style>
+body{font:16px -apple-system,BlinkMacSystemFont,sans-serif;background:#f3f5f8;color:#172235;margin:0;padding:16px}
+main{max-width:820px;margin:auto}section{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:16px;margin:12px 0}
+button{padding:12px 16px;border:0;border-radius:8px;background:#17365d;color:#fff;font-weight:700;margin:5px}
+.warn{background:#fff4d6;padding:12px;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101c2d;color:#e8f0fb;padding:12px;border-radius:8px;font-size:12px}
+</style>
+</head>
+<body><main><section>
+<h1>THA v264 — Independent Media Storage Check</h1>
+<p class="warn"><b>Isolated synthetic test only.</b> This page tests independent Blob/File records and backup inclusion. It does not clear the database, import legacy data, or modify production. Temporary test assets are removed at the end.</p>
+<p><b>Database:</b> <code>the_handyman_accountancy_v264_idb</code></p>
+<button id="run">Run independent media checks</button><pre id="out">Waiting…</pre>
+</section></main>
+<script src="../v264-fresh/storage-idb-v264.js?v=media4"></script>
+<script src="../v264-fresh/v264-strict-domain-boundary.js?v=media4"></script>
+<script src="../v264-fresh/app-storage-v264.js?v=media4"></script>
+<script src="../v264-fresh/v264-media-controller.js?v=media4"></script>
+<script src="../v264-fresh/v264-recovery.js?v=media4"></script>
+<script>
+"use strict";
+const out=document.getElementById("out"),show=x=>out.textContent=JSON.stringify(x,null,2);
+document.getElementById("run").onclick=async()=>{
+ const id="tha-media-check-"+Date.now(),ids=[id+"-photo",id+"-receipt",id+"-file"],results={};
+ const original={get:Storage.prototype.getItem,set:Storage.prototype.setItem,remove:Storage.prototype.removeItem,clear:Storage.prototype.clear};
+ let initialized=false;
+ try{
+  Storage.prototype.getItem=function(){throw new Error("Legacy storage read attempted.");};
+  Storage.prototype.setItem=function(){throw new Error("Legacy storage write attempted.");};
+  Storage.prototype.removeItem=function(){throw new Error("Legacy storage remove attempted.");};
+  Storage.prototype.clear=function(){throw new Error("Legacy storage clear attempted.");};
+  await HandymanAppStorageV264.initialize();initialized=true;
+  const photo=new Blob(["synthetic project photo"],{type:"image/jpeg"});
+  const receipt=new Blob(["synthetic receipt image"],{type:"image/png"});
+  await HandymanMediaV264.saveAsset({id:ids[0],name:"photo.jpg",ownerType:"project",ownerId:id,role:"project-photo",blob:photo});
+  await HandymanMediaV264.saveAsset({id:ids[1],name:"receipt.png",ownerType:"accounting-entry",ownerId:id,role:"receipt",blob:receipt});
+  const file=new File(["synthetic file payload"],"test-receipt.pdf",{type:"application/pdf",lastModified:1700000000000});
+  await HandymanMediaV264.saveAsset({id:ids[2],name:file.name,ownerType:"accounting-entry",ownerId:id,role:"receipt-file",blob:file});
+  const [a,b,c]=await Promise.all(ids.map(x=>HandymanMediaV264.getAsset(x)));
+  results.twoIndependentBlobRecords=!!a&&!!b&&a.blob instanceof Blob&&b.blob instanceof Blob&&await a.blob.text()==="synthetic project photo"&&await b.blob.text()==="synthetic receipt image";
+  results.fileRoundTrip=!!c&&c.blob instanceof File&&c.blob.name==="test-receipt.pdf"&&c.blob.type==="application/pdf"&&await c.blob.text()==="synthetic file payload";
+  const listed=await HandymanMediaV264.list();
+  results.metadataFiltering=listed.some(x=>x.id===ids[0]&&x.ownerType==="project"&&x.role==="project-photo")&&listed.some(x=>x.id===ids[1]&&x.ownerType==="accounting-entry"&&x.role==="receipt")&&listed.some(x=>x.id===ids[2]&&x.role==="receipt-file");
+  await HandymanMediaV264.deleteAsset(ids[0]);
+  results.deleteIsolation=!(await HandymanMediaV264.getAsset(ids[0]))&&!!(await HandymanMediaV264.getAsset(ids[1]));
+  const backup=await HandymanRecoveryV264.create().createBackup();
+  const pkg=JSON.parse(await backup.blob.text()),rows=pkg.payload.records.filter(x=>x.domain==="media"&&ids.includes(x.key));
+  results.backupIncludesIndependentMedia=backup.verification.ok&&rows.length===2&&rows.some(x=>x.key===ids[1])&&rows.some(x=>x.key===ids[2]);
+  results.backupIntegrity=backup.verification.records===pkg.payload.records.length&&backup.verification.digest===pkg.digest;
+  results.noLegacyStorageAccess=true;
+  const engineTest=await HandymanStorageV264.selfTest();results.engineBlobAndSnapshotSelfTest=engineTest.ok===true;results.engineSelfTest=engineTest;
+ }catch(e){results.failed=true;results.error=String(e&&e.message||e);}
+ finally{
+  Storage.prototype.getItem=original.get;Storage.prototype.setItem=original.set;Storage.prototype.removeItem=original.remove;Storage.prototype.clear=original.clear;
+  if(initialized){try{for(const x of ids)await HandymanMediaV264.deleteAsset(x);results.syntheticCleanup=ids.every(x=>true)&&!(await Promise.all(ids.map(x=>HandymanMediaV264.getAsset(x)))).some(Boolean);}catch(e){results.syntheticCleanup=false;results.cleanupError=String(e&&e.message||e);}}
+  else results.syntheticCleanup=false;
+ }
+ const checks=Object.entries(results).filter(([k,v])=>typeof v==="boolean"&&k!=="failed");
+ results.overall=results.failed!==true&&checks.length>=5&&checks.every(([,v])=>v===true)&&results.syntheticCleanup===true;
+ show(results);
+};
+</script></body></html>

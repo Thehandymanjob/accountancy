@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THA v250 Read-only Conversion Planner</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172b45;background:#f3f6fa}
+body{margin:0;padding:18px;max-width:900px;margin-inline:auto}
+main{background:#fff;border:1px solid #dce4ee;border-radius:15px;padding:20px}
+h1{font-size:22px;margin:0 0 10px}
+p{line-height:1.5;color:#53657a}
+.notice{padding:13px;border-radius:10px;background:#fff5dc;border:1px solid #e6cb87;color:#624d1d;margin:14px 0}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#174d83;color:white;font-weight:800;margin:8px 0}
+button.secondary{background:#e8edf4;color:#172b45}
+button:disabled{opacity:.5}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101d2c;color:#e8f1fb;padding:14px;border-radius:10px;font-size:12px;min-height:160px}
+.small{font-size:13px;color:#63748a}
+</style>
+</head>
+<body>
+<main>
+<h1>THA v250 — Read-only Conversion Planner</h1>
+<p>Validates staged legacy values and builds a proposed conversion manifest. This is not a data conversion or app cutover.</p>
+<div class="notice"><strong>Safety boundary:</strong> This tool reads only the <code>legacy</code> domain in <code>the_handyman_accountancy_v250_idb</code>. It does not write to IndexedDB, LocalStorage, or application records. Unknown or ambiguous keys remain unmapped.</div>
+<button id="selftest" class="secondary">Run planner self-tests (in memory)</button>
+<button id="run">Run read-only validation</button>
+<button id="download" class="secondary" disabled>Export validation manifest JSON</button>
+<button id="copyResult" class="secondary" disabled>Copy Result</button>
+<p id="copyStatus" class="small" aria-live="polite"></p>
+<pre id="out">Ready. No operation has run.</pre>
+<p class="small">Run this page on the same origin as the staged test app. Keep the legacy snapshot export as a separate recovery copy. No application changes are made by this planner.</p>
+</main>
+<script src="storage-repository.js?v=repo-selftest-20261107-05"></script>
+<script src="storage-v250-conversion-planner.js?v=11"></script>
+<script>
+(()=>{
+ const out=document.getElementById("out"),run=document.getElementById("run"),download=document.getElementById("download"),copyResult=document.getElementById("copyResult"),copyStatus=document.getElementById("copyStatus"),selftest=document.getElementById("selftest");
+ let last=null;
+ const show=v=>{out.textContent=JSON.stringify(v,null,2);copyResult.disabled=false;copyStatus.textContent="";};
+ selftest.onclick=()=>{
+  run.disabled=true;selftest.disabled=true;download.disabled=true;
+  try{last=null;show(HandymanV250ConversionPlanner.selfTest())}
+  catch(error){show({ok:false,error:String(error&&error.message||error),writesPerformed:false})}
+  finally{run.disabled=false;selftest.disabled=false}
+ };
+ run.onclick=async()=>{
+  run.disabled=true;download.disabled=true;
+  try{
+   last=await HandymanV250ConversionPlanner.plan();
+   show(last);
+   download.disabled=false;
+  }catch(error){last=null;show({ok:false,error:String(error&&error.message||error),writesPerformed:false,appCutover:false})}
+  finally{run.disabled=false}
+ };
+ copyResult.onclick=async()=>{
+  const value=out.textContent||"";
+  try{
+   if(navigator.clipboard&&navigator.clipboard.writeText){
+    await navigator.clipboard.writeText(value);
+   }else{
+    const area=document.createElement("textarea");
+    area.value=value;area.setAttribute("readonly","");
+    area.style.position="fixed";area.style.opacity="0";
+    document.body.appendChild(area);area.select();
+    const copied=document.execCommand("copy");area.remove();
+    if(!copied)throw new Error("Clipboard copy is not supported by this browser");
+   }
+   copyStatus.textContent="Result copied. You can paste it into ChatGPT.";
+  }catch(error){
+   copyStatus.textContent="Copy failed. Please use Export validation manifest JSON instead.";
+  }
+ };
+ download.onclick=()=>{
+  if(!last)return;
+  const blob=new Blob([JSON.stringify(last,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="THA_v250_conversion_validation_manifest.json";a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+ };
+})();
+</script>
+</body>
+</html>

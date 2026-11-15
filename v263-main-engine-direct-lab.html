@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Main Engine Direct Lab</title>
+<style>body{font:16px system-ui;margin:18px;line-height:1.5}button{padding:13px 18px;font-size:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:12px;border-radius:8px}.note{background:#fff5d8;padding:10px;border-radius:8px}</style></head>
+<body><h1>THA v263 — Main Engine Direct Test</h1>
+<p class="note"><b>Isolation:</b> This page runs a byte-for-byte functional copy of the current main v263 engine source, with only its database name and global export renamed. It uses <code>tha_v263_main_engine_direct_lab</code> only. It does not open the app database, modify app data, or access LocalStorage.</p>
+<button id="run">Run direct engine verification</button><pre id="out">Ready.</pre>
+<script src="./storage-idb-v263-direct-lab.js?build=1"></script>
+<script>
+(async function(){
+const e=window.HandymanStorageV263DirectLab,out=document.getElementById("out"),button=document.getElementById("run");
+const result={database:e&&e.databaseName,build:e&&e.build,checks:{},errors:[]};
+function log(){out.textContent=JSON.stringify(result,null,2);}
+function assert(k,v){result.checks[k]=!!v;log();if(!v)throw new Error("FAILED: "+k);}
+async function rejected(p){try{await p;return false;}catch(x){return /abort|transaction/i.test(String(x&&x.message||x));}}
+button.onclick=async()=>{
+button.disabled=true;result.checks={};result.errors=[];result.ok=null;log();
+try{
+const ready=await e.ready();
+assert("Correct isolated database and build",ready.database==="tha_v263_main_engine_direct_lab"&&ready.build==="THA-263-DIRECT-ENGINE-LAB-1");
+const self=await e.selfTest();
+assert("Engine self-test passes",self.ok===true&&Object.values(self.checks).every(Boolean));
+await e.beginResetAndClear(); await e.releaseResetLock();
+await e.transact([{domain:"directtest",key:"seed",value:{n:1}},{domain:"directtest",key:"counter",value:0}]);
+const snap=await e.snapshot(["directtest"]);
+const reset=await e.beginResetAndClear();
+assert("Reset atomically locks and clears",reset.ok&&reset.remainingRecords===0&&(await e.health()).totalRecords===0);
+const tests=[
+["put blocked during reset",()=>e.put("directtest","put",{n:2})],
+["remove blocked during reset",()=>e.remove("directtest","seed")],
+["transact blocked during reset",()=>e.transact([{domain:"directtest",key:"tx",value:{n:3}}])],
+["mutateMany blocked during reset",()=>e.mutateMany([{domain:"directtest",key:"seed",initialValue:{n:0}}],()=>[{n:4}])],
+["reserveCounter blocked during reset",()=>e.reserveCounter("directtest","counter",0)]
+];
+for(const [name,fn] of tests)assert(name,await rejected(fn()));
+const restored=await e.restore(snap);
+assert("Validated snapshot restore releases reset lock",restored.ok&&restored.restored===2&&(await e.health()).totalRecords===2);
+const second=await e.beginResetAndClear();
+assert("Second reset re-locks and empties database",second.ok&&(await e.health()).totalRecords===0);
+const other=await new Promise((resolve,reject)=>{const q=indexedDB.open(e.databaseName);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});
+const tx=other.transaction(["metadata"],"readonly"),rq=tx.objectStore("metadata").get("resetLock");
+const lock=await new Promise((resolve,reject)=>{rq.onsuccess=()=>resolve(rq.result);rq.onerror=()=>reject(rq.error);});
+other.close();
+assert("Reset lock persists across independent connection",lock&&lock.active===true);
+await e.releaseResetLock(); await e.put("directtest","after-unlock",{ok:true});
+assert("Explicit unlock permits writes",((await e.get("directtest","after-unlock"))||{}).ok===true);
+await e.beginResetAndClear();
+assert("Final isolated cleanup leaves zero records",(await e.health()).totalRecords===0);
+result.ok=Object.values(result.checks).every(Boolean);
+}catch(x){result.errors.push(String(x&&x.stack||x));result.ok=false;}
+finally{log();button.disabled=false;}
+};
+})();
+</script></body></html>

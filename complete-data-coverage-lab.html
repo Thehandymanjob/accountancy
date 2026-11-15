@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THA v250 Complete Data Coverage Audit</title>
+<style>
+body{font:16px -apple-system,BlinkMacSystemFont,sans-serif;max-width:900px;margin:22px auto;padding:0 14px;color:#172b45}main{border:1px solid #dce4ee;border-radius:14px;padding:18px}button{padding:12px 15px;margin:6px 0;border:0;border-radius:8px;background:#174d83;color:white;font-weight:700}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101d2c;color:#e8f1fb;padding:14px;border-radius:8px;font-size:12px}.warning{padding:12px;background:#fff5df;border:1px solid #e8cf91;border-radius:8px;line-height:1.45}
+</style></head><body><main>
+<h1>Complete Data Coverage Audit — v250</h1>
+<p class="warning"><b>Read-only audit.</b> Reads same-origin LocalStorage and already-existing IndexedDB databases only. It does not create/open a missing database, write, delete, import, export, or change app storage mode. Stored values and personal content are never displayed; only key names, byte counts, hashes, data shapes and record IDs are reported.</p>
+<button id="run">Run complete read-only audit</button>
+<button id="copy">Copy audit result</button>
+<pre id="out">Ready. No audit has run.</pre>
+</main>
+<script>
+(async()=>{
+ const out=document.getElementById('out');
+ const show=x=>out.textContent=JSON.stringify(x,null,2);
+ const bytes=s=>new Blob([String(s)]).size;
+ const digest=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return("00000000"+(h>>>0).toString(16)).slice(-8)};
+ const known=[
+ "tha_test226_accounting_v1","tha_test226_projects_v1","tha_test226_contracts_v1",
+ "tha_test226_monitor_log_v1","tha_test226_invoice_sequence_v1","tha_test226_invoice_sequence_cleanup_v1",
+ "tha_test226_empty_invoice_sequence_reset_v229","tha_test226_app_language_v1","tha_test226_app_language_pref_version_v1",
+ "tha_test226_report_archive_v1","tha_test226_report_notifications_v1","tha_test226_report_settings_v1",
+ "tha_test226_report_workflow_v1","tha_test226_report_email_settings_v1","tha_test226_help_contact_drafts_v1",
+ "tha_test226_factory_reset_recovery_v1","tha_test226_isolation_test_record_cleanup_v1"
+ ];
+ const classify=k=>{
+  if(known.includes(k))return "known-active-key";
+  if(/^tha_restore_test_v1_/.test(k)||/^tha_v\d+_/.test(k)||/^handyman_/.test(k))return "legacy-or-recovery-review";
+  if(/accounting|invoice_sequence|sequence_cleanup|empty_invoice/i.test(k))return "accounting";
+  if(/project|workspace/i.test(k))return "projects";
+  if(/contract/i.test(k))return "contracts";
+  if(/report/i.test(k))return "reports";
+  if(/language/i.test(k))return "language";
+  if(/monitor|diagnostic|audit/i.test(k))return "monitor-diagnostics";
+  if(/help_contact|support/i.test(k))return "support";
+  if(/recovery|restore|factory_reset|baseline/i.test(k))return "recovery-restore";
+  return "unclassified";
+ };
+ const shape=raw=>{try{const v=JSON.parse(raw);return Array.isArray(v)?{type:"array",count:v.length}:v&&typeof v==="object"?{type:"object",fields:Object.keys(v).sort()}:{type:v===null?"null":typeof v}}catch(_){return {type:"plain-string-or-invalid-json"}}};
+ async function readExistingDatabase(name){
+  const db=await new Promise((resolve,reject)=>{
+   const req=indexedDB.open(name);let upgrade=false;
+   req.onupgradeneeded=()=>{upgrade=true;try{req.transaction.abort()}catch(_){}};
+   req.onsuccess=()=>resolve(req.result);
+   req.onerror=()=>{if(upgrade)resolve(null);else reject(req.error||Error("IndexedDB open failed: "+name))};
+   req.onblocked=()=>reject(Error("IndexedDB open blocked: "+name));
+  });
+  if(!db)return {exists:false,created:false,abortedMissingDatabaseProbe:true};
+  try{
+   const stores={};
+   for(const storeName of Array.from(db.objectStoreNames)){
+    const tx=db.transaction([storeName],"readonly");
+    const rows=await new Promise((resolve,reject)=>{
+     const req=tx.objectStore(storeName).getAll();
+     req.onsuccess=()=>resolve(req.result||[]);
+     req.onerror=()=>reject(req.error||Error("Read failed: "+storeName));
+    });
+    stores[storeName]={count:rows.length,approxBytes:bytes(JSON.stringify(rows)),ids:rows.slice(0,100).map(row=>String(row && (row.id ?? row.key) || "")).filter(Boolean)};
+    if(storeName==="legacySnapshots")stores[storeName].snapshots=rows.map(row=>({
+     legacyKey:row.legacyKey||null,present:!!row.present,byteLength:row.byteLength||0,
+     matchesCurrent:row.present&&typeof row.raw==="string"&&localStorage.getItem(row.legacyKey)===row.raw
+    }));
+   }
+   return {exists:true,name:db.name,version:db.version,stores};
+  }finally{db.close()}
+ }
+ async function run(){
+  const local=[];
+  for(let i=0;i<localStorage.length;i++){
+   const key=localStorage.key(i);if(!key)continue;
+   const raw=localStorage.getItem(key);
+   local.push({key,domain:classify(key),bytes:bytes(raw),digest:digest(raw),shape:shape(raw)});
+  }
+  local.sort((a,b)=>a.key.localeCompare(b.key));
+  if(typeof indexedDB.databases!=="function")throw Error("Safari does not expose indexedDB.databases(); safe database discovery is unavailable. No IndexedDB database was opened.");
+  const dbNames=(await indexedDB.databases()).map(x=>x.name).filter(Boolean);
+  const existingNames=dbNames.filter(name=>/the_handyman_accountancy/.test(name));
+  const databases={};
+  for(const name of existingNames)databases[name]=await readExistingDatabase(name);
+  const byDomain={};for(const row of local)(byDomain[row.domain]??=[]).push(row.key);
+  const missingKnown=known.filter(key=>!local.some(row=>row.key===key));
+  const unknown=local.filter(row=>row.domain!=="known-active-key");
+  show({
+   ok:true,readOnly:true,willWrite:false,localStorageChanged:false,indexedDBChanged:false,appCutover:false,
+   origin:location.origin,
+   localStorage:{keyCount:local.length,totalBytes:local.reduce((n,x)=>n+x.bytes,0),keys:local,byDomain},
+   knownKeyAudit:{expectedCount:known.length,presentCount:known.length-missingKnown.length,missingKnown},
+   unknownOrLegacyKeys:unknown,
+   indexedDB:{databaseNames:dbNames,inspected:databases},
+   coverageStatus:"Inventory only. This report does not claim that every LocalStorage key is represented in the selected backup. Compare every key and its purpose against the backup and app code before migration.",
+   safety:"Read-only. No LocalStorage or IndexedDB writes, deletes, imports, exports or application cutover."
+  });
+ }
+ document.getElementById("run").onclick=()=>{out.textContent="Running read-only audit…";run().catch(e=>show({ok:false,readOnly:true,error:String(e&&e.message||e),localStorageChanged:false,indexedDBChanged:false,appCutover:false}))};
+ document.getElementById("copy").onclick=async()=>{try{await navigator.clipboard.writeText(out.textContent);alert("Audit result copied.")}catch(e){alert("Copy failed. Select and copy the result manually.")}};
+})();
+</script></body></html>

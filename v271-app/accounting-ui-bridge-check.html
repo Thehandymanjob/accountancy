@@ -1,0 +1,41 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v264 Accounting UI Bridge Check</title><style>body{font:15px -apple-system,BlinkMacSystemFont,Arial,sans-serif;margin:0;padding:20px;background:#f4f6f9;color:#172235}main{max-width:760px;margin:auto;background:white;padding:22px;border-radius:14px}button{padding:12px 18px;background:#f4ca4e;border:0;border-radius:8px;font-weight:700}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101b2c;color:#eaf0f8;padding:14px;border-radius:8px;min-height:120px}</style></head><body><main><h1>Accounting UI Bridge — v264</h1><p>This isolated check exercises the asynchronous IndexedDB boundary intended for the preserved accounting UI. It creates and removes synthetic records only.</p><button id="run">Run bridge checks</button><pre id="out">Waiting…</pre></main>
+<script src="../v264-fresh/storage-idb-v264.js?v=264g"></script><script src="../v264-fresh/v264-strict-domain-boundary.js?v=264e"></script><script src="../v264-fresh/app-storage-v264.js?v=264e"></script><script src="../v264-fresh/v264-accounting-controller-accounting-v2.js?v=264d"></script><script src="accounting-ui-idb-bridge.js?v=3"></script>
+<script>
+document.getElementById('run').addEventListener('click',async()=>{
+ const out=document.getElementById('out'),results={};let ids=[];
+ const id='ui-bridge-'+Date.now(),customerId=id+'-customer',entryId=id+'-entry';
+ let phase='setup';const storageCalls=[];const originals={};const methods=['getItem','setItem','removeItem','clear','key'];
+ try{
+  for(const name of methods){originals[name]=Storage.prototype[name];Storage.prototype[name]=function(){if(this===window.localStorage)storageCalls.push(name);return originals[name].apply(this,arguments)}}
+  phase='bridge lookup';const bridge=HandymanAccountingUIBridgeV264;
+  phase='bootstrap';const boot=await bridge.initialize();results.bootstrap=boot.ok&&boot.mode==='indexeddb-only'&&boot.legacyImport===false;
+  phase='initial load';const before=await bridge.load();
+  phase='replaceState';const replaceCheck=await bridge.replaceState(current=>current);
+  results.replaceStateVerified=replaceCheck.ok&&replaceCheck.verified;
+  phase='commitWithRollback';const rollbackCheck=await bridge.commitWithRollback(before,before);
+  results.commitWithRollbackVerified=rollbackCheck.ok&&rollbackCheck.verified;
+  phase='synthetic state build';const next=structuredClone(before);
+  next.customers.push({id:customerId,name:'Synthetic UI Bridge Customer',phone:'',address:'',workAddress:'',email:''});
+  next.entries.push({id:entryId,type:'expense',date:'2026-11-10',amount:12.34,method:'bank',category:'Materials - Test',reference:'Synthetic UI bridge',receiptImage:new Blob(['receipt-bridge-check'],{type:'text/plain'}),createdAt:new Date().toISOString()});
+  next.customExpenseCategories=[...new Set([...(next.customExpenseCategories||[]),'Materials - Test'])];
+  next.thirdPartyTransactions=[...(Array.isArray(next.thirdPartyTransactions)?next.thirdPartyTransactions:[]),{id:id+'-third-party',personName:'Synthetic UI Bridge Person',amount:3.21,direction:'received-on-behalf',projectSync:true}];
+  phase='full state commit';const committed=await bridge.commit(next);results.fullStateCommit=committed.ok&&committed.verified;
+  phase='read back';const read=await bridge.load();
+  results.customerReadBack=read.customers.some(x=>x.id===customerId);
+  const savedEntry=read.entries.find(x=>x.id===entryId);
+  results.entryReadBack=!!savedEntry&&savedEntry.amount===12.34;
+  results.receiptBlobReadBack=savedEntry?.receiptImage instanceof Blob&&await savedEntry.receiptImage.text()==='receipt-bridge-check';
+  results.extraAccountingFieldsPreserved=read.thirdPartyTransactions.some(x=>x.id===id+'-third-party'&&x.amount===3.21)&&read.customExpenseCategories.includes('Materials - Test');
+  phase='atomic mutation';const mutated=await bridge.mutate(state=>({...state,entries:state.entries.filter(x=>x.id!==entryId),customers:state.customers.filter(x=>x.id!==customerId)}));
+  results.atomicMutation=mutated.ok&&mutated.verified;
+  phase='cleanup read';const clean=await bridge.load();
+  results.syntheticCleanup=!clean.entries.some(x=>x.id===entryId)&&!clean.customers.some(x=>x.id===customerId);
+  phase='health';results.health=(await HandymanStorageV264.health()).ok;
+  results.noLegacyStorageAccess=storageCalls.length===0;
+  results.overall=Object.entries(results).filter(([k])=>k!=='health'&&k!=='overall').every(([,v])=>v===true)&&results.health===true;
+  out.textContent=JSON.stringify(results,null,2);
+ }catch(e){results.failedAt=phase;results.errorName=String(e?.name||'Error');results.errorMessage=String(e?.message||e);results.errorStack=String(e?.stack||'');results.overall=false}
+ finally{for(const name of methods)if(originals[name])Storage.prototype[name]=originals[name];}
+ out.textContent=JSON.stringify(results,null,2);
+});
+</script></body></html>

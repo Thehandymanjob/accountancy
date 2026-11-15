@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Real IndexedDB Recovery Lab</title>
+<style>body{font:16px system-ui;margin:18px;line-height:1.5}button{padding:13px 18px;font-size:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:12px;border-radius:8px}.note{background:#fff5d8;padding:10px;border-radius:8px}</style></head>
+<body><h1>THA v263 — Real IndexedDB Recovery Lab</h1>
+<p class="note"><b>Isolation:</b> This lab uses a separate database named <code>tha_v263_recovery_lab_idb</code>. It does not open or clear the application's v263 database, LocalStorage, or app records. Test records are removed at the end.</p>
+<button id="run">Run real IndexedDB tests</button><pre id="out">Ready. Press the button to begin.</pre>
+<script src="./storage-idb-v263-recovery-lab.js?build=1"></script>
+<script src="./app-storage-v263-recovery-lab.js?build=1"></script>
+<script src="./v263-recovery-lab.js?build=1"></script>
+<script>
+(async function(){
+ const out=document.getElementById("out"),button=document.getElementById("run"),checks={};
+ const log=[];const say=s=>{log.push(s);out.textContent=log.join("\n");};
+ const assert=(name,ok)=>{checks[name]=!!ok;say((ok?"PASS: ":"FAIL: ")+name);if(!ok)throw new Error("Assertion failed: "+name);};
+ const DB="tha_v263_recovery_lab_idb";
+ const domains=["accounting","projects","contracts","reports","lab_unknown_domain"];
+ async function run(){
+  const engine=window.HandymanStorageV263Lab,recovery=window.HandymanRecoveryV263.create();
+  let backupFile=null;
+  try{
+   const ready=await engine.ready();
+   assert("Real IndexedDB opens isolated lab database",ready.ok&&ready.database===DB);
+   const initialHealth=await engine.health();
+   assert("Lab database starts with zero application records",initialHealth.totalRecords===0);
+   const self=await engine.selfTest();
+   assert("IndexedDB engine self-test passes",self.ok&&Object.values(self.checks).every(Boolean));
+   await engine.transact([
+    {domain:"accounting",key:"state",value:{customers:[{id:"c1",name:"Real IDB"}],when:new Date("2026-11-08T10:00:00Z")}},
+    {domain:"projects",key:"state",value:{projects:[{id:"p1",photos:[new Blob(["real-photo"],{type:"image/png"})]}],logo:new Blob(["real-logo"],{type:"image/png"})}},
+    {domain:"contracts",key:"state",value:{contracts:[{id:"k1",attachment:new File(["real-contract"],"real-contract.pdf",{type:"application/pdf",lastModified:98765})}]}},
+    {domain:"reports",key:"archive",value:[{id:"r1",bytes:new Uint16Array([11,22,33]),buffer:new Uint8Array([4,5,6]).buffer}]},
+    {domain:"lab_unknown_domain",key:"opaque",value:{preserved:true,blob:new Blob(["unknown-domain"],{type:"text/plain"})}}
+   ]);
+   const seeded=await engine.health();
+   assert("Seeded real IndexedDB records persist",seeded.totalRecords===5);
+   const exported=await recovery.createBackup();
+   backupFile=new File([exported.blob],exported.filename,{type:exported.blob.type});
+   const inspected=await recovery.inspectFile(backupFile);
+   assert("Portable backup includes every known and unknown domain",inspected.ok&&inspected.records===5&&inspected.domains>=10);
+   const corrupt=JSON.parse(await backupFile.text());corrupt.payload.records[0].key="tampered";
+   let blocked=false;try{await recovery.inspectFile(new File([JSON.stringify(corrupt)],"bad.json"));}catch(e){blocked=/SHA-256/.test(e.message);}
+   assert("Modified backup is rejected before restore",blocked);
+   await engine.remove("accounting","state");
+   await engine.remove("projects","state");
+   await engine.remove("contracts","state");
+   await engine.remove("reports","archive");
+   await engine.remove("lab_unknown_domain","opaque");
+   const restored=await recovery.restoreFromFile(backupFile);
+   assert("Restore writes to real IndexedDB and verifies exact content",restored.verified&&(await engine.health()).totalRecords===5);
+   const beforeReset=await recovery.createBackup();
+   const resetFile=new File([beforeReset.blob],"confirmed-reset.json",{type:beforeReset.blob.type});
+   const reset=await recovery.resetFromBackupFile(resetFile);
+   assert("Factory Reset clears every record in isolated IndexedDB",reset.remainingRecords===0&&(await engine.health()).totalRecords===0);
+   const afterResetRestore=await recovery.restoreFromFile(resetFile);
+   assert("Post-reset restore recreates all real IndexedDB records",afterResetRestore.verified&&(await engine.health()).totalRecords===5);
+   const accounting=await engine.get("accounting","state");
+   const projects=await engine.get("projects","state");
+   const contracts=await engine.get("contracts","state");
+   const reports=await engine.get("reports","archive");
+   const unknown=await engine.get("lab_unknown_domain","opaque");
+   assert("Date survives actual IndexedDB backup and restore",accounting.when instanceof Date&&accounting.when.toISOString()==="2026-11-08T10:00:00.000Z");
+   assert("Image and logo Blobs survive actual IndexedDB backup and restore",projects.logo instanceof Blob&&(await projects.logo.text())==="real-logo"&&projects.projects[0].photos[0] instanceof Blob&&(await projects.projects[0].photos[0].text())==="real-photo");
+   assert("File name and binary content survive actual IndexedDB backup and restore",contracts.contracts[0].attachment instanceof File&&contracts.contracts[0].attachment.name==="real-contract.pdf"&&(await contracts.contracts[0].attachment.text())==="real-contract");
+   assert("ArrayBuffer and typed array survive actual IndexedDB backup and restore",reports[0].buffer instanceof ArrayBuffer&&reports[0].bytes instanceof Uint16Array&&reports[0].bytes[2]===33);
+   assert("Previously unknown domain is included and restored",unknown.preserved===true&&(await unknown.blob.text())==="unknown-domain");
+   const reopen=await engine.get("contracts","state");
+   assert("Data remains readable after database close/reopen",reopen.contracts[0].attachment.name==="real-contract.pdf");
+   const result={ok:Object.values(checks).every(Boolean),database:DB,checks,errors:[]};
+   say("\nRESULT\n"+JSON.stringify(result,null,2));
+  }catch(e){
+   say("\nERROR: "+(e&&e.message||String(e)));
+   say("\nPARTIAL RESULT\n"+JSON.stringify({ok:false,database:DB,checks},null,2));
+  }finally{
+   try{await engine.restore({format:"tha-v263-indexeddb-snapshot-v1",database:DB,createdAt:new Date().toISOString(),domains,records:[]});const end=await engine.health();say("\nCLEANUP: "+(end.totalRecords===0?"PASS — isolated lab records removed":"WARNING — "+end.totalRecords+" lab records remain"));}catch(e){say("\nCLEANUP ERROR: "+(e.message||e));}
+  }
+ }
+ button.onclick=async()=>{button.disabled=true;log.length=0;out.textContent="";try{await run();}finally{button.disabled=false;}};
+})();
+</script></body></html>

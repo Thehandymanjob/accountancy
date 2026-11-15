@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THA v263 Recovery Test</title>
+<style>body{font:16px system-ui;margin:20px;line-height:1.45}button{padding:12px 16px;margin:6px 6px 6px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f2f2;padding:12px;border-radius:8px}.pass{color:#087a35}.fail{color:#b00020}</style></head>
+<body><h1>THA v263 — Portable Backup / Restore / Factory Reset Test</h1>
+<p>Isolated in-memory test only. This page does not open or modify the app's IndexedDB database.</p>
+<button id="run">Run all recovery tests</button><pre id="out">Ready.</pre>
+<script src="./v263-recovery.js?build=reset-fix-2"></script>
+<script>
+(async function(){
+ const out=document.getElementById("out"),run=document.getElementById("run");
+ const log=[],checks={};
+ const say=x=>{log.push(x);out.textContent=log.join("\n");};
+ const assert=(name,condition)=>{checks[name]=!!condition;say((condition?"PASS: ":"FAIL: ")+name);if(!condition)throw new Error(name);};
+ function makeEngine(){
+  let records=[
+   {id:"accounting:state",domain:"accounting",key:"state",value:{customers:[{id:"c1",name:"Test"}],entries:[{id:"e1",amount:42}],when:new Date("2026-11-08T10:00:00Z")}},
+   {id:"projects:state",domain:"projects",key:"state",value:{projects:[{id:"p1",photos:[new Blob(["photo-binary"],{type:"image/png"})]}],logo:new Blob(["logo-binary"],{type:"image/png"})}},
+   {id:"contracts:state",domain:"contracts",key:"state",value:{contracts:[{id:"k1",attachment:new File(["contract-file"],"contract.pdf",{type:"application/pdf",lastModified:123456})}]}},
+   {id:"reports:archive",domain:"reports",key:"archive",value:[{id:"r1",bytes:new Uint16Array([10,20,30]),buffer:new Uint8Array([1,2,3]).buffer}]}
+  ];
+  const copy=x=>structuredClone(x);
+  return {
+   async health(){const counts={};for(const r of records)counts[r.domain]=(counts[r.domain]||0)+1;return {ok:true,totalRecords:records.length,counts};},
+   async snapshot(domains){const rows=records.filter(r=>domains.includes(r.domain)).map(r=>({...copy(r),id:r.domain+":"+encodeURIComponent(r.key)}));return {format:"tha-v263-indexeddb-snapshot-v1",database:"the_handyman_accountancy_v263_idb",createdAt:new Date().toISOString(),domains:[...domains].sort(),records:rows.sort((a,b)=>String(a.id).localeCompare(String(b.id)))};},
+   async restore(pkg){records=records.filter(r=>!pkg.domains.includes(r.domain));for(const r of pkg.records)records.push({...copy(r),id:r.domain+":"+encodeURIComponent(r.key)});return {ok:true,restored:pkg.records.length,domains:pkg.domains};},
+   async getRecords(){return copy(records);}
+  };
+ }
+ const adapter={domains:["accounting","projects","contracts","sequences","preferences","diagnostics","reports","notifications","recovery"],async initialize(){return {ok:true};}};
+ run.onclick=async()=>{
+  run.disabled=true;log.length=0;out.textContent="";
+  try{
+   const engine=makeEngine(),recovery=HandymanRecoveryV263.createWithDependencies(engine,adapter);
+   const exported=await recovery.createBackup();
+   assert("Portable backup created",exported.ok&&exported.blob.size>0);
+   const file=new File([exported.blob],exported.filename,{type:exported.blob.type});
+   const inspected=await recovery.inspectFile(file);
+   assert("SHA-256 integrity verified",inspected.ok&&inspected.records===4);
+   const initial=await engine.getRecords();
+   const fileText=await file.text(),pkg=JSON.parse(fileText);
+   const encoded=JSON.stringify(pkg);
+   assert("Blob / File / Date / ArrayBuffer / typed-array tags included",encoded.includes('"Blob"')&&encoded.includes('"File"')&&encoded.includes('"Date"')&&encoded.includes('"ArrayBuffer"')&&encoded.includes('"TypedArray"'));
+   const tampered=JSON.parse(fileText);tampered.payload.records[0].key="tampered";
+   let tamperBlocked=false;try{await recovery.inspectFile(new File([JSON.stringify(tampered)],"tampered.json"));}catch(e){tamperBlocked=/SHA-256/.test(e.message);}
+   assert("Tampered backup is rejected",tamperBlocked);
+   await engine.restore({format:"tha-v263-indexeddb-snapshot-v1",database:"the_handyman_accountancy_v263_idb",domains:["accounting"],records:[]});
+   const restored=await recovery.restoreFromFile(file);
+   assert("Restore repopulates all backed-up records",restored.verified&&(await engine.health()).totalRecords===4);
+   const beforeReset=await recovery.createBackup();
+   const resetFile=new File([beforeReset.blob],"reset-confirmation.json");
+   const reset=await recovery.resetFromBackupFile(resetFile);
+   assert("Factory Reset clears every application record",reset.remainingRecords===0&&(await engine.health()).totalRecords===0);
+   const finalRestore=await recovery.restoreFromFile(resetFile);
+   const after=await engine.getRecords();
+   assert("Post-reset recovery restores every record",finalRestore.verified&&after.length===initial.length);
+   const restoredFile=after.find(x=>x.domain==="contracts").value.contracts[0].attachment;
+   assert("File name and binary content survive round-trip",restoredFile instanceof File&&restoredFile.name==="contract.pdf"&&(await restoredFile.text())==="contract-file");
+   const photo=after.find(x=>x.domain==="projects").value.projects[0].photos[0];
+   assert("Image Blob survives round-trip",photo instanceof Blob&&(await photo.text())==="photo-binary");
+   assert("Date and typed-array values survive round-trip",after.find(x=>x.domain==="accounting").value.when instanceof Date&&after.find(x=>x.domain==="reports").value[0].bytes instanceof Uint16Array);
+   const result={ok:Object.values(checks).every(Boolean),checks,errors:[]};
+   say("\nRESULT\n"+JSON.stringify(result,null,2));
+  }catch(e){say("\nFATAL MESSAGE: "+(e&&e.message||String(e)));say("\nFATAL STACK: "+(e&&e.stack||"unavailable"));say("\nPARTIAL RESULT\n"+JSON.stringify({ok:false,checks},null,2));}
+  finally{run.disabled=false;}
+ };
+})();
+</script></body></html>

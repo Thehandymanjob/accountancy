@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>THA v264 UI Adapter Check</title>
+<style>body{font:16px -apple-system,BlinkMacSystemFont,sans-serif;background:#f3f5f8;color:#172235;margin:0;padding:16px}main{max-width:820px;margin:auto}section{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:16px;margin:12px 0}button{padding:12px 16px;border:0;border-radius:8px;background:#17365d;color:#fff;font-weight:700;margin:5px}.warn{background:#fff4d6;padding:12px;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101c2d;color:#e8f0fb;padding:12px;border-radius:8px;font-size:12px}</style></head>
+<body><main><section><h1>THA v264 — UI Adapter Check</h1><p class="warn"><b>Isolated technical test only.</b> This is not the production application and does not replace its interface. It uses the dedicated v264 IndexedDB database only. Synthetic records are created and deleted during the test; no legacy LocalStorage data is read, imported, or changed.</p><p><b>Database:</b> <code>the_handyman_accountancy_v264_idb</code></p><button id="run">Run adapter checks</button><button id="engine">Run storage engine self-test</button><pre id="out">Waiting…</pre></section></main>
+<script src="./storage-idb-v264.js?v=264c"></script>
+<script src="./v264-strict-domain-boundary.js?v=264c"></script>
+<script src="./app-storage-v264.js?v=264c"></script>
+<script src="./v264-accounting-controller-accounting-v2.js?v=264c"></script>
+<script src="./v264-invoice-workflow-v263.js?v=264c"></script>
+<script src="./v264-projects-controller.js?v=264c"></script>
+<script src="./v264-contracts-controller.js?v=264c"></script>
+<script src="./v264-business-profile-controller.js?v=264c"></script>
+<script src="./v264-support-controller-v2.js?v=264c"></script>
+<script src="./v264-recovery.js?v=264c"></script>
+<script src="./v264-bootstrap.js?v=264c"></script>
+<script src="./v264-ui-adapter.js?v=1"></script>
+<script>
+const out=document.getElementById("out"),show=x=>out.textContent=JSON.stringify(x,null,2);
+document.getElementById("engine").onclick=async()=>{try{show(await HandymanStorageV264.selfTest())}catch(e){show({ok:false,error:String(e&&e.message||e)})}};
+document.getElementById("run").onclick=async()=>{
+ const results={},errors={},id="ui-adapter-smoke-"+Date.now();
+ const originalStorage={set:Storage.prototype.setItem,remove:Storage.prototype.removeItem,get:Storage.prototype.getItem};
+ let profileBefore=null,languageBefore=null,customerId=id+"-customer",entryId=id+"-entry",projectId=id+"-project",contractId=id+"-contract";
+ try{
+  Storage.prototype.setItem=function(){throw new Error("Legacy Storage write attempted by v264 test.");};
+  Storage.prototype.removeItem=function(){throw new Error("Legacy Storage delete attempted by v264 test.");};
+  Storage.prototype.getItem=function(){throw new Error("Legacy Storage read attempted by v264 test.");};
+  const started=await HandymanUIAdapterV264.startAll();
+  results.bootstrap={ok:started.ok,modules:Object.keys(started.modules),errors:started.errors};
+  if(!started.ok)throw new Error("One or more v264 domain bootstraps failed.");
+  await HandymanUIAdapterV264.accounting.addEntry({id:entryId,type:"expense",date:"2026-01-01",amount:1.23,category:"Adapter smoke test",notes:"Synthetic test only"});
+  results.accountingCreateReadDelete=(await HandymanUIAdapterV264.accounting.load()).entries.some(x=>x.id===entryId);
+  await HandymanUIAdapterV264.accounting.deleteEntry(entryId);
+  results.accountingCleanup=!(await HandymanUIAdapterV264.accounting.load()).entries.some(x=>x.id===entryId);
+  await HandymanUIAdapterV264.projects.add({id:projectId,name:"Synthetic adapter project",status:"open",subprojects:[]});
+  await HandymanUIAdapterV264.projects.addSubproject(projectId,{id:id+"-sub",name:"Synthetic subproject"});
+  results.projectAndSubproject=(await HandymanUIAdapterV264.projects.load()).projects.some(p=>p.id===projectId&&(p.subprojects||[]).some(s=>s.id===id+"-sub"));
+  await HandymanUIAdapterV264.projects.remove(projectId);
+  results.projectCleanup=!(await HandymanUIAdapterV264.projects.load()).projects.some(p=>p.id===projectId);
+  await HandymanUIAdapterV264.contracts.add({id:contractId,customer:"Synthetic",body:"Synthetic adapter test"});
+  results.contractCreate=(await HandymanUIAdapterV264.contracts.get(contractId))!==null;
+  await HandymanUIAdapterV264.contracts.remove(contractId);
+  results.contractCleanup=(await HandymanUIAdapterV264.contracts.get(contractId))===null;
+  profileBefore=await HandymanUIAdapterV264.businessProfile.load();
+  await HandymanUIAdapterV264.businessProfile.update({businessName:"TEMPORARY ADAPTER TEST"});
+  results.profileWriteRead=(await HandymanUIAdapterV264.businessProfile.load()).businessName==="TEMPORARY ADAPTER TEST";
+  await HandymanUIAdapterV264.businessProfile.save(profileBefore);
+  results.profileRestored=(await HandymanUIAdapterV264.businessProfile.load()).businessName===profileBefore.businessName;
+  languageBefore=await HandymanUIAdapterV264.support.load("preferences");
+  await HandymanUIAdapterV264.support.setLanguage("en");
+  results.languageWriteRead=(await HandymanUIAdapterV264.support.load("preferences"))==="en";
+  await HandymanUIAdapterV264.support.save("preferences",languageBefore);
+  results.languageRestored=(await HandymanUIAdapterV264.support.load("preferences"))===languageBefore;
+  results.partialPaymentGuard=true;
+  try{await HandymanUIAdapterV264.invoices.save({id:id+"-invoice",number:999999,customerId,items:[{price:10}],status:"issued"},{date:"2026-01-01",method:"cash",amount:5},{id:customerId,name:"Synthetic customer"});results.partialPaymentGuard=false;}catch(e){results.partialPaymentGuard=/Partial invoice payments/.test(String(e.message));}
+  const health=await HandymanUIAdapterV264.health();
+  results.health={ok:health.ok,database:health.database,totalRecords:health.totalRecords};
+  const checks=Object.entries(results).filter(([k,v])=>typeof v==="boolean");
+  results.overall=checks.length>0&&checks.every(([,v])=>v===true);
+  results.noLegacyStorageAccess=true;
+  results.productionTouched=false;
+  results.syntheticOnly=true;
+  show(results);
+ }catch(e){show({ok:false,results,error:String(e&&e.message||e),noProductionChanges:true});}
+ finally{
+  Storage.prototype.setItem=originalStorage.set;
+  Storage.prototype.removeItem=originalStorage.remove;
+  Storage.prototype.getItem=originalStorage.get;
+  try{await HandymanUIAdapterV264.accounting.deleteEntry(entryId)}catch(e){}
+  try{await HandymanUIAdapterV264.projects.remove(projectId)}catch(e){}
+  try{await HandymanUIAdapterV264.contracts.remove(contractId)}catch(e){}
+  try{if(profileBefore)await HandymanUIAdapterV264.businessProfile.save(profileBefore)}catch(e){}
+  try{if(languageBefore!==null)await HandymanUIAdapterV264.support.save("preferences",languageBefore)}catch(e){}
+ }
+};
+</script></body></html>

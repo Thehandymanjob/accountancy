@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>THA v263 Atomic Transfer Concurrency Lab</title>
+<style>
+body{margin:0;padding:16px;background:#f3f5f8;color:#172235;font:16px -apple-system,BlinkMacSystemFont,sans-serif}main{max-width:780px;margin:auto}.card{background:#fff;border:1px solid #dce2ea;border-radius:12px;padding:16px;margin:12px 0}button{border:0;border-radius:8px;padding:12px 16px;background:#142b4a;color:white;font-weight:700}button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101828;color:#e7edf7;padding:12px;border-radius:8px;font-size:12px}.muted{color:#657286;font-size:13px}
+</style></head><body><main>
+<section class="card"><h2>v263 Atomic Transfer Concurrency Lab — v2</h2>
+<p class="muted">Synthetic records only. Fresh dedicated database: tha_v263_transfer_atomic_v2_20261109_idb. No LocalStorage, legacy import, old database access, or production writes.</p>
+<button id="run">Run atomic concurrency tests</button> <button id="copy" disabled>Copy report</button><p id="status">Ready.</p></section>
+<section class="card"><h3>Machine-readable report</h3><pre id="report">Not run.</pre></section>
+</main>
+<script>
+/* Dedicated copy of the isolated engine with a unique database name. */
+</script>
+<script src="./storage-idb-v263-transfer-atomic-v3-engine.js?build=atomicv3"></script>
+<script src="./app-storage-v263-v4.js?build=atomicv2"></script>
+<script src="./v263-projects-controller.js?build=atomicv2"></script>
+<script src="./v263-project-accounting-transfer-atomic-v2.js?build=atomicv2"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const DB="tha_v263_transfer_atomic_v3_20261109_idb";
+const report={build:"THA-263-TRANSFER-ATOMIC-CONCURRENCY-LAB-3",database:DB,mode:"indexeddb-only",legacyImport:false,productionTouched:false,localStorageAccess:false,oldDatabaseOpened:false,checks:{},observations:{},errors:{},testedAt:null};
+const check=(name,value,detail)=>{report.checks[name]=!!value;if(detail!==undefined)report.observations[name]=detail;};
+async function run(){
+ $("run").disabled=true;$("status").textContent="Running atomic concurrency tests…";
+ try{
+  const init=await HandymanAppStorageV263.initialize();
+  check("dedicatedDatabase",init.ok&&init.database===DB,init);
+  await HandymanProjectsV263.initialize();
+  const pid="atomic-v2-project-"+Date.now(),sid="atomic-v2-extra-"+Date.now();
+  await HandymanProjectsV263.addProject({id:pid,name:"Synthetic Atomic Project",status:"open",subprojects:[],income:[],expenses:[]});
+  await HandymanProjectsV263.addSubproject(pid,{id:sid,name:"Extra Job",amount:300,income:[],expenses:[]});
+  const records=[
+   {id:"same-income",amount:100,date:"2026-11-09",description:"Same-record race"},
+   {id:"income-a",amount:110,date:"2026-11-09",description:"Distinct transfer A"},
+   {id:"income-b",amount:120,date:"2026-11-09",description:"Distinct transfer B"},
+   {id:"expense-race",amount:45,date:"2026-11-09",description:"Concurrent expense"}
+  ];
+  for(const r of records)await HandymanProjectsV263.saveLedgerRecord(pid,sid,r.id==="expense-race"?"expenses":"income",r);
+  const same=await Promise.allSettled([1,2].map(()=>HandymanProjectAccountingTransferV263.transfer({projectId:pid,subprojectId:sid,collection:"income",recordId:"same-income",approved:true})));
+  const [projectsSame,accountingSame]=await Promise.all([HandymanProjectsV263.load(),HandymanAppStorageV263.read("accounting")]);
+  const sameProject=projectsSame.projects.find(p=>p.id===pid).subprojects.find(s=>s.id===sid);
+  const sameEntries=accountingSame.entries.filter(e=>e.projectId===pid&&e.projectSourceRecordId==="same-income");
+  const sameSuccess=same.filter(x=>x.status==="fulfilled").length,sameRejected=same.filter(x=>x.status==="rejected").length;
+  check("sameRecordConcurrentTransferGuard",sameSuccess===1&&sameRejected===1&&sameEntries.length===1&&sameProject.income.find(x=>x.id==="same-income").transferredToAccounting===true,{fulfilled:sameSuccess,rejected:sameRejected,accountingEntries:sameEntries.length,rejectionMessages:same.filter(x=>x.status==="rejected").map(x=>String(x.reason&&x.reason.message||x.reason))});
+  const distinct=await Promise.allSettled(["income-a","income-b"].map(recordId=>HandymanProjectAccountingTransferV263.transfer({projectId:pid,subprojectId:sid,collection:"income",recordId,approved:true})));
+  const afterDistinct=await HandymanAppStorageV263.read("accounting");
+  const distinctEntries=afterDistinct.entries.filter(e=>e.projectId===pid&&["income-a","income-b"].includes(e.projectSourceRecordId));
+  check("distinctConcurrentTransfersNoLostEntry",distinct.filter(x=>x.status==="fulfilled").length===2&&distinctEntries.length===2,{fulfilled:distinct.filter(x=>x.status==="fulfilled").length,accountingEntries:distinctEntries.map(x=>x.projectSourceRecordId),expected:["income-a","income-b"],rejectionMessages:distinct.filter(x=>x.status==="rejected").map(x=>String(x.reason&&x.reason.message||x.reason))});
+  const unrelated={id:"unrelated-concurrent-accounting-entry",type:"expense",amount:7,date:"2026-11-09",reference:"Concurrent unrelated synthetic entry"};
+  const mixed=await Promise.allSettled([
+   HandymanProjectAccountingTransferV263.transfer({projectId:pid,subprojectId:sid,collection:"expenses",recordId:"expense-race",approved:true}),
+   HandymanAppStorageV263.mutate("accounting",state=>{state.entries.push(unrelated);return state;})
+  ]);
+  const finalAccounting=await HandymanAppStorageV263.read("accounting");
+  const expenseExists=finalAccounting.entries.some(e=>e.projectId===pid&&e.projectSourceRecordId==="expense-race");
+  const unrelatedExists=finalAccounting.entries.some(e=>e.id===unrelated.id);
+  check("unrelatedConcurrentAccountingWritePreserved",expenseExists&&unrelatedExists,{transferFulfilled:mixed[0].status==="fulfilled",unrelatedWriteFulfilled:mixed[1].status==="fulfilled",expenseTransferPresent:expenseExists,unrelatedEntryPresent:unrelatedExists});
+  const finalProjects=await HandymanProjectsV263.load();
+  const finalSub=finalProjects.projects.find(p=>p.id===pid).subprojects.find(s=>s.id===sid);
+  const allSourcesRetained=["same-income","income-a","income-b"].every(id=>finalSub.income.some(x=>x.id===id))&&finalSub.expenses.some(x=>x.id==="expense-race");
+  check("allProjectSourceRecordsRetained",allSourcesRetained,{incomeCount:finalSub.income.length,expenseCount:finalSub.expenses.length});
+  const sourceFlags=["same-income","income-a","income-b"].map(id=>finalSub.income.find(x=>x.id===id)).every(x=>x.transferredToAccounting===true);
+  check("sourceTransferFlagsConsistent",sourceFlags,{flags:finalSub.income.map(x=>({id:x.id,transferred:x.transferredToAccounting===true}))});
+  check("noLegacyOrProductionAccess",report.legacyImport===false&&report.productionTouched===false&&report.localStorageAccess===false&&report.oldDatabaseOpened===false);
+  report.syntheticIds={projectId:pid,subprojectId:sid};
+ }catch(e){report.errors.fatal={name:e.name||"Error",message:e.message||String(e)};}
+ report.checkCount=Object.keys(report.checks).length;
+ report.allChecksPassed=Object.values(report.checks).every(Boolean);
+ report.ok=report.checkCount===7&&report.allChecksPassed&&!report.errors.fatal;
+ report.testedAt=new Date().toISOString();
+ $("report").textContent=JSON.stringify(report,null,2);
+ $("status").textContent=report.ok?"All atomic concurrency safeguards passed.":"A concurrency safeguard failed. See report.";
+ $("copy").disabled=false;$("run").disabled=false;
+}
+$("run").addEventListener("click",run);
+$("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("report").textContent);$("status").textContent="Report copied.";}catch(e){$("status").textContent="Clipboard unavailable; select report text manually.";}});
+</script></body></html>
