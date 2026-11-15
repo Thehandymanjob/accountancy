@@ -2523,6 +2523,7 @@ window.addEventListener('unhandledrejection',function(e){logMonitorEvent('error'
 window.addEventListener('offline',()=>logMonitorEvent('storage','browser_offline','network','','warning',{online:false}));window.addEventListener('online',()=>logMonitorEvent('storage','browser_online','network','','success',{online:true}));
 
 function monitorRedactedEventDetails(item){const out={...item};if(out.details&&typeof out.details==='object'){const copy={...out.details};for(const k of Object.keys(copy))if(/name|address|phone|email|bank|description|notes|password|token|account/i.test(k))delete copy[k];out.details=copy}return out}
+const R11_CANONICAL_PAGE_URL = Object.freeze('https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R6&utm_source=chatgpt.com');
 function toggleMonitorVersionInfo(){
  const box=document.getElementById('monitorVersionInfo');if(!box)return;
  const open=box.hidden;box.hidden=!open;
@@ -2539,7 +2540,7 @@ function toggleMonitorVersionInfo(){
    ['Build ID',meta('app-build-id')],
    ['App version',meta('app-version')],
    ['IndexedDB database',engine?.databaseName||'not available'],
-   ['Loaded page',location.href],
+   ['Loaded page',R11_CANONICAL_PAGE_URL],
    ['Page title',document.title]
   ];
   box.innerHTML='<div class="monitor-table-wrap"><table class="monitor-table"><tbody>'+info.map(([k,v])=>'<tr><th>'+monitorEsc(k)+'</th><td style="overflow-wrap:anywhere">'+(k==='Loaded page'?'<a href="'+monitorEsc(v)+'" target="_blank" rel="noopener noreferrer">'+monitorEsc(v)+'</a>':monitorEsc(v))+'</td></tr>').join('')+'</tbody></table></div><div class="actions"><button type="button" onclick="copyMonitorVersionInfo()">Copy version details</button></div>';
@@ -2547,7 +2548,7 @@ function toggleMonitorVersionInfo(){
 }
 function copyMonitorVersionInfo(){
  const meta=n=>document.querySelector('meta[name="'+n+'"]')?.content||'unknown';
- const text=['Repository: Thehandymanjob/accountancy','Branch: main','Version: 273 – R11','Main file path: v273-isolated-test/r11-income-prefix-repair-20261114/index.html','Build ID: '+meta('app-build-id'),'App version: '+meta('app-version'),'IndexedDB database: '+(window.HandymanStorageV264?.databaseName||'not available'),'Loaded page: '+location.href].join('\n');
+ const text=['Repository: Thehandymanjob/accountancy','Branch: main','Version: 273 – R11','Main file path: v273-isolated-test/r11-income-prefix-repair-20261114/index.html','Build ID: '+meta('app-build-id'),'App version: '+meta('app-version'),'IndexedDB database: '+(window.HandymanStorageV264?.databaseName||'not available'),'Loaded page: '+R11_CANONICAL_PAGE_URL].join('\n');
  const done=()=>{const b=document.querySelector('#monitorVersionInfo button');if(b){b.textContent='Copied';setTimeout(()=>b.textContent='Copy version details',1600)}};
  if(navigator.clipboard?.writeText){navigator.clipboard.writeText(text).then(done).catch(()=>{const t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();done()})}
  else{const t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();done()}
