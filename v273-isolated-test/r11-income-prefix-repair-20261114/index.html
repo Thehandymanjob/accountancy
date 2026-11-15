@@ -2539,15 +2539,15 @@ function toggleMonitorVersionInfo(){
    ['Build ID',meta('app-build-id')],
    ['App version',meta('app-version')],
    ['IndexedDB database',engine?.databaseName||'not available'],
-   ['Loaded page',location.pathname],
+   ['Loaded page',location.href],
    ['Page title',document.title]
   ];
-  box.innerHTML='<div class="monitor-table-wrap"><table class="monitor-table"><tbody>'+info.map(([k,v])=>'<tr><th>'+monitorEsc(k)+'</th><td style="overflow-wrap:anywhere">'+monitorEsc(v)+'</td></tr>').join('')+'</tbody></table></div><div class="actions"><button type="button" onclick="copyMonitorVersionInfo()">Copy version details</button></div>';
+  box.innerHTML='<div class="monitor-table-wrap"><table class="monitor-table"><tbody>'+info.map(([k,v])=>'<tr><th>'+monitorEsc(k)+'</th><td style="overflow-wrap:anywhere">'+(k==='Loaded page'?'<a href="'+monitorEsc(v)+'" target="_blank" rel="noopener noreferrer">'+monitorEsc(v)+'</a>':monitorEsc(v))+'</td></tr>').join('')+'</tbody></table></div><div class="actions"><button type="button" onclick="copyMonitorVersionInfo()">Copy version details</button></div>';
  }
 }
 function copyMonitorVersionInfo(){
  const meta=n=>document.querySelector('meta[name="'+n+'"]')?.content||'unknown';
- const text=['Repository: Thehandymanjob/accountancy','Branch: main','Version: 273 – R11','Main file path: v273-isolated-test/r11-income-prefix-repair-20261114/index.html','Build ID: '+meta('app-build-id'),'App version: '+meta('app-version'),'IndexedDB database: '+(window.HandymanStorageV264?.databaseName||'not available'),'Loaded page: '+location.pathname].join('\n');
+ const text=['Repository: Thehandymanjob/accountancy','Branch: main','Version: 273 – R11','Main file path: v273-isolated-test/r11-income-prefix-repair-20261114/index.html','Build ID: '+meta('app-build-id'),'App version: '+meta('app-version'),'IndexedDB database: '+(window.HandymanStorageV264?.databaseName||'not available'),'Loaded page: '+location.href].join('\n');
  const done=()=>{const b=document.querySelector('#monitorVersionInfo button');if(b){b.textContent='Copied';setTimeout(()=>b.textContent='Copy version details',1600)}};
  if(navigator.clipboard?.writeText){navigator.clipboard.writeText(text).then(done).catch(()=>{const t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();done()})}
  else{const t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();done()}
