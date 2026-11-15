@@ -6,11 +6,11 @@
 (function (root) {
   "use strict";
 
-  const DB_NAME = "the_handyman_accountancy_v264_idb";
+  const DB_NAME = "the_handyman_accountancy_v273_clean_idb";
   const DB_VERSION = 1;
   const STORE = "records";
   const META = "metadata";
-  const BUILD = "THA-264-FRESH-IDB-RECOVERY-GUARD-2";
+  const BUILD = "THA-273-CLEAN-IDB-20261114-R1";
   const RECOVERY_DOMAINS = Object.freeze(["accounting","business_profile","contracts","diagnostics","factory_reset_recovery","notifications","preference_meta","preferences","projects","recovery","report_notifications","report_settings","report_workflow","reports","sequences","help_contact_drafts","media"].sort());
 
   const validDomain = value => typeof value === "string" && /^[a-z][a-z0-9_-]{0,63}$/.test(value);
