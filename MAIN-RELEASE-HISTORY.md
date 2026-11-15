@@ -49,3 +49,27 @@ This entry records the owner's explicit designation of the R11 application URL a
 - No IndexedDB records were read-modified-written, reset, migrated, or imported by this code commit.
 - Only the R11 HTML application file was changed for the repair.
 - Runtime verification in Safari against the main application remains pending; this entry does not claim browser-test completion.
+
+## R11 Safari Diagnostics Extension (2026-11-15)
+
+**Status:** Code update committed to the owner's authoritative R11 application path; browser verification pending  
+**Application version:** 273  
+**Build ID:** `THA-273-R11-SAFARI-DIAGNOSTICS-20261115-MAIN-R5`  
+**Canonical application URL:**  
+`https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=MAIN-R5-20261115`
+
+**Source file:** `v273-isolated-test/r11-income-prefix-repair-20261114/index.html`  
+**Commit:** `b5055a3f9617d33b35b43dcbc4a7e9001b873c79`  
+**Content blob SHA:** `54a35eee1c183a9e48247cf717cbc6295a5189f5`
+
+### Changes
+- Added the build ID to diagnostic event context and the monitor context snapshot.
+- Added capture of failed external script/resource loads, including URL and element type.
+- Added Content Security Policy violation diagnostics.
+- Added anonymous CORS mode to all eight dynamically created script loaders.
+- Preserved the existing R11 immutable historical income/expense numbering safeguards and invoice-linking behavior.
+
+### Data and verification boundary
+- Only the authoritative R11 HTML file was changed; the existing R11 IndexedDB identity and data paths were not modified.
+- No data reset, migration, import, or record rewrite was performed.
+- The code and GitHub commit were checked after writing. Runtime verification in iPhone Safari remains pending; this entry does not claim browser-test completion.
