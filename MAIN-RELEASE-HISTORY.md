@@ -22,3 +22,30 @@
 ### Release note
 
 This entry records the owner's explicit designation of the R11 application URL as the main application and its existing records as the authoritative records. It does not itself modify the application code or database.
+
+
+## R11 Immutable Income Record Numbering Repair (2026-11-15)
+
+**Status:** Code update committed to the owner's authoritative R11 application path; browser verification pending  
+**Application version:** 273  
+**Build ID:** `THA-273-R11-RECORD-NUMBERS-IMMUTABLE-20261115-MAIN-R4`  
+**Canonical application URL:**  
+`https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=MAIN-R4-20261115`
+
+**Source file:** `v273-isolated-test/r11-income-prefix-repair-20261114/index.html`  
+**Commit:** `6a0fc0790a09d35181d5a4e67f2b389a967ad74a`  
+**Content blob SHA:** `d51949783ad676bf0c417d34943689ff0dffb014`
+
+### Changes transferred from isolated R11 Preview R3
+
+- Startup historical-number repair is now a no-op; existing income record numbers are not backfilled, prefixed, or renumbered.
+- Invoice save preserves the number value of an already-linked income record, including blank or undefined values. A new number is allocated only when no linked income record exists.
+- Mark-as-paid matching includes invoice ID, invoice reference, and generated income ID. The fallback that assigned a new number to an existing duplicate income record has been removed.
+
+### Storage and data protection
+
+- Main IndexedDB identity remains `the_handyman_accountancy_v273_clean_idb`.
+- Main reset helper and storage engine were not changed.
+- No IndexedDB records were read-modified-written, reset, migrated, or imported by this code commit.
+- Only the R11 HTML application file was changed for the repair.
+- Runtime verification in Safari against the main application remains pending; this entry does not claim browser-test completion.
