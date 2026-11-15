@@ -1,8 +1,11 @@
-The Handyman Accountancy — isolated experimental environment
-Version: 226
-Build: THA-226-ISOLATED-TEST-20261102
-Source: Thehandymanjob/accountancy @ release-v226-cache-retention-test-20261101
+# The Handyman Accountancy — Main
 
-This repository is intended for testing only. It uses separate localStorage keys, an independent IndexedDB database name, and test-only CacheStorage names. Do not import production backups into this environment unless explicitly intended.
+Main release: **v273 R11 / existing v264 IndexedDB**
 
-GitHub Pages must be enabled separately for this repository (Settings > Pages, Deploy from branch: main, /root).
+Build: `THA-273-INCOME-PREFIX-REPAIR-20261115-R11-V264-IDB`
+
+The root `index.html` is the main application entry point. The application uses the existing IndexedDB database `the_handyman_accountancy_v264_idb`.
+
+No automatic LocalStorage import, migration, reset, or data deletion is performed. Projects and Accounting remain independent domains.
+
+Factory reset and legacy backup-conversion controls are not included in this release.
