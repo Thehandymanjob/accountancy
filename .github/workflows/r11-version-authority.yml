@@ -1,0 +1,78 @@
+name: R11 Version Authority Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  r11-version-authority:
+    name: R11 Version Authority Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate approved R11 identity and source
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.ref || 'main' }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const cp = require('child_process');
+          const authority = JSON.parse(fs.readFileSync('VERSION-AUTHORITY.json', 'utf8'));
+          const expected = {
+            repository: 'Thehandymanjob/accountancy',
+            branch: 'main',
+            path: 'v273-isolated-test/r11-income-prefix-repair-20261114/index.html',
+            version: '273',
+            buildId: 'THA-273-R11-MAIN-20261115-R6',
+            canonicalUrl: 'https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R6&utm_source=chatgpt.com',
+            approvedBaseCommitSha: '42cca6f2c3eb95727570d70e6e9ddd0427797964',
+            indexBlobSha: '9cf32f96f263602b9e8cdb9319da6c454b8293f0'
+          };
+          function fail(message) {
+            console.error('VERSION AUTHORITY BLOCKED: ' + message);
+            process.exit(1);
+          }
+          if (authority.repository !== expected.repository) fail('repository mismatch');
+          if (authority.protectedBranch !== expected.branch) fail('target branch mismatch');
+          const app = authority.app || {};
+          for (const key of ['path','version','buildId','canonicalUrl','approvedBaseCommitSha','indexBlobSha']) {
+            const wanted = key === 'path' ? expected.path :
+              key === 'version' ? expected.version :
+              key === 'buildId' ? expected.buildId :
+              key === 'canonicalUrl' ? expected.canonicalUrl :
+              key === 'approvedBaseCommitSha' ? expected.approvedBaseCommitSha : expected.indexBlobSha;
+            if (String(app[key] || '') !== wanted) fail('authority field mismatch: ' + key);
+          }
+          if (process.env.EVENT_NAME === 'pull_request' && process.env.PR_BASE !== expected.branch) fail('PR base is not main');
+          if (process.env.EVENT_NAME === 'push' && process.env.REF_NAME !== expected.branch) fail('push target is not main');
+          try {
+            cp.execFileSync('git', ['merge-base','--is-ancestor',expected.approvedBaseCommitSha,process.env.BASE_SHA], {stdio:'ignore'});
+          } catch (_) {
+            fail('base commit is not descended from the approved R11 baseline');
+          }
+          const html = fs.readFileSync(expected.path, 'utf8');
+          const version = html.match(/<meta name="app-version" content="([^"]+)"/);
+          const build = html.match(/<meta name="app-build-id" content="([^"]+)"/);
+          const canonical = html.match(/const R11_CANONICAL_PAGE_URL = Object\.freeze\('([^']+)'\)/);
+          if (!version || version[1] !== expected.version) fail('HTML app-version mismatch');
+          if (!build || build[1] !== expected.buildId) fail('HTML build ID mismatch');
+          if (!canonical || canonical[1] !== expected.canonicalUrl) fail('canonical R11 URL mismatch');
+          const body = Buffer.from(html, 'utf8');
+          const gitBlob = crypto.createHash('sha1').update(Buffer.from('blob ' + body.length + '\0')).update(body).digest('hex');
+          if (gitBlob !== expected.indexBlobSha) fail('R11 index.html blob SHA mismatch; authority review/update required');
+          console.log('PASS: repository, branch, approved baseline, version, Build ID, canonical URL and exact index blob all match.');
+          NODE
