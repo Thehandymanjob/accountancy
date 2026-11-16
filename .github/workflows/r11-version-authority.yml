@@ -40,7 +40,7 @@ jobs:
             buildId: 'THA-273-R11-MAIN-20261116-R7',
             canonicalUrl: 'https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R7',
             approvedBaseCommitSha: '8f2d8bcc89c710454c427ed17aef9fb047aa33cd',
-            indexBlobSha: '6b72a9fbe353d22b37a47519790f543f04361add',
+            indexBlobSha: 'f76326a0b3772ae43e0944fc62708017a407ffae',
             files: {
             "v273-isolated-test/v264-fresh/app-storage-v264.js": "821097eb15cc5bfd4d3be658699873b11de40f4d",
             "v273-isolated-test/v264-fresh/storage-idb-v264.js": "ecba6aff372f4a47e02100a0a7d00db0c455d4b7",
