@@ -6,13 +6,13 @@
   "app": {
     "path": "v273-isolated-test/r11-income-prefix-repair-20261114/index.html",
     "version": "273",
-    "buildId": "THA-273-R11-MAIN-20261115-R6",
-    "canonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R6&utm_source=chatgpt.com",
-    "indexBlobSha": "9cf32f96f263602b9e8cdb9319da6c454b8293f0",
-    "approvedBaseCommitSha": "42cca6f2c3eb95727570d70e6e9ddd0427797964",
+    "buildId": "THA-273-R11-MAIN-20261116-R7",
+    "canonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R7",
+    "indexBlobSha": "f76326a0b3772ae43e0944fc62708017a407ffae",
+    "approvedBaseCommitSha": "8f2d8bcc89c710454c427ed17aef9fb047aa33cd",
     "files": {
       "v273-isolated-test/v264-fresh/app-storage-v264.js": "821097eb15cc5bfd4d3be658699873b11de40f4d",
-      "v273-isolated-test/v264-fresh/storage-idb-v264.js": "da9c3ab819ab5fa1ec58e31ca42b4ec19b72f860",
+      "v273-isolated-test/v264-fresh/storage-idb-v264.js": "ecba6aff372f4a47e02100a0a7d00db0c455d4b7",
       "v273-isolated-test/v264-fresh/v264-accounting-controller-accounting-v2.js": "c606d25b347b12a5bd013e59aace3961a74bd7b3",
       "v273-isolated-test/v264-fresh/v264-bootstrap.js": "f21222f35a072763f85a5f99050e0685a4833efe",
       "v273-isolated-test/v264-fresh/v264-business-profile-controller.js": "800dcb25b7385294049b7cc7edbf4deca802b7f7",
@@ -30,8 +30,8 @@
       "v273-isolated-test/r11-income-prefix-repair-20261114/icon-192.png": "872877c34456a6c7cf9e25d178904463e1a9437b",
       "v273-isolated-test/r11-income-prefix-repair-20261114/icon-512.png": "aa5e3a983a37942d5541220d8179d8e96eeb57d2",
       "v273-isolated-test/r11-income-prefix-repair-20261114/v264-ui-domain-gateway.js": "f1603e78d79192ea95f90fad6f859fcd7d369ef5",
-      "v273-isolated-test/r11-income-prefix-repair-20261114/index.html": "9cf32f96f263602b9e8cdb9319da6c454b8293f0",
-      "v273-isolated-test/r11-income-prefix-repair-20261114/v273-legacy-reset.js": "1fc76fd30100031733e27baa78d3f54ddf3ac225"
+      "v273-isolated-test/r11-income-prefix-repair-20261114/index.html": "f76326a0b3772ae43e0944fc62708017a407ffae",
+      "v273-isolated-test/r11-income-prefix-repair-20261114/v273-legacy-reset.js": "9aa442e38737c5aa5b974077c424fc0fab612462"
     }
   },
   "rules": {
@@ -45,5 +45,49 @@
     "stopOnAnyMismatch": true,
     "doNotChangeCanonicalUrls": true
   },
-  "note": "The R11 page and every file in its local runtime dependency set are pinned by Git blob SHA. Root version.json, if present, is separate metadata and is not the authority for this R11 page."
+  "note": "The R11 page and every file in its local runtime dependency set are pinned by Git blob SHA. Root version.json, if present, is separate metadata and is not the authority for this R11 page.",
+  "changeHistory": [
+    {
+      "changeId": "THA-2026-11-16-PRODUCTION-PROMOTION-R7-001",
+      "dateStarted": "2026-11-16",
+      "purpose": "Promote Safari-approved R11 Preview R4 repairs to Production while retaining the existing Production IndexedDB database name and all user data. Includes Income/Expense save confirmation and form reset behavior, restored launcher navigation, Last Updated display and copy, and Production-specific Version Details identity.",
+      "changedFiles": [
+        "v273-isolated-test/r11-income-prefix-repair-20261114/index.html",
+        "v273-isolated-test/v264-fresh/storage-idb-v264.js",
+        "v273-isolated-test/r11-income-prefix-repair-20261114/v273-legacy-reset.js",
+        ".github/workflows/r11-version-authority.yml",
+        "VERSION-AUTHORITY.json"
+      ],
+      "previewDevelopmentCommitSha": "not verified",
+      "previewPullRequestNumber": "not verified",
+      "previewPullRequestUrl": "not verified",
+      "previewMergeCommitSha": "a04a979f033af892f99a42b2b0d8ea239abb40b1",
+      "versionAuthorityGate": {
+        "result": "pending",
+        "runId": "pending",
+        "url": "pending"
+      },
+      "staticChecks": {
+        "result": "pending",
+        "details": "Pending Production PR checks and Version Authority Gate."
+      },
+      "previewPagesDeployment": {
+        "result": "PASS",
+        "runId": "not supplied",
+        "url": "not supplied",
+        "details": "User confirmed R4 Preview publication succeeded."
+      },
+      "userSafariTest": {
+        "result": "PASS",
+        "details": "User confirmed Last Updated displays and Copy version details copies the date and time in iPhone Safari."
+      },
+      "userApproval": {
+        "result": "approved",
+        "details": "User explicitly approved promotion of all recent Preview corrections to Production on 2026-11-16."
+      },
+      "productionPromotionStatus": "pending",
+      "productionPullRequestUrl": "pending",
+      "productionCommitSha": "pending"
+    }
+  ]
 }

@@ -3,7 +3,7 @@
 */
 (function(root){
 "use strict";
-const DB="the_handyman_accountancy_v273_clean_idb";
+const DB=()=>engine().databaseName;
 const FORMAT="tha-v264-indexeddb-snapshot-v1";
 const SOURCE_SHA="07b6170db9169e3b59d0b4527b88e26d589bd18c178ec9a1b1975b55f403db90";
 const DOMAINS=["accounting","business_profile","contracts","diagnostics","factory_reset_recovery","help_contact_drafts","media","notifications","preference_meta","preferences","projects","recovery","report_notifications","report_settings","report_workflow","reports","sequences"];
@@ -30,7 +30,7 @@ async function convertLegacy(file){
  const profile=p.profile||{},projects={...p};delete projects.profile;
  const businessProfile={businessName:String(profile.businessName||""),ownerName:String(profile.ownerName||""),phone:String(profile.phone||""),email:String(profile.email||""),address:String(profile.address||""),logo:String(profile.logo||""),paymentDetails:String(profile.paymentDetails||"")};
  const maxInvoice=Math.max(140,...a.invoices.map(x=>Number(x.number)||0),...a.entries.map(x=>Number(x.invoiceNumber)||0));
- const pkg={format:FORMAT,database:DB,sourceSha256:SOURCE_SHA,createdAt:new Date().toISOString(),domains:DOMAINS.slice(),records:[
+ const pkg={format:FORMAT,database:DB(),sourceSha256:SOURCE_SHA,createdAt:new Date().toISOString(),domains:DOMAINS.slice(),records:[
  row("accounting","state",a),row("business_profile","identity",businessProfile),row("contracts","state",{contracts:source.contracts}),row("projects","state",projects),row("sequences","invoice-number",maxInvoice),
  row("preferences","language","en"),row("preference_meta","language-pref-version",""),row("diagnostics","monitor-log",[]),row("reports","archive",[]),row("report_notifications","notifications",[]),row("report_settings","settings",{}),row("report_workflow","workflow",{}),row("notifications","items",[]),row("recovery","last-reset-snapshot",null),row("factory_reset_recovery","factory-reset-recovery",null),row("help_contact_drafts","drafts",[]),row("media","assets",{items:[]})
  ]};
@@ -47,7 +47,7 @@ function downloadText(filename,text,mime){
 async function inspectImportFile(file){
  assert(file&&file.size>0,"Select the converted IndexedDB import file.");
  const pkg=JSON.parse(await file.text());
- assert(pkg.format===FORMAT&&pkg.database===DB&&pkg.sourceSha256===SOURCE_SHA,"Wrong import format, database, or approved source fingerprint.");
+ assert(pkg.format===FORMAT&&pkg.database===DB()&&pkg.sourceSha256===SOURCE_SHA,"Wrong import format, database, or approved source fingerprint.");
  assert(Array.isArray(pkg.domains)&&JSON.stringify(pkg.domains)===JSON.stringify(DOMAINS),"The import must contain the exact 17-domain set.");
  assert(Array.isArray(pkg.records)&&pkg.records.length===17,"The import must contain exactly 17 records.");
  const ids=pkg.records.map(x=>x&&x.id);
