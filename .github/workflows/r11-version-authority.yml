@@ -1,0 +1,104 @@
+name: R11 Version Authority Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  r11-version-authority:
+    name: R11 Version Authority Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate approved R11 identity and every local runtime asset
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.ref || 'main' }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const cp = require('child_process');
+          const authority = JSON.parse(fs.readFileSync('VERSION-AUTHORITY.json', 'utf8'));
+          const expected = {
+            repository: 'Thehandymanjob/accountancy',
+            branch: 'main',
+            path: 'v273-isolated-test/r11-income-prefix-repair-20261114/index.html',
+            version: '273',
+            buildId: 'THA-273-R11-MAIN-20261116-R7',
+            canonicalUrl: 'https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R7',
+            approvedBaseCommitSha: '8f2d8bcc89c710454c427ed17aef9fb047aa33cd',
+            indexBlobSha: '6b72a9fbe353d22b37a47519790f543f04361add',
+            files: {
+            "v273-isolated-test/v264-fresh/app-storage-v264.js": "821097eb15cc5bfd4d3be658699873b11de40f4d",
+            "v273-isolated-test/v264-fresh/storage-idb-v264.js": "ecba6aff372f4a47e02100a0a7d00db0c455d4b7",
+            "v273-isolated-test/v264-fresh/v264-accounting-controller-accounting-v2.js": "c606d25b347b12a5bd013e59aace3961a74bd7b3",
+            "v273-isolated-test/v264-fresh/v264-bootstrap.js": "f21222f35a072763f85a5f99050e0685a4833efe",
+            "v273-isolated-test/v264-fresh/v264-business-profile-controller.js": "800dcb25b7385294049b7cc7edbf4deca802b7f7",
+            "v273-isolated-test/v264-fresh/v264-contracts-controller.js": "ca2404ad2383e593efe2ffb5dd9bfc1d48c6ce02",
+            "v273-isolated-test/v264-fresh/v264-invoice-workflow-v263.js": "8d15e9b4373d4653d858dd9abd7d765ed9e63969",
+            "v273-isolated-test/v264-fresh/v264-media-controller.js": "805ec42c0d178049c6d78a6ecd3931600547f2d6",
+            "v273-isolated-test/v264-fresh/v264-projects-controller.js": "e0d11bebcf06e65719dc45040843dfab8957cd2b",
+            "v273-isolated-test/v264-fresh/v264-recovery.js": "c3abd2f4a77a1a4c53ec0a5c257caa793046802d",
+            "v273-isolated-test/v264-fresh/v264-strict-domain-boundary.js": "51288f48c00403175fadc2c9aaf22db19b4e6344",
+            "v273-isolated-test/v264-fresh/v264-support-controller-v2.js": "83a64effa59e29c305aa946a02dc557468197474",
+            "v273-isolated-test/r11-income-prefix-repair-20261114/accounting-ui-idb-bridge.js": "0d5c85ecefa78967cb7dfb16756684c5841eee62",
+            "v273-isolated-test/r11-income-prefix-repair-20261114/accounting-ui-operations-v264.js": "fa31776cb773978aabc2adac136ed81978a210e9",
+            "v273-isolated-test/r11-income-prefix-repair-20261114/apple-touch-icon.png": "e91f44a279da466dcfe1d806ae021d678b147b14",
+            "v273-isolated-test/r11-income-prefix-repair-20261114/favicon.png": "a16ea568dfa6ce69523e0ef306bdd8c84d48717b",
+            "v273-isolated-test/r11-income-prefix-repair-20261114/icon-192.png": "872877c34456a6c7cf9e25d178904463e1a9437b",
+            "v273-isolated-test/r11-income-prefix-repair-20261114/icon-512.png": "aa5e3a983a37942d5541220d8179d8e96eeb57d2",
+            "v273-isolated-test/r11-income-prefix-repair-20261114/v264-ui-domain-gateway.js": "f1603e78d79192ea95f90fad6f859fcd7d369ef5",
+            "v273-isolated-test/r11-income-prefix-repair-20261114/index.html": "6b72a9fbe353d22b37a47519790f543f04361add",
+            "v273-isolated-test/r11-income-prefix-repair-20261114/v273-legacy-reset.js": "9aa442e38737c5aa5b974077c424fc0fab612462"
+          }
+          };
+          function fail(message) {
+            console.error('VERSION AUTHORITY BLOCKED: ' + message);
+            process.exit(1);
+          }
+          if (authority.repository !== expected.repository) fail('repository mismatch');
+          if (authority.protectedBranch !== expected.branch) fail('target branch mismatch');
+          const app = authority.app || {};
+          const scalar = {path:expected.path,version:expected.version,buildId:expected.buildId,canonicalUrl:expected.canonicalUrl,approvedBaseCommitSha:expected.approvedBaseCommitSha,indexBlobSha:expected.indexBlobSha};
+          for (const [key,wanted] of Object.entries(scalar)) {
+            if (String(app[key] || '') !== wanted) fail('authority field mismatch: ' + key);
+          }
+          if (JSON.stringify(app.files || {}) !== JSON.stringify(expected.files)) fail('pinned runtime asset list or SHA mismatch');
+          if (process.env.EVENT_NAME === 'pull_request' && process.env.PR_BASE !== expected.branch) fail('PR base is not main');
+          if (process.env.EVENT_NAME === 'push' && process.env.REF_NAME !== expected.branch) fail('push target is not main');
+          try {
+            cp.execFileSync('git', ['merge-base','--is-ancestor',expected.approvedBaseCommitSha,process.env.BASE_SHA], {stdio:'ignore'});
+          } catch (_) {
+            fail('base commit is not descended from the approved R11 baseline');
+          }
+          const blobSha = (path) => {
+            const body = fs.readFileSync(path);
+            return crypto.createHash('sha1').update(Buffer.from('blob ' + body.length + '\0')).update(body).digest('hex');
+          };
+          const html = fs.readFileSync(expected.path, 'utf8');
+          const version = html.match(/<meta name="app-version" content="([^"]+)"/);
+          const build = html.match(/<meta name="app-build-id" content="([^"]+)"/);
+          const canonical = html.match(/const R11_CANONICAL_PAGE_URL = Object\.freeze\('([^']+)'\)/);
+          if (!version || version[1] !== expected.version) fail('HTML app-version mismatch');
+          if (!build || build[1] !== expected.buildId) fail('HTML build ID mismatch');
+          if (!canonical || canonical[1] !== expected.canonicalUrl) fail('canonical R11 URL mismatch');
+          for (const [path,sha] of Object.entries(expected.files)) {
+            if (!fs.existsSync(path)) fail('required runtime file missing: ' + path);
+            const actual = blobSha(path);
+            if (actual !== sha) fail('runtime file SHA mismatch: ' + path);
+          }
+          console.log('PASS: repository, branch, baseline, version, Build ID, canonical URL and all ' + Object.keys(expected.files).length + ' pinned runtime assets match.');
+          NODE
