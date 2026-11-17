@@ -77,7 +77,7 @@ This entry records the owner's explicit designation of the R11 application URL a
 
 ## R11 Production R8 — Safari-approved Financial Report PDF workflow (2026-11-17)
 
-**Status:** Prepared for Production promotion; automated Gate and Pages deployment pending. User approved promotion after confirming Preview R31 on iPhone Safari.
+**Status:** Production R8 merged and Pages deployment PASS; live Production Safari verification pending. User approved promotion after confirming Preview R31 on iPhone Safari.
 
 - **Production Build ID:** `THA-273-R11-MAIN-20261117-R8`
 - **Canonical URL:** `https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R8`
@@ -87,4 +87,8 @@ This entry records the owner's explicit designation of the R11 application URL a
 - **User verification:** PASS in Preview R31 on iPhone Safari. User confirmed equal left/right margins and full visibility of all amounts and table edges.
 - **Production safeguards:** Preserve IndexedDB `the_handyman_accountancy_v273_clean_idb`, storage engine and user records. No schema, record, LocalStorage, migration, reset, restore, import or backup changes.
 - **Excluded:** Preview red TEST VERSION banner and timestamp; Preview database identity; unverified standalone invoice PDF R29 centering; unrelated Preview-only changes.
-- **Production Gate / Pages / Safari:** Pending. Preview PASS is not a claim of Production runtime verification.
+- **Production PR:** #5 — https://github.com/Thehandymanjob/accountancy/pull/5.
+- **Production merge:** `92eee8b755f0023b5e863e419a3b57e6856c22d4`.
+- **Production Version Authority Gate:** PASS — run `44182393517`.
+- **Production GitHub Pages:** PASS — run `44182393290`.
+- **Production iPhone Safari:** Awaiting first live test; Preview PASS is not a claim of Production runtime verification.

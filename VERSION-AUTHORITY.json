@@ -108,13 +108,13 @@
       "previewPullRequestUrl": "https://github.com/Thehandymanjob/accountancy-r11-preview/pull/75",
       "previewMergeCommitSha": "87a0f3dec1783d8002c342f5021954b747ac8952",
       "versionAuthorityGate": {
-        "result": "pending",
-        "runId": "pending",
-        "url": "pending"
+        "result": "PASS",
+        "runId": 44182393517,
+        "url": "https://github.com/Thehandymanjob/accountancy/actions/runs/44182393517"
       },
       "staticChecks": {
-        "result": "pending",
-        "details": "Production R8 source transplant prepared from user-approved Preview R31. Gate must pass. Production IndexedDB database identity and storage-engine SHA are preserved; no accounting records, schema, LocalStorage, migration, reset, restore, import, or backup file is changed."
+        "result": "PASS",
+        "details": "Production Version Authority Gate passed after merge. All 22 pinned runtime assets match; R8 Build ID/canonical URL match HTML and manifest. Production IndexedDB remains the_handyman_accountancy_v273_clean_idb and storage engine SHA remains ecba6aff372f4a47e02100a0a7d00db0c455d4b7. Preview banner/database references are absent from Production HTML."
       },
       "previewPagesDeployment": {
         "result": "PASS",
@@ -129,9 +129,9 @@
         "result": "approved",
         "details": "User explicitly instructed promotion of approved repairs to Production and recording the validated repair in Production repair history on 2026-11-17."
       },
-      "productionPromotionStatus": "pending",
-      "productionPullRequestUrl": "pending",
-      "productionCommitSha": "pending",
+      "productionPromotionStatus": "deployed — awaiting Production iPhone Safari verification",
+      "productionPullRequestUrl": "https://github.com/Thehandymanjob/accountancy/pull/5",
+      "productionCommitSha": "92eee8b755f0023b5e863e419a3b57e6856c22d4",
       "productionBuildId": "THA-273-R11-MAIN-20261117-R8",
       "productionCanonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R8",
       "exclusions": [
@@ -139,7 +139,16 @@
         "Preview-only IndexedDB database identity and storage engine are not copied.",
         "Standalone invoice PDF R29 centering is excluded because it is a separate document path and has not been confirmed by the user in Safari.",
         "Unrelated Preview-only factory-reset, invoice, and other HTML changes are excluded."
-      ]
+      ],
+      "productionPagesDeployment": {
+        "result": "PASS",
+        "runId": 44182393290,
+        "url": "https://github.com/Thehandymanjob/accountancy/actions/runs/44182393290"
+      },
+      "productionSafariTest": {
+        "result": "pending",
+        "details": "Production R8 Pages deployment completed. Awaiting user's first iPhone Safari check on the live Production URL; Preview R31 PASS is not substituted for Production verification."
+      }
     }
   ]
 }
