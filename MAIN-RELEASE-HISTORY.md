@@ -73,3 +73,18 @@ This entry records the owner's explicit designation of the R11 application URL a
 - Only the authoritative R11 HTML file was changed; the existing R11 IndexedDB identity and data paths were not modified.
 - No data reset, migration, import, or record rewrite was performed.
 - The code and GitHub commit were checked after writing. Runtime verification in iPhone Safari remains pending; this entry does not claim browser-test completion.
+
+
+## R11 Production R8 — Safari-approved Financial Report PDF workflow (2026-11-17)
+
+**Status:** Prepared for Production promotion; automated Gate and Pages deployment pending. User approved promotion after confirming Preview R31 on iPhone Safari.
+
+- **Production Build ID:** `THA-273-R11-MAIN-20261117-R8`
+- **Canonical URL:** `https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R8`
+- **Source baseline:** Production R7, commit `b35090aab5463bf62683184c313eb5c2d9f50bed`.
+- **Validated Preview source:** R31, Preview PR #75, merge `87a0f3dec1783d8002c342f5021954b747ac8952`.
+- **Promoted functionality:** Financial Report Print Preview; vertical A4 layout; complete multi-page PDF; responsive PDF.js preview; iOS native Print handoff; final A4 centering using 185mm capture, zero horizontal PDF margins and 8mm vertical margins; only Back and Print on the final preview screen.
+- **User verification:** PASS in Preview R31 on iPhone Safari. User confirmed equal left/right margins and full visibility of all amounts and table edges.
+- **Production safeguards:** Preserve IndexedDB `the_handyman_accountancy_v273_clean_idb`, storage engine and user records. No schema, record, LocalStorage, migration, reset, restore, import or backup changes.
+- **Excluded:** Preview red TEST VERSION banner and timestamp; Preview database identity; unverified standalone invoice PDF R29 centering; unrelated Preview-only changes.
+- **Production Gate / Pages / Safari:** Pending. Preview PASS is not a claim of Production runtime verification.
