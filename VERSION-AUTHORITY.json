@@ -6,9 +6,9 @@
   "app": {
     "path": "v273-isolated-test/r11-income-prefix-repair-20261114/index.html",
     "version": "273",
-    "buildId": "THA-273-R11-MAIN-20261124-R9",
-    "canonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R9",
-    "indexBlobSha": "eb13394c17ce7a39f948f29c5a7008924b7a163b",
+    "buildId": "THA-273-R11-MAIN-20261124-R10",
+    "canonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R10",
+    "indexBlobSha": "c7df34faed4e899ba5ee0d61777822569f86ac2a",
     "approvedBaseCommitSha": "8f2d8bcc89c710454c427ed17aef9fb047aa33cd",
     "files": {
       "v273-isolated-test/v264-fresh/app-storage-v264.js": "821097eb15cc5bfd4d3be658699873b11de40f4d",
@@ -197,6 +197,63 @@
         "Preview-only red TEST VERSION banner and Preview timestamp are not copied.",
         "Preview-only IndexedDB database identity and storage engine are not copied.",
         "No accounting data, projects, images, invoices, customer records, backup files, or database content is changed."
+      ]
+    },
+    {
+      "changeId": "THA-2026-11-24-PRODUCTION-LAST-MODIFIED-001",
+      "dateStarted": "2026-11-24",
+      "purpose": "Promote Preview R37 automatic Last Updated to Production R10. Read the deployed page's same-origin HTTP Last-Modified header; if missing, invalid or unavailable, show 'در دسترس نیست' instead of an old/fixed timestamp. One shared value feeds the home display, Version Details and Copy version details.",
+      "changedFiles": [
+        "v273-isolated-test/r11-income-prefix-repair-20261114/index.html",
+        "VERSION-AUTHORITY.json",
+        "MAIN-RELEASE-HISTORY.md",
+        "docs/REPAIR_HISTORY_FA.md",
+        "docs/REPAIR_INDEX_FA.md",
+        ".github/workflows/r11-version-authority.yml"
+      ],
+      "previewSourceBuild": "THA-273-R11-PREVIEW-20261124-R37",
+      "previewMergeCommitSha": "d1c86520750040d6ff1589dfefc6f24e6be99dc8",
+      "previewVersionAuthorityGate": {
+        "result": "PASS",
+        "runId": 45499791809,
+        "url": "https://github.com/Thehandymanjob/accountancy-r11-preview/actions/runs/45499791809"
+      },
+      "previewPagesDeployment": {
+        "result": "PASS",
+        "runId": 45499791503,
+        "url": "https://github.com/Thehandymanjob/accountancy-r11-preview/actions/runs/45499791503"
+      },
+      "userSafariTest": {
+        "result": "pending",
+        "details": "Preview R37 runtime behavior has not yet been confirmed by the user in iPhone Safari."
+      },
+      "userApproval": {
+        "result": "approved",
+        "details": "User explicitly requested the same Last Updated correction in Production."
+      },
+      "productionBuildId": "THA-273-R11-MAIN-20261124-R10",
+      "productionCanonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R10",
+      "productionPromotionStatus": "prepared on promotion branch; awaiting Version Authority Gate and Production Pages deployment",
+      "productionPullRequestUrl": "pending",
+      "productionCommitSha": "pending",
+      "productionVersionAuthorityGate": {
+        "result": "pending",
+        "runId": "pending",
+        "url": "pending"
+      },
+      "productionPagesDeployment": {
+        "result": "pending",
+        "runId": "pending",
+        "url": "pending"
+      },
+      "productionSafariTest": {
+        "result": "pending",
+        "details": "Awaiting live Production R10 verification in iPhone Safari."
+      },
+      "exclusions": [
+        "Production IndexedDB identity, storage engine, schema and all user data remain unchanged.",
+        "No accounting, project, customer, invoice, transaction, image or backup data is modified.",
+        "No Preview banner or Preview database identity is copied."
       ]
     }
   ]
