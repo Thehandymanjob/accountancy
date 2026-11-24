@@ -41,7 +41,7 @@
 - **Production target:** `THA-273-R11-MAIN-20261124-R9`; https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R9.
 - **Production scope:** Full Project Report pagination only. No financial calculations, project records, accounting entries, IndexedDB, storage engine, or database contents changed.
 - **Production Version Authority Gate:** PASS — run `45494118275`.
-- **Production Pages deployment:** Pending.
+- **Production Pages deployment:** PASS — run [45501560078](https://github.com/Thehandymanjob/accountancy/actions/runs/45501560078).
 - **Production Safari verification:** Pending live R9 check.
 
 
@@ -53,6 +53,6 @@
 - **Preview source:** R37 — merge \`d1c86520750040d6ff1589dfefc6f24e6be99dc8\`; Version Authority Gate and Pages deployment PASS.
 - **Production target:** R10 — \`THA-273-R11-MAIN-20261124-R10\`.
 - **Data protection:** No accounting/project records, IndexedDB, storage engine, schema, imports, resets, restores or backups are changed.
-- **Production Version Authority Gate:** Pending.
+- **Production Version Authority Gate:** PASS — run [45501561297](https://github.com/Thehandymanjob/accountancy/actions/runs/45501561297).
 - **Production Pages deployment:** Pending.
-- **Production Safari verification:** Pending.
+- **Production Safari verification:** Pending — awaiting the user's live iPhone Safari check.
