@@ -255,6 +255,44 @@
         "No accounting, project, customer, invoice, transaction, image or backup data is modified.",
         "No Preview banner or Preview database identity is copied."
       ]
+    },
+    {
+      "changeId": "THA-2026-11-24-PRODUCTION-PARITY-R11-001",
+      "dateStarted": "2026-11-24",
+      "purpose": "Prepare Production R11 with the Settings Back parent and Monitor scroll-reset corrections validated in Preview R37. Retain the Production R10 timestamp service and existing PDF behavior.",
+      "changedFiles": [
+        "v273-isolated-test/r11-income-prefix-repair-20261114/index.html",
+        "VERSION-AUTHORITY.json",
+        "MAIN-RELEASE-HISTORY.md",
+        "docs/REPAIR_HISTORY_FA.md",
+        "docs/REPAIR_INDEX_FA.md"
+      ],
+      "previewSourceBuild": "THA-273-R11-PREVIEW-20261124-R37",
+      "previewMergeCommitSha": "d1c86520750040d6ff1589dfefc6f24e6be99dc8",
+      "productionBuildId": "THA-273-R11-MAIN-20261124-R11",
+      "productionCanonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R11",
+      "productionPromotionStatus": "candidate prepared; awaiting Gate and explicit Production deployment approval",
+      "productionPullRequestUrl": "https://github.com/Thehandymanjob/accountancy/pull/11",
+      "productionCommitSha": "pending",
+      "versionAuthorityGate": {
+        "result": "pending",
+        "runId": "pending",
+        "url": "pending"
+      },
+      "productionPagesDeployment": {
+        "result": "not run; deployment not approved",
+        "runId": "pending",
+        "url": "pending"
+      },
+      "productionSafariTest": {
+        "result": "pending",
+        "details": "Awaiting Gate, explicit deployment approval, then live Production iPhone Safari verification."
+      },
+      "exclusions": [
+        "No Preview banner or Preview IndexedDB identity copied.",
+        "Production IndexedDB identity, storage engine, schema and user data are unchanged.",
+        "No database, records, backup, import, reset, restore or migration operation performed."
+      ]
     }
   ]
 }
