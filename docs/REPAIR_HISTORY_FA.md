@@ -30,3 +30,15 @@
 ### Release evidence
 - Production change record: `THA-2026-11-17-PRODUCTION-PROMOTION-R8-PDF-001` in `VERSION-AUTHORITY.json`.
 - Production PR, Gate, merge commit and Pages run recorded above; live Production Safari confirmation remains pending.
+
+
+## Production R9 — PRJ-PDF-001 promotion (2026-11-24)
+
+- **Issue:** Full Project Report PDF headings, summaries and tables were separating at page boundaries.
+- **Accepted fix:** Promote the exact Preview R34 CSS pagination rules and html2pdf `pagebreak.avoid` selectors. Keep headings with their following summary/table; preserve table continuation and repeat headers where supported; avoid splitting individual rows.
+- **Preview source:** R34, PR #81 — https://github.com/Thehandymanjob/accountancy-r11-preview/pull/81; merge `671f2fe82c17b3dc53591920db60d78b9e38dafe`.
+- **User verification:** PASS — user confirmed the fix works in Preview before Production promotion.
+- **Production target:** `THA-273-R11-MAIN-20261124-R9`; https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R9.
+- **Production scope:** Full Project Report pagination only. No financial calculations, project records, accounting entries, IndexedDB, storage engine, or database contents changed.
+- **Production Version Authority Gate / Pages:** Pending.
+- **Production Safari verification:** Pending live R9 check.
