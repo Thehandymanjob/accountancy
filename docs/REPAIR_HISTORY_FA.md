@@ -43,3 +43,16 @@
 - **Production Version Authority Gate:** PASS — run `45494118275`.
 - **Production Pages deployment:** Pending.
 - **Production Safari verification:** Pending live R9 check.
+
+
+## Production R10 — Automatic Last Updated from HTTP metadata (2026-11-24)
+
+- **Issue:** Version Details previously used GitHub Actions deployment-run metadata, which could leave a stale timestamp visible when fresh deployment metadata was unavailable.
+- **Accepted mechanism:** Read the deployed Production page's same-origin HTTP \`Last-Modified\` response header using a no-cache HEAD request. Share one cached result across the home display, Version Details and Copy version details.
+- **Fallback:** If the request fails, the header is absent, or the date is invalid, show **در دسترس نیست** in all three locations. Do not retain an old date.
+- **Preview source:** R37 — merge \`d1c86520750040d6ff1589dfefc6f24e6be99dc8\`; Version Authority Gate and Pages deployment PASS.
+- **Production target:** R10 — \`THA-273-R11-MAIN-20261124-R10\`.
+- **Data protection:** No accounting/project records, IndexedDB, storage engine, schema, imports, resets, restores or backups are changed.
+- **Production Version Authority Gate:** Pending.
+- **Production Pages deployment:** Pending.
+- **Production Safari verification:** Pending.
