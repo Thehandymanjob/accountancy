@@ -105,3 +105,16 @@ This entry records the owner's explicit designation of the R11 application URL a
 - **Production Version Authority Gate:** PASS — run `45494118275`.
 - **Production Pages deployment:** Pending.
 - **Production iPhone Safari:** Pending live R9 verification.
+
+
+## Production R10 — Automatic Last Updated from HTTP metadata (2026-11-24)
+
+- **Build ID:** \`THA-273-R11-MAIN-20261124-R10\`
+- **Canonical URL:** https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R10
+- **Validated Preview source:** R37, merge \`d1c86520750040d6ff1589dfefc6f24e6be99dc8\`.
+- **Promoted functionality:** Read the deployed page's same-origin HTTP \`Last-Modified\` header. The home page, Version Details and copied version details use the same formatted timestamp. If the header is absent, invalid or unavailable, show **در دسترس نیست** instead of a stale date.
+- **Preview evidence:** Version Authority Gate PASS — run 45499791809; Preview Pages deployment PASS — run 45499791503.
+- **Production safeguards:** Production IndexedDB identity, storage engine, schema and user data remain unchanged. No database, financial record or backup operations are performed.
+- **Production Version Authority Gate:** Pending.
+- **Production Pages deployment:** Pending.
+- **Production iPhone Safari:** Pending live R10 verification.
