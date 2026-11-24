@@ -6,9 +6,9 @@
   "app": {
     "path": "v273-isolated-test/r11-income-prefix-repair-20261114/index.html",
     "version": "273",
-    "buildId": "THA-273-R11-MAIN-20261117-R8",
-    "canonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R8",
-    "indexBlobSha": "c0a2e2a4dc3911a5eccf75b49e3b9004f64e99e6",
+    "buildId": "THA-273-R11-MAIN-20261124-R9",
+    "canonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R9",
+    "indexBlobSha": "eb13394c17ce7a39f948f29c5a7008924b7a163b",
     "approvedBaseCommitSha": "8f2d8bcc89c710454c427ed17aef9fb047aa33cd",
     "files": {
       "v273-isolated-test/v264-fresh/app-storage-v264.js": "821097eb15cc5bfd4d3be658699873b11de40f4d",
@@ -30,7 +30,7 @@
       "v273-isolated-test/r11-income-prefix-repair-20261114/icon-192.png": "872877c34456a6c7cf9e25d178904463e1a9437b",
       "v273-isolated-test/r11-income-prefix-repair-20261114/icon-512.png": "aa5e3a983a37942d5541220d8179d8e96eeb57d2",
       "v273-isolated-test/r11-income-prefix-repair-20261114/v264-ui-domain-gateway.js": "f1603e78d79192ea95f90fad6f859fcd7d369ef5",
-      "v273-isolated-test/r11-income-prefix-repair-20261114/index.html": "c0a2e2a4dc3911a5eccf75b49e3b9004f64e99e6",
+      "v273-isolated-test/r11-income-prefix-repair-20261114/index.html": "eb13394c17ce7a39f948f29c5a7008924b7a163b",
       "v273-isolated-test/r11-income-prefix-repair-20261114/v273-legacy-reset.js": "9aa442e38737c5aa5b974077c424fc0fab612462",
       "v273-isolated-test/r11-income-prefix-repair-20261114/tha-print-engine.js": "4b41776ed9dfcd4112d9d67164679caba1ab0af0"
     }
@@ -149,6 +149,55 @@
         "result": "pending",
         "details": "Production R8 Pages deployment completed. Awaiting user's first iPhone Safari check on the live Production URL; Preview R31 PASS is not substituted for Production verification."
       }
+    },
+    {
+      "changeId": "THA-2026-11-24-PRJ-PDF-PAGINATION-001",
+      "dateStarted": "2026-11-24",
+      "purpose": "Promote the user-tested Full Project Report PDF pagination repair from Preview R34 to Production R9. Keep project/sub-project headings with their summaries, keep subsection headings with following tables, repeat table headers where supported, and prevent individual rows from splitting. No financial calculations, records, IndexedDB, storage engine, or inclusion rules changed.",
+      "changedFiles": [
+        "v273-isolated-test/r11-income-prefix-repair-20261114/index.html",
+        ".github/workflows/r11-version-authority.yml",
+        "VERSION-AUTHORITY.json",
+        "MAIN-RELEASE-HISTORY.md",
+        "docs/REPAIR_HISTORY_FA.md",
+        "docs/REPAIR_INDEX_FA.md"
+      ],
+      "previewSourceBuild": "THA-273-R11-PREVIEW-20261123-R34",
+      "previewPullRequestNumber": 81,
+      "previewPullRequestUrl": "https://github.com/Thehandymanjob/accountancy-r11-preview/pull/81",
+      "previewMergeCommitSha": "671f2fe82c17b3dc53591920db60d78b9e38dafe",
+      "userSafariTest": {
+        "result": "PASS",
+        "details": "User confirmed the Full Project Report pagination repair works in Preview R34."
+      },
+      "userApproval": {
+        "result": "approved",
+        "details": "User explicitly requested promotion of this exact tested repair to Production."
+      },
+      "productionBuildId": "THA-273-R11-MAIN-20261124-R9",
+      "productionCanonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R9",
+      "productionPromotionStatus": "Version Authority Gate PASS; awaiting merge and Production Pages deployment",
+      "productionPullRequestUrl": "https://github.com/Thehandymanjob/accountancy/pull/7",
+      "productionCommitSha": "pending",
+      "versionAuthorityGate": {
+        "result": "PASS",
+        "runId": 45494118275,
+        "url": "https://github.com/Thehandymanjob/accountancy/actions/runs/45494118275"
+      },
+      "productionPagesDeployment": {
+        "result": "pending",
+        "runId": "pending",
+        "url": "pending"
+      },
+      "productionSafariTest": {
+        "result": "pending",
+        "details": "Awaiting user verification on live Production R9 after deployment."
+      },
+      "exclusions": [
+        "Preview-only red TEST VERSION banner and Preview timestamp are not copied.",
+        "Preview-only IndexedDB database identity and storage engine are not copied.",
+        "No accounting data, projects, images, invoices, customer records, backup files, or database content is changed."
+      ]
     }
   ]
 }

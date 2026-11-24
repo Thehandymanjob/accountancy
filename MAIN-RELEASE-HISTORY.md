@@ -92,3 +92,16 @@ This entry records the owner's explicit designation of the R11 application URL a
 - **Production Version Authority Gate:** PASS — run `44182393517`.
 - **Production GitHub Pages:** PASS — run `44182393290`.
 - **Production iPhone Safari:** Awaiting first live test; Preview PASS is not a claim of Production runtime verification.
+
+
+## Production R9 — Full Project Report PDF pagination (2026-11-24)
+
+- **Build ID:** `THA-273-R11-MAIN-20261124-R9`
+- **Canonical URL:** https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R9
+- **Validated Preview source:** R34, PR #81, merge `671f2fe82c17b3dc53591920db60d78b9e38dafe`.
+- **Promoted functionality:** Keep Full Project Report section headings with summaries and following tables; avoid splitting rows; repeat table headers where supported; allow long tables to continue across A4 pages.
+- **User verification:** PASS in Preview R34; user explicitly requested Production promotion.
+- **Production safeguards:** Production IndexedDB name, storage engine, records and all user data remain unchanged. No schema, migration, reset, restore, import or backup changes.
+- **Production Version Authority Gate:** PASS — run `45494118275`.
+- **Production Pages deployment:** Pending.
+- **Production iPhone Safari:** Pending live R9 verification.
