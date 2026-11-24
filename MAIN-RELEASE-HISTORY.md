@@ -102,5 +102,6 @@ This entry records the owner's explicit designation of the R11 application URL a
 - **Promoted functionality:** Keep Full Project Report section headings with summaries and following tables; avoid splitting rows; repeat table headers where supported; allow long tables to continue across A4 pages.
 - **User verification:** PASS in Preview R34; user explicitly requested Production promotion.
 - **Production safeguards:** Production IndexedDB name, storage engine, records and all user data remain unchanged. No schema, migration, reset, restore, import or backup changes.
-- **Production Gate and Pages:** Pending.
+- **Production Version Authority Gate:** PASS — run `45494118275`.
+- **Production Pages deployment:** Pending.
 - **Production iPhone Safari:** Pending live R9 verification.
