@@ -123,7 +123,7 @@ This entry records the owner's explicit designation of the R11 application URL a
 
 - **Build ID:** THA-273-R11-MAIN-20261124-R11
 - **Canonical URL:** https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R11
-- **Source baseline:** Production R10, with only two validated Preview R37 behavior corrections ported: Settings Back returns to the main launcher (not the Accountancy home panel), and opening Monitor resets the document scroll position to the top.
+- **Source baseline:** Production R10, with only two Preview R37 behavior corrections ported: Settings Back returns to the main launcher, and opening Monitor resets document scroll to the top.
 - **Preserved:** Production R10 Last-Modified timestamp service; R34 Full Project Report pagination; financial report PDF workflow; Production runtime asset pins and Production IndexedDB identity. No Preview banner or Preview DB identity copied.
-- **Data protection:** Only the Production R11 HTML app file and its release authority/history documentation are changed. No database, IndexedDB records, schema, storage engine, reset, restore, import, migration, backup or user records are touched.
-- **Status:** Candidate prepared on the existing promotion branch. Version Authority Gate, PR review and Pages deployment pending. No Production deployment or Safari verification is claimed.
+- **Data protection:** Only the Production R11 HTML app file and release/repair documentation are changed. No database, IndexedDB records, schema, storage engine, reset, restore, import, migration, backup or user records are touched.
+- **Status:** Candidate prepared on the existing promotion branch. Version Authority Gate pending. No Production deployment or Safari verification is claimed.
