@@ -176,13 +176,13 @@
       },
       "productionBuildId": "THA-273-R11-MAIN-20261124-R9",
       "productionCanonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R9",
-      "productionPromotionStatus": "pending Production Version Authority Gate, merge and Pages deployment",
-      "productionPullRequestUrl": "pending",
+      "productionPromotionStatus": "Version Authority Gate PASS; awaiting merge and Production Pages deployment",
+      "productionPullRequestUrl": "https://github.com/Thehandymanjob/accountancy/pull/7",
       "productionCommitSha": "pending",
       "versionAuthorityGate": {
-        "result": "pending",
-        "runId": "pending",
-        "url": "pending"
+        "result": "PASS",
+        "runId": 45494118275,
+        "url": "https://github.com/Thehandymanjob/accountancy/actions/runs/45494118275"
       },
       "productionPagesDeployment": {
         "result": "pending",
