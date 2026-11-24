@@ -37,10 +37,10 @@ jobs:
             branch: 'main',
             path: 'v273-isolated-test/r11-income-prefix-repair-20261114/index.html',
             version: '273',
-            buildId: 'THA-273-R11-MAIN-20261117-R8',
-            canonicalUrl: 'https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R8',
+            buildId: 'THA-273-R11-MAIN-20261124-R9',
+            canonicalUrl: 'https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R9',
             approvedBaseCommitSha: '8f2d8bcc89c710454c427ed17aef9fb047aa33cd',
-            indexBlobSha: 'c0a2e2a4dc3911a5eccf75b49e3b9004f64e99e6',
+            indexBlobSha: 'eb13394c17ce7a39f948f29c5a7008924b7a163b',
             files: {
             "v273-isolated-test/v264-fresh/app-storage-v264.js": "821097eb15cc5bfd4d3be658699873b11de40f4d",
             "v273-isolated-test/v264-fresh/storage-idb-v264.js": "ecba6aff372f4a47e02100a0a7d00db0c455d4b7",
@@ -61,7 +61,7 @@ jobs:
             "v273-isolated-test/r11-income-prefix-repair-20261114/icon-192.png": "872877c34456a6c7cf9e25d178904463e1a9437b",
             "v273-isolated-test/r11-income-prefix-repair-20261114/icon-512.png": "aa5e3a983a37942d5541220d8179d8e96eeb57d2",
             "v273-isolated-test/r11-income-prefix-repair-20261114/v264-ui-domain-gateway.js": "f1603e78d79192ea95f90fad6f859fcd7d369ef5",
-            "v273-isolated-test/r11-income-prefix-repair-20261114/index.html": "c0a2e2a4dc3911a5eccf75b49e3b9004f64e99e6",
+            "v273-isolated-test/r11-income-prefix-repair-20261114/index.html": "eb13394c17ce7a39f948f29c5a7008924b7a163b",
             "v273-isolated-test/r11-income-prefix-repair-20261114/v273-legacy-reset.js": "9aa442e38737c5aa5b974077c424fc0fab612462",
             "v273-isolated-test/r11-income-prefix-repair-20261114/tha-print-engine.js": "4b41776ed9dfcd4112d9d67164679caba1ab0af0"
 
