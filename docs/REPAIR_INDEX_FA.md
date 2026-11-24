@@ -6,3 +6,4 @@
 | Full Project Report PDF headings/tables split across pages | [PRJ-PDF-001](./REPAIR_HISTORY_FA.md#production-r9--prj-pdf-001-promotion-2026-11-24) | Preview R34 user-verified; Production R9 Gate PASS; Pages pending |
 
 | Last Updated shows a stale date when deployment metadata is unavailable | [LAST-MODIFIED-001](./REPAIR_HISTORY_FA.md#production-r10--automatic-last-updated-from-http-metadata-2026-11-24) | Preview R37 and Production R10 deployed; Production Safari verification pending |
+| Production Settings Back returns to the wrong screen / Monitor retains previous scroll position | [PRODUCTION-PARITY-001](./REPAIR_HISTORY_FA.md#production-parity-001--production-navigation-and-monitor-parity-correction) | R11 candidate prepared from Preview R37 fixes; Gate/deployment and live Safari verification pending |
