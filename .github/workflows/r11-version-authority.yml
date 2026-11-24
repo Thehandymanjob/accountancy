@@ -1,4 +1,5 @@
 name: R11 Version Authority Gate
+# App identity and runtime SHA pins are sourced from VERSION-AUTHORITY.json.
 
 on:
   pull_request:
