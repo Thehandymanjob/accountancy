@@ -233,22 +233,22 @@
       },
       "productionBuildId": "THA-273-R11-MAIN-20261124-R10",
       "productionCanonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R10",
-      "productionPromotionStatus": "prepared on promotion branch; awaiting Version Authority Gate and Production Pages deployment",
-      "productionPullRequestUrl": "pending",
-      "productionCommitSha": "pending",
+      "productionPromotionStatus": "merged and deployed",
+      "productionPullRequestUrl": "https://github.com/Thehandymanjob/accountancy/pull/9",
+      "productionCommitSha": "a3eb8b5bde2c11743073b320367bf793be0eabb1",
       "productionVersionAuthorityGate": {
-        "result": "pending",
-        "runId": "pending",
-        "url": "pending"
+        "result": "PASS",
+        "runId": 45501561297,
+        "url": "https://github.com/Thehandymanjob/accountancy/actions/runs/45501561297"
       },
       "productionPagesDeployment": {
-        "result": "pending",
-        "runId": "pending",
-        "url": "pending"
+        "result": "PASS",
+        "runId": 45501560078,
+        "url": "https://github.com/Thehandymanjob/accountancy/actions/runs/45501560078"
       },
       "productionSafariTest": {
         "result": "pending",
-        "details": "Awaiting live Production R10 verification in iPhone Safari."
+        "details": "Awaiting live Production R10 verification in iPhone Safari; the GitHub Pages deployment result does not substitute for the user's Safari test."
       },
       "exclusions": [
         "Production IndexedDB identity, storage engine, schema and all user data remain unchanged.",
