@@ -103,7 +103,7 @@ This entry records the owner's explicit designation of the R11 application URL a
 - **User verification:** PASS in Preview R34; user explicitly requested Production promotion.
 - **Production safeguards:** Production IndexedDB name, storage engine, records and all user data remain unchanged. No schema, migration, reset, restore, import or backup changes.
 - **Production Version Authority Gate:** PASS — run `45494118275`.
-- **Production Pages deployment:** Pending.
+- **Production Pages deployment:** PASS — run [45501560078](https://github.com/Thehandymanjob/accountancy/actions/runs/45501560078).
 - **Production iPhone Safari:** Pending live R9 verification.
 
 
@@ -115,6 +115,6 @@ This entry records the owner's explicit designation of the R11 application URL a
 - **Promoted functionality:** Read the deployed page's same-origin HTTP \`Last-Modified\` header. The home page, Version Details and copied version details use the same formatted timestamp. If the header is absent, invalid or unavailable, show **در دسترس نیست** instead of a stale date.
 - **Preview evidence:** Version Authority Gate PASS — run 45499791809; Preview Pages deployment PASS — run 45499791503.
 - **Production safeguards:** Production IndexedDB identity, storage engine, schema and user data remain unchanged. No database, financial record or backup operations are performed.
-- **Production Version Authority Gate:** Pending.
+- **Production Version Authority Gate:** PASS — run [45501561297](https://github.com/Thehandymanjob/accountancy/actions/runs/45501561297).
 - **Production Pages deployment:** Pending.
 - **Production iPhone Safari:** Pending live R10 verification.
