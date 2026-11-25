@@ -56,3 +56,23 @@
 - **Production Version Authority Gate:** PASS — run [45501561297](https://github.com/Thehandymanjob/accountancy/actions/runs/45501561297).
 - **Production Pages deployment:** Pending.
 - **Production Safari verification:** Pending — awaiting the user's live iPhone Safari check.
+
+## PRODUCTION-PARITY-001 — Production navigation and Monitor parity correction
+
+**Status:** Candidate prepared; Version Authority Gate and Production deployment pending. Live iPhone Safari verification not performed.
+
+### Diagnosis
+- Production R10 was created by selectively porting the timestamp correction from Preview R37, not by carrying forward all applicable validated Preview navigation/monitor fixes.
+- The Production ACCOUNTING_PARENT settings mapping pointed to accountancyHome; Preview R37 maps it to launcher. Therefore Settings Back did not follow the validated Preview behavior.
+- Production's show('monitor') path called renderMonitor() without the Preview R37 scroll-to-top reset.
+- The existing Production R10 Last-Modified timestamp service and Production PDF pagination CSS are retained; neither is rewritten in this correction.
+
+### Candidate correction — R11
+- **Build:** THA-273-R11-MAIN-20261124-R11.
+- **URL:** https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R11
+- Set ACCOUNTING_PARENT.settings to launcher.
+- Restore the Preview R37 Monitor scroll reset using requestAnimationFrame, window.scrollTo(0,0), and document.scrollingElement fallback.
+- Preserve Production-specific timestamp service, canonical repository identity, runtime dependencies, and Production storage identity.
+- **Changed files:** Production R11 index, VERSION-AUTHORITY.json, MAIN-RELEASE-HISTORY.md, docs/REPAIR_HISTORY_FA.md, docs/REPAIR_INDEX_FA.md.
+- **Data boundary:** No database or user data operation. No runtime dependency, schema, IndexedDB identity, storage engine, records, import, reset, restore, migration or backup changes.
+- **Verification:** Source-level assertions passed for R11 Build ID, canonical URL, Settings parent, Monitor scroll reset, absence of Preview banner and absence of Preview DB identity. Version Authority Gate pending; no browser/Safari runtime test is claimed.

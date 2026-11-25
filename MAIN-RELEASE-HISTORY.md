@@ -118,3 +118,12 @@ This entry records the owner's explicit designation of the R11 application URL a
 - **Production Version Authority Gate:** PASS — run [45501561297](https://github.com/Thehandymanjob/accountancy/actions/runs/45501561297).
 - **Production Pages deployment:** Pending.
 - **Production iPhone Safari:** Pending live R10 verification.
+
+## Production R11 — Preview parity correction (2026-11-24)
+
+- **Build ID:** THA-273-R11-MAIN-20261124-R11
+- **Canonical URL:** https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R11
+- **Source baseline:** Production R10, with only two Preview R37 behavior corrections ported: Settings Back returns to the main launcher, and opening Monitor resets document scroll to the top.
+- **Preserved:** Production R10 Last-Modified timestamp service; R34 Full Project Report pagination; financial report PDF workflow; Production runtime asset pins and Production IndexedDB identity. No Preview banner or Preview DB identity copied.
+- **Data protection:** Only the Production R11 HTML app file and release/repair documentation are changed. No database, IndexedDB records, schema, storage engine, reset, restore, import, migration, backup or user records are touched.
+- **Status:** Candidate prepared on the existing promotion branch. Version Authority Gate pending. No Production deployment or Safari verification is claimed.
