@@ -322,7 +322,7 @@
       },
       "staticChecks": {
         "result": "PASS",
-        "details": "Surgical source port from Preview category implementation. Static assertions confirm four groups, per-group Add New One, new add-screen handlers, R12 Build ID/canonical URL, and removal of the legacy inline new-category controls. Production's existing IndexedDB gateway, save path, runtime assets and all non-category UI are retained. Full JavaScript syntax and workflow Gate are pending."
+        "details": "Source-level assertions PASS for the four groups, per-group Add New One flow, R12 Build ID/canonical URL and removal of the legacy inline category controls. Production Version Authority Gate PASS (including post-merge push run 45895854423). The full Production HTML was not independently recompiled with V8 after the surgical port; Preview source checks passed before promotion. Live iPhone Safari interaction verification remains pending."
       },
       "productionPagesDeployment": {
         "result": "PASS",
