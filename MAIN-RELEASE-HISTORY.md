@@ -127,3 +127,13 @@ This entry records the owner's explicit designation of the R11 application URL a
 - **Preserved:** Production R10 Last-Modified timestamp service; R34 Full Project Report pagination; financial report PDF workflow; Production runtime asset pins and Production IndexedDB identity. No Preview banner or Preview DB identity copied.
 - **Data protection:** Only the Production R11 HTML app file and release/repair documentation are changed. No database, IndexedDB records, schema, storage engine, reset, restore, import, migration, backup or user records are touched.
 - **Status:** Candidate prepared on the existing promotion branch. Version Authority Gate pending. No Production deployment or Safari verification is claimed.
+
+
+## Production R12 — Expenses category groups and selected-category repair (2026-11-26)
+
+- **Build ID:** `THA-273-R11-MAIN-20261126-R12`
+- **Canonical URL:** https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R12
+- **Source:** Preview R38 grouped Expenses category implementation and Preview R39 selected-category display fix.
+- **Changes:** Materials, Car Expenses, Tools and Others groups; per-group Add New One full-screen flow; immediate persistence and return to the same group; new category selected; selected category (e.g. Selco) remains visible.
+- **Production-specific items preserved:** IndexedDB identity, storage engine, all existing records and runtime dependency pins. Legacy custom categories remain visible. No database migration, reset, restore, import or backup operation.
+- **Status:** Candidate only; Production PR, Version Authority Gate, Pages deployment and live Safari verification pending.

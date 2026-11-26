@@ -76,3 +76,17 @@
 - **Changed files:** Production R11 index, VERSION-AUTHORITY.json, MAIN-RELEASE-HISTORY.md, docs/REPAIR_HISTORY_FA.md, docs/REPAIR_INDEX_FA.md.
 - **Data boundary:** No database or user data operation. No runtime dependency, schema, IndexedDB identity, storage engine, records, import, reset, restore, migration or backup changes.
 - **Verification:** Source-level assertions passed for R11 Build ID, canonical URL, Settings parent, Monitor scroll reset, absence of Preview banner and absence of Preview DB identity. Version Authority Gate pending; no browser/Safari runtime test is claimed.
+
+
+## PRODUCTION R12 — Expenses category groups and selection repair (2026-11-26)
+
+- **Build ID:** `THA-273-R11-MAIN-20261126-R12`
+- **Canonical URL:** https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R12
+- **Preview source:** R38 four-group category picker and per-group Add New One flow (Preview PR #88), followed by R39 selected-category display repair (Preview PR #92).
+- **Promoted behavior:** Four independent Expenses groups — Materials, Car Expenses, Tools and Others. Each group has its own Add New One screen; a newly added category is saved to that group, the list returns to the same group, and the new category is selected. Selecting an existing category such as Selco remains visible on the Category button and selected in the list.
+- **Compatibility:** Existing expense category strings and `customExpenseCategories` are retained. Legacy custom categories are grouped where their prefix is known and otherwise remain under Others. The new `expenseCategoryLists` field is persisted through the existing Production Accounting IndexedDB gateway.
+- **Data boundary:** No database identity, object-store schema, existing expense/income/invoice/project records, IDs, sequences, backup, import, restore, reset or migration is changed. No Preview database or Preview runtime assets are copied.
+- **Changed files:** Production R12 index, Version Authority, release history and repair documentation only.
+- **Production Version Authority Gate:** Pending PR checks.
+- **Production Pages deployment:** Pending.
+- **Production iPhone Safari verification:** Pending live R12 check.
