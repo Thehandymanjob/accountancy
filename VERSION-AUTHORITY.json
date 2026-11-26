@@ -331,14 +331,14 @@
         "details": "GitHub Pages build and deployment completed successfully for the R12 merge commit."
       },
       "productionSafariTest": {
-        "result": "not tested",
-        "details": "Awaiting user verification on live Production R12 after Pages deployment."
+        "result": "PASS",
+        "details": "User confirmed that the Expenses category groups and selected-category display (including Selco) work correctly on live Production R12 in iPhone Safari."
       },
       "userApproval": {
         "result": "approved",
         "details": "User explicitly authorized transfer of all 2026-11-26 Expense category grouping and selected-category display changes to Production."
       },
-      "productionPromotionStatus": "deployed — awaiting Production iPhone Safari verification",
+      "productionPromotionStatus": "deployed — Production iPhone Safari verification PASS",
       "exclusions": [
         "No Production database identity, object-store schema, records, IDs, sequences, backup, import, restore, reset or migration changed.",
         "No Preview database identity, banner, Preview canonical URL or Preview-only runtime assets copied.",
