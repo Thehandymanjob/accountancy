@@ -6,9 +6,9 @@
   "app": {
     "path": "v273-isolated-test/r11-income-prefix-repair-20261114/index.html",
     "version": "273",
-    "buildId": "THA-273-R11-MAIN-20261124-R11",
-    "canonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R11",
-    "indexBlobSha": "99c55d77ad55b1c6f1fa5c675ce31546a9c9606a",
+    "buildId": "THA-273-R11-MAIN-20261126-R12",
+    "canonicalUrl": "https://thehandymanjob.github.io/accountancy/v273-isolated-test/r11-income-prefix-repair-20261114/?build=R12",
+    "indexBlobSha": "276daab3f1c597728a8c8eb4e846547582281012",
     "approvedBaseCommitSha": "8f2d8bcc89c710454c427ed17aef9fb047aa33cd",
     "files": {
       "v273-isolated-test/v264-fresh/app-storage-v264.js": "821097eb15cc5bfd4d3be658699873b11de40f4d",
@@ -30,7 +30,7 @@
       "v273-isolated-test/r11-income-prefix-repair-20261114/icon-192.png": "872877c34456a6c7cf9e25d178904463e1a9437b",
       "v273-isolated-test/r11-income-prefix-repair-20261114/icon-512.png": "aa5e3a983a37942d5541220d8179d8e96eeb57d2",
       "v273-isolated-test/r11-income-prefix-repair-20261114/v264-ui-domain-gateway.js": "f1603e78d79192ea95f90fad6f859fcd7d369ef5",
-      "v273-isolated-test/r11-income-prefix-repair-20261114/index.html": "99c55d77ad55b1c6f1fa5c675ce31546a9c9606a",
+      "v273-isolated-test/r11-income-prefix-repair-20261114/index.html": "276daab3f1c597728a8c8eb4e846547582281012",
       "v273-isolated-test/r11-income-prefix-repair-20261114/v273-legacy-reset.js": "9aa442e38737c5aa5b974077c424fc0fab612462",
       "v273-isolated-test/r11-income-prefix-repair-20261114/tha-print-engine.js": "4b41776ed9dfcd4112d9d67164679caba1ab0af0"
     }
@@ -292,6 +292,56 @@
         "No Preview banner or Preview IndexedDB identity copied.",
         "Production IndexedDB identity, storage engine, schema and user data are unchanged.",
         "No database, records, backup, import, reset, restore or migration operation performed."
+      ]
+    },
+    {
+      "changeId": "THA-2026-11-26-PRODUCTION-EXPENSE-CATEGORY-GROUPS-R12-001",
+      "dateStarted": "2026-11-26",
+      "purpose": "Promote the Preview R38 four-group Expenses category picker and per-group Add New One flow, plus the R39 selected-category display repair, into Production R12. Keep Production-specific runtime assets, storage identity and all existing accounting records unchanged.",
+      "changedFiles": [
+        "v273-isolated-test/r11-income-prefix-repair-20261114/index.html",
+        "VERSION-AUTHORITY.json",
+        "MAIN-RELEASE-HISTORY.md",
+        "docs/REPAIR_HISTORY_FA.md",
+        "docs/REPAIR_INDEX_FA.md"
+      ],
+      "previewSource": {
+        "repository": "Thehandymanjob/accountancy-r11-preview",
+        "r38PullRequest": 88,
+        "r38MergeCommitSha": "pending-verification",
+        "r39PullRequest": 92,
+        "r39MergeCommitSha": "d5dcd37565881408424be96bdb361b16320ec647"
+      },
+      "productionPullRequestNumber": "pending",
+      "productionPullRequestUrl": "pending",
+      "productionCommitSha": "pending",
+      "versionAuthorityGate": {
+        "result": "pending",
+        "runId": "pending",
+        "url": "pending"
+      },
+      "staticChecks": {
+        "result": "PASS",
+        "details": "Surgical source port from Preview category implementation. Static assertions confirm four groups, per-group Add New One, new add-screen handlers, R12 Build ID/canonical URL, and removal of the legacy inline new-category controls. Production's existing IndexedDB gateway, save path, runtime assets and all non-category UI are retained. Full JavaScript syntax and workflow Gate are pending."
+      },
+      "productionPagesDeployment": {
+        "result": "pending",
+        "runId": "pending",
+        "url": "pending"
+      },
+      "productionSafariTest": {
+        "result": "not tested",
+        "details": "Awaiting user verification on live Production R12 after Pages deployment."
+      },
+      "userApproval": {
+        "result": "approved",
+        "details": "User explicitly authorized transfer of all 2026-11-26 Expense category grouping and selected-category display changes to Production."
+      },
+      "productionPromotionStatus": "candidate prepared — PR and Version Authority Gate pending",
+      "exclusions": [
+        "No Production database identity, object-store schema, records, IDs, sequences, backup, import, restore, reset or migration changed.",
+        "No Preview database identity, banner, Preview canonical URL or Preview-only runtime assets copied.",
+        "Existing customExpenseCategories values remain supported; legacy unclassified categories remain available under Others."
       ]
     }
   ]
