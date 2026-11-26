@@ -54,7 +54,7 @@
 - **Production target:** R10 — \`THA-273-R11-MAIN-20261124-R10\`.
 - **Data protection:** No accounting/project records, IndexedDB, storage engine, schema, imports, resets, restores or backups are changed.
 - **Production Version Authority Gate:** PASS — run [45501561297](https://github.com/Thehandymanjob/accountancy/actions/runs/45501561297).
-- **Production Pages deployment:** Pending.
+- **Production Pages deployment:** PASS — run [45895684139](https://github.com/Thehandymanjob/accountancy/actions/runs/45895684139).
 - **Production Safari verification:** Pending — awaiting the user's live iPhone Safari check.
 
 ## PRODUCTION-PARITY-001 — Production navigation and Monitor parity correction
@@ -87,6 +87,6 @@
 - **Compatibility:** Existing expense category strings and `customExpenseCategories` are retained. Legacy custom categories are grouped where their prefix is known and otherwise remain under Others. The new `expenseCategoryLists` field is persisted through the existing Production Accounting IndexedDB gateway.
 - **Data boundary:** No database identity, object-store schema, existing expense/income/invoice/project records, IDs, sequences, backup, import, restore, reset or migration is changed. No Preview database or Preview runtime assets are copied.
 - **Changed files:** Production R12 index, Version Authority, release history and repair documentation only.
-- **Production Version Authority Gate:** Pending PR checks.
+- **Production Version Authority Gate:** PASS — run [45895684701](https://github.com/Thehandymanjob/accountancy/actions/runs/45895684701).
 - **Production Pages deployment:** Pending.
 - **Production iPhone Safari verification:** Pending live R12 check.

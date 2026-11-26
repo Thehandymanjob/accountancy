@@ -136,4 +136,7 @@ This entry records the owner's explicit designation of the R11 application URL a
 - **Source:** Preview R38 grouped Expenses category implementation and Preview R39 selected-category display fix.
 - **Changes:** Materials, Car Expenses, Tools and Others groups; per-group Add New One full-screen flow; immediate persistence and return to the same group; new category selected; selected category (e.g. Selco) remains visible.
 - **Production-specific items preserved:** IndexedDB identity, storage engine, all existing records and runtime dependency pins. Legacy custom categories remain visible. No database migration, reset, restore, import or backup operation.
-- **Status:** Candidate only; Production PR, Version Authority Gate, Pages deployment and live Safari verification pending.
+- **Production PR:** #12 merged — commit `5626a02677e871f451b62b1f5677a4b6030975cd`.
+- **Production Version Authority Gate:** PASS — run [45895684701](https://github.com/Thehandymanjob/accountancy/actions/runs/45895684701).
+- **Production Pages deployment:** PASS — run [45895684139](https://github.com/Thehandymanjob/accountancy/actions/runs/45895684139).
+- **Status:** Deployed as Production R12; live iPhone Safari verification remains pending.
