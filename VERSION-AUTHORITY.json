@@ -314,20 +314,21 @@
       },
       "productionPullRequestNumber": 12,
       "productionPullRequestUrl": "https://github.com/Thehandymanjob/accountancy/pull/12",
-      "productionCommitSha": "pending",
+      "productionCommitSha": "5626a02677e871f451b62b1f5677a4b6030975cd",
       "versionAuthorityGate": {
         "result": "PASS",
-        "runId": 45895589327,
-        "url": "https://github.com/Thehandymanjob/accountancy/actions/runs/45895589327"
+        "runId": 45895684701,
+        "url": "https://github.com/Thehandymanjob/accountancy/actions/runs/45895684701"
       },
       "staticChecks": {
         "result": "PASS",
         "details": "Surgical source port from Preview category implementation. Static assertions confirm four groups, per-group Add New One, new add-screen handlers, R12 Build ID/canonical URL, and removal of the legacy inline new-category controls. Production's existing IndexedDB gateway, save path, runtime assets and all non-category UI are retained. Full JavaScript syntax and workflow Gate are pending."
       },
       "productionPagesDeployment": {
-        "result": "pending",
-        "runId": "pending",
-        "url": "pending"
+        "result": "PASS",
+        "runId": 45895684139,
+        "url": "https://github.com/Thehandymanjob/accountancy/actions/runs/45895684139",
+        "details": "GitHub Pages build and deployment completed successfully for the R12 merge commit."
       },
       "productionSafariTest": {
         "result": "not tested",
@@ -337,7 +338,7 @@
         "result": "approved",
         "details": "User explicitly authorized transfer of all 2026-11-26 Expense category grouping and selected-category display changes to Production."
       },
-      "productionPromotionStatus": "PR open — Version Authority Gate PASS; awaiting merge and Production Pages deployment",
+      "productionPromotionStatus": "deployed — awaiting Production iPhone Safari verification",
       "exclusions": [
         "No Production database identity, object-store schema, records, IDs, sequences, backup, import, restore, reset or migration changed.",
         "No Preview database identity, banner, Preview canonical URL or Preview-only runtime assets copied.",
