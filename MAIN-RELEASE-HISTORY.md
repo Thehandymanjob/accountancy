@@ -140,3 +140,10 @@ This entry records the owner's explicit designation of the R11 application URL a
 - **Production Version Authority Gate:** PASS — run [45895684701](https://github.com/Thehandymanjob/accountancy/actions/runs/45895684701).
 - **Production Pages deployment:** PASS — run [45895684139](https://github.com/Thehandymanjob/accountancy/actions/runs/45895684139).
 - **Status:** Deployed as Production R12; live iPhone Safari verification remains pending.
+
+### Production R12 — live iPhone Safari verification (2026-11-26)
+
+- **User verification:** PASS — the user confirmed that the Expenses category groups and selected-category display, including Selco, work correctly on live Production R12 in iPhone Safari.
+- **Release identity:** Build ID `THA-273-R11-MAIN-20261126-R12`; canonical URL unchanged.
+- **Deployment evidence:** Version Authority Gate PASS (run `45895684701`); GitHub Pages deployment PASS (run `45895684139`).
+- **Scope:** This is a verification-record update only. No application code, Build ID, runtime asset pin, database identity, schema, record, ID, sequence or user data was changed.
