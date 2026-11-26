@@ -308,17 +308,17 @@
       "previewSource": {
         "repository": "Thehandymanjob/accountancy-r11-preview",
         "r38PullRequest": 88,
-        "r38MergeCommitSha": "pending-verification",
+        "r38MergeCommitSha": "88f6f4feee11b9e4e22be52d18f1646f10c9c7fe",
         "r39PullRequest": 92,
         "r39MergeCommitSha": "d5dcd37565881408424be96bdb361b16320ec647"
       },
-      "productionPullRequestNumber": "pending",
-      "productionPullRequestUrl": "pending",
+      "productionPullRequestNumber": 12,
+      "productionPullRequestUrl": "https://github.com/Thehandymanjob/accountancy/pull/12",
       "productionCommitSha": "pending",
       "versionAuthorityGate": {
-        "result": "pending",
-        "runId": "pending",
-        "url": "pending"
+        "result": "PASS",
+        "runId": 45895589327,
+        "url": "https://github.com/Thehandymanjob/accountancy/actions/runs/45895589327"
       },
       "staticChecks": {
         "result": "PASS",
@@ -337,7 +337,7 @@
         "result": "approved",
         "details": "User explicitly authorized transfer of all 2026-11-26 Expense category grouping and selected-category display changes to Production."
       },
-      "productionPromotionStatus": "candidate prepared — PR and Version Authority Gate pending",
+      "productionPromotionStatus": "PR open — Version Authority Gate PASS; awaiting merge and Production Pages deployment",
       "exclusions": [
         "No Production database identity, object-store schema, records, IDs, sequences, backup, import, restore, reset or migration changed.",
         "No Preview database identity, banner, Preview canonical URL or Preview-only runtime assets copied.",
